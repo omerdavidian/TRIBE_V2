@@ -1,0 +1,94 @@
+import 'dotenv/config'
+import './lib/env.js' // validate env vars before anything else
+import Fastify from 'fastify'
+import cors from '@fastify/cors'
+import cookie from '@fastify/cookie'
+import rateLimit from '@fastify/rate-limit'
+import { env } from './lib/env.js'
+import authPlugin from './plugins/auth.js'
+import healthRoutes from './routes/health.js'
+import authRoutes from './routes/auth.js'
+import waitlistRoutes from './routes/waitlist.js'
+import catalogRoutes from './routes/catalog.js'
+import registryRoutes from './routes/registry.js'
+
+const fastify = Fastify({
+  logger:
+    env.NODE_ENV === 'production'
+      ? true
+      : {
+          transport: {
+            target: 'pino-pretty',
+            options: { colorize: true },
+          },
+        },
+})
+
+async function bootstrap() {
+  // ─── Security plugins ────────────────────────────────────────────────────────
+  await fastify.register(cors, {
+    origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()),
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+
+  await fastify.register(cookie, {
+    secret: env.JWT_SECRET, // signs cookies
+  })
+
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: '1 minute',
+    errorResponseBuilder: () => ({
+      statusCode: 429,
+      error: 'Too Many Requests',
+      message: 'Rate limit exceeded. Please wait a moment.',
+    }),
+  })
+
+  // ─── Auth plugin ──────────────────────────────────────────────────────────────
+  await fastify.register(authPlugin)
+
+  // ─── Routes (all under /v1 prefix) ──────────────────────────────────────────
+  await fastify.register(
+    async (app) => {
+      await app.register(healthRoutes)
+      await app.register(authRoutes)
+      await app.register(waitlistRoutes)
+      await app.register(catalogRoutes)
+      await app.register(registryRoutes)
+    },
+    { prefix: '/v1' }
+  )
+
+  // ─── 404 handler ─────────────────────────────────────────────────────────────
+  fastify.setNotFoundHandler((_request, reply) => {
+    reply.status(404).send({
+      statusCode: 404,
+      error: 'Not Found',
+      message: 'Route not found',
+    })
+  })
+
+  // ─── Error handler ────────────────────────────────────────────────────────────
+  fastify.setErrorHandler((error, _request, reply) => {
+    fastify.log.error(error)
+    const statusCode = error.statusCode ?? 500
+    reply.status(statusCode).send({
+      statusCode,
+      error: error.name ?? 'Error',
+      message: statusCode === 500 ? 'Internal server error' : error.message,
+    })
+  })
+
+  // ─── Start ────────────────────────────────────────────────────────────────────
+  const host = env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1'
+  await fastify.listen({ port: env.PORT, host })
+  fastify.log.info(`TRIBE API ready on port ${env.PORT}`)
+}
+
+bootstrap().catch((err) => {
+  console.error('Failed to start server:', err)
+  process.exit(1)
+})
