@@ -15,12 +15,16 @@ export default function ComingSoonPage() {
 
     setStatus('loading')
     try {
-      await apiRequest<{ message: string }>('/waitlist/join', {
+      const result = await apiRequest<{ message: string }>('/waitlist/join', {
         method: 'POST',
         body: JSON.stringify({ email: email.trim(), source: 'coming-soon' }),
       })
       setStatus('success')
-      setMessage("You're on the list! We'll be in touch soon. 🌿")
+      if (result.message.toLowerCase().includes('already')) {
+        setMessage("You're already on the list! We will keep you posted when we go live")
+      } else {
+        setMessage("You're on the list! We'll be in touch soon. 🌿")
+      }
     } catch (error) {
       setStatus('error')
       setMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.')

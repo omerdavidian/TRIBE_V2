@@ -38,7 +38,9 @@ const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       })
 
       if (existing) {
-        return reply.send({ message: 'This email is already on our list' })
+        return reply.send({
+          message: "You're already on the list! We will keep you posted when we go live",
+        })
       }
 
       await db.insert(waitlist).values({
