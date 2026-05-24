@@ -5,6 +5,11 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import cookie from '@fastify/cookie'
 import rateLimit from '@fastify/rate-limit'
+import {
+  serializerCompiler,
+  validatorCompiler,
+  type ZodTypeProvider,
+} from 'fastify-type-provider-zod'
 import { env } from './lib/env.js'
 import authPlugin from './plugins/auth.js'
 import healthRoutes from './routes/health.js'
@@ -23,7 +28,10 @@ const fastify = Fastify({
             options: { colorize: true },
           },
         },
-})
+}).withTypeProvider<ZodTypeProvider>()
+
+fastify.setValidatorCompiler(validatorCompiler)
+fastify.setSerializerCompiler(serializerCompiler)
 
 async function bootstrap() {
   // ─── Security plugins ────────────────────────────────────────────────────────

@@ -1,0 +1,31 @@
+The TRIBE v2 monorepo is fully scaffolded and verified at TRIBE-V2. Here's what
+was built:
+
+packages/shared — TypeScript types shared between API and web: User, Registry,
+Booking, Donation, all API request/response shapes.
+
+api — Fastify 4 + TypeScript backend:
+
+Drizzle ORM schema → 9 tables: users, provider_profiles, service_categories,
+provider_services, registries, registry_items, donations, bookings, waitlist
+Auth: email/password register+login, JWT via jose, forgot/reset password, email
+verify Routes: /v1/health, /v1/auth/_, /v1/waitlist/_, /v1/catalog/_,
+/v1/registries/_ Email: Resend templates for welcome, verification, password
+reset, waitlist confirm .env wired to your Neon DB — already connecting (health
+check returned status: healthy) Initial migration generated at
+src/db/migrations/0000_foamy_shinobi_shaw.sql web — Next.js 15 App Router
+frontend:
+
+Full landing page (hero, problem stats, how-it-works, services grid, provider
+CTA, testimonials, footer) Coming-soon page with working waitlist form Auth page
+(login + register tabs, role selector, Google OAuth redirect) OAuth callback
+handler, role-based dashboard redirect, unsubscribe page Coming-soon middleware
+(host-aware, only gates tribewishlist.com when COMING_SOON_MODE=true) Next steps
+to continue:
+
+Apply DB migration — run npm run db:migrate (⚠️ the Neon DB has v1 tables;
+consider using a new Neon branch or database for v2 to avoid conflicts) npm run
+dev — starts both apps (api on :3001, web on :3000) Google OAuth — add
+GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET to .env and add the Google route to
+apps/api/src/routes/auth.ts Add fastify-plugin package — it's imported in
+plugins/auth.ts but not yet in package.json

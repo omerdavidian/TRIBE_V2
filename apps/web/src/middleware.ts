@@ -1,27 +1,57 @@
 import { type NextRequest, NextResponse } from 'next/server'
 
-const COMING_SOON_HOSTS = ['tribewishlist.com', 'www.tribewishlist.com']
-const EXCLUDED_PATHS = [
+const DEFAULT_PRODUCTION_HOSTS = ['tribewishlist.com', 'www.tribewishlist.com']
+
+const EXCLUDED_PREFIXES = [
   '/coming-soon',
-  '/unsubscribe',
-  '/auth',
-  '/api',
   '/_next',
+  '/api/waitlist',
+  '/images',
+  '/fonts',
+]
+
+const EXCLUDED_EXACT_PATHS = [
   '/favicon.ico',
+  '/robots.txt',
+  '/sitemap.xml',
+  '/manifest.webmanifest',
   '/og-image.jpg',
 ]
 
+function getProductionHosts(): string[] {
+  const rawHosts = process.env['PRODUCTION_HOSTS']
+  if (!rawHosts) return DEFAULT_PRODUCTION_HOSTS
+
+  const parsed = rawHosts
+    .split(',')
+    .map((h) => h.trim().toLowerCase())
+    .filter(Boolean)
+
+  return parsed.length > 0 ? parsed : DEFAULT_PRODUCTION_HOSTS
+}
+
+function normalizeHost(hostHeader: string | null): string {
+  if (!hostHeader) return ''
+  return hostHeader.split(':')[0]?.toLowerCase() ?? ''
+}
+
+function isExcludedPath(pathname: string): boolean {
+  if (EXCLUDED_EXACT_PATHS.includes(pathname)) return true
+  return EXCLUDED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
+}
+
 export function middleware(request: NextRequest) {
-  const { pathname, host } = request.nextUrl
+  const pathname = request.nextUrl.pathname
+  const host = normalizeHost(request.headers.get('host'))
 
   // Only gate known production hosts when COMING_SOON_MODE is active
   const comingSoonMode = process.env['COMING_SOON_MODE'] === 'true'
-  const isProductionHost = COMING_SOON_HOSTS.includes(host)
+  const isProductionHost = getProductionHosts().includes(host)
 
   if (comingSoonMode && isProductionHost) {
-    const isExcluded = EXCLUDED_PATHS.some((p) => pathname.startsWith(p))
+    const isExcluded = isExcludedPath(pathname)
     if (!isExcluded) {
-      return NextResponse.redirect(new URL('/coming-soon', request.url))
+      return NextResponse.redirect(new URL('/coming-soon', request.url), 307)
     }
   }
 
@@ -34,8 +64,8 @@ export const config = {
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
+     * - common static files and metadata
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest).*)',
   ],
 }

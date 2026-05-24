@@ -10,26 +10,29 @@ const config: Config = {
     extend: {
       colors: {
         teal: {
-          50: '#e6f2f3',
-          100: '#b3d9dc',
-          500: '#007a86',
-          600: '#005f6b',
-          700: '#004C54', // brand primary
-          800: '#003940',
-          900: '#002629',
+          50: '#F4F6F5',
+          100: '#E7ECE9',
+          500: '#87958D',
+          600: '#738279',
+          700: '#5F6F65', // brand primary
+          800: '#4E5D54',
+          900: '#3F4C44',
         },
         coral: {
-          50: '#fdf1ed',
-          100: '#f9d5c8',
-          400: '#ef9076',
-          500: '#E97451', // brand accent
-          600: '#d45f3a',
-          700: '#b84d2a',
+          50: '#FEDEE1', // brand secondary
+          100: '#F9CFD3',
+          400: '#E39BA4',
+          500: '#CF7F8A',
+          600: '#B36B75',
+          700: '#93555F',
         },
         cream: {
-          50: '#fdfcfb',
-          100: '#F9F7F2', // brand background
-          200: '#f0ece2',
+          50: '#FFFFFF',
+          100: '#FAFAF8', // brand background
+          200: '#EAEAEA', // neutral UI
+        },
+        sand: {
+          500: '#D8C3A5', // brand accent
         },
       },
       fontFamily: {
