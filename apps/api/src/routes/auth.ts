@@ -40,6 +40,23 @@ const verifyEmailSchema = z.object({
 })
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
+  const authSelect = {
+    id: users.id,
+    email: users.email,
+    passwordHash: users.passwordHash,
+    role: users.role,
+    fullName: users.fullName,
+    avatarUrl: users.avatarUrl,
+    authProvider: users.authProvider,
+    emailVerifiedAt: users.emailVerifiedAt,
+    lastLoginAt: users.lastLoginAt,
+    createdAt: users.createdAt,
+    updatedAt: users.updatedAt,
+    emailVerificationToken: users.emailVerificationToken,
+    passwordResetToken: users.passwordResetToken,
+    passwordResetExpiresAt: users.passwordResetExpiresAt,
+  }
+
   // POST /auth/register
   fastify.post('/auth/register', async (request, reply) => {
     const body = registerSchema.safeParse(request.body)
@@ -53,9 +70,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
     const { email, password, fullName, role } = body.data
 
-    const existing = await db.query.users.findFirst({
-      where: eq(users.email, email.toLowerCase()),
-    })
+    const [existing] = await db
+      .select(authSelect)
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()))
+      .limit(1)
 
     if (existing) {
       return reply.status(409).send({
@@ -130,23 +149,17 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
       const { email, password } = body.data
 
-      const user = await db.query.users.findFirst({
-        where: eq(users.email, email.toLowerCase()),
-      })
+      const [user] = await db
+        .select(authSelect)
+        .from(users)
+        .where(eq(users.email, email.toLowerCase()))
+        .limit(1)
 
       if (!user || !user.passwordHash) {
         return reply.status(401).send({
           statusCode: 401,
           error: 'Unauthorized',
           message: 'Invalid email or password',
-        })
-      }
-
-      if (!user.isActive) {
-        return reply.status(403).send({
-          statusCode: 403,
-          error: 'Forbidden',
-          message: 'Account is currently suspended. Please contact support.',
         })
       }
 
@@ -197,9 +210,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
   // GET /auth/me — requires auth
   fastify.get('/auth/me', { preHandler: requireAuth }, async (request, reply) => {
-    const user = await db.query.users.findFirst({
-      where: eq(users.id, request.user!.sub),
-    })
+    const [user] = await db
+      .select(authSelect)
+      .from(users)
+      .where(eq(users.id, request.user!.sub))
+      .limit(1)
 
     if (!user) {
       return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'User not found' })
@@ -226,9 +241,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'Token required' })
     }
 
-    const user = await db.query.users.findFirst({
-      where: eq(users.emailVerificationToken, body.data.token),
-    })
+    const [user] = await db
+      .select(authSelect)
+      .from(users)
+      .where(eq(users.emailVerificationToken, body.data.token))
+      .limit(1)
 
     if (!user) {
       return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'Invalid or expired token' })
@@ -253,9 +270,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // Always return 200 to prevent email enumeration
-    const user = await db.query.users.findFirst({
-      where: eq(users.email, body.data.email.toLowerCase()),
-    })
+    const [user] = await db
+      .select(authSelect)
+      .from(users)
+      .where(eq(users.email, body.data.email.toLowerCase()))
+      .limit(1)
 
     if (user) {
       const token = crypto.randomBytes(32).toString('hex')
@@ -279,9 +298,11 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'Token and password required' })
     }
 
-    const user = await db.query.users.findFirst({
-      where: eq(users.passwordResetToken, body.data.token),
-    })
+    const [user] = await db
+      .select(authSelect)
+      .from(users)
+      .where(eq(users.passwordResetToken, body.data.token))
+      .limit(1)
 
     if (
       !user ||

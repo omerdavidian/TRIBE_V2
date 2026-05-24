@@ -72,13 +72,13 @@ export default function LandingPage() {
             TRIBE
           </Link>
           <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-            <Link href="#how-it-works" className="hover:text-teal-700 transition-colors">
+            <Link href="#how-it-works" className="hover:text-coral-500 transition-colors">
               How it works
             </Link>
-            <Link href="#services" className="hover:text-teal-700 transition-colors">
+            <Link href="#services" className="hover:text-coral-500 transition-colors">
               Services
             </Link>
-            <Link href="#providers" className="hover:text-teal-700 transition-colors">
+            <Link href="#providers" className="hover:text-coral-500 transition-colors">
               For providers
             </Link>
           </div>
@@ -86,7 +86,7 @@ export default function LandingPage() {
             <ThemeToggle />
             <Link
               href="/auth"
-              className="text-sm font-medium text-teal-700 hover:text-teal-800 transition-colors"
+              className="text-sm font-medium text-teal-700 hover:text-coral-600 transition-colors"
             >
               Log in
             </Link>

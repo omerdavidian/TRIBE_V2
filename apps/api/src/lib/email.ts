@@ -75,7 +75,7 @@ export async function sendWelcomeEmail(to: string, fullName: string) {
     </div>
   `
 
-  await dispatchEmail({
+  return dispatchEmail({
     to,
     subject,
     html,
@@ -107,7 +107,7 @@ export async function sendEmailVerification(
     </div>
   `
 
-  await dispatchEmail({
+  return dispatchEmail({
     to,
     subject,
     html,
@@ -135,7 +135,7 @@ export async function sendPasswordReset(to: string, token: string) {
     </div>
   `
 
-  await dispatchEmail({
+  return dispatchEmail({
     to,
     subject,
     html,
@@ -164,7 +164,7 @@ export async function sendWaitlistConfirmation(to: string) {
     </div>
   `
 
-  await dispatchEmail({
+  return dispatchEmail({
     to,
     subject,
     html,
@@ -187,7 +187,7 @@ export async function sendProviderApplicationReceived(
     </div>
   `
 
-  await dispatchEmail({
+  return dispatchEmail({
     to,
     subject,
     html,

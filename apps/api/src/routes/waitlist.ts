@@ -39,10 +39,21 @@ const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
             .update(waitlist)
             .set({ unsubscribedAt: null })
             .where(eq(waitlist.id, existing.id))
-          return reply.send({ message: "You've been re-added to the waitlist." })
+
+          const result = await sendWaitlistConfirmation(email)
+          if (!result.delivered) {
+            fastify.log.error({ email, result }, 'Waitlist email delivery failed on re-subscribe')
+            return reply.status(502).send({
+              statusCode: 502,
+              error: 'Bad Gateway',
+              message: 'Joined waitlist, but confirmation email delivery failed. Please try again later.',
+            })
+          }
+
+          return reply.send({ message: "You've been re-added to the waitlist and confirmation email was sent." })
         }
 
-        return reply.send({ message: "You're on the waitlist! We'll be in touch soon." })
+        return reply.send({ message: "You're already on the waitlist." })
       }
 
       await db.insert(waitlist).values({
@@ -50,12 +61,18 @@ const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
         source: body.data.source ?? 'website',
       })
 
-      sendWaitlistConfirmation(email).catch((error) => {
-        fastify.log.error({ error, email }, 'Failed to send waitlist confirmation email')
-      })
+      const result = await sendWaitlistConfirmation(email)
+      if (!result.delivered) {
+        fastify.log.error({ email, result }, 'Waitlist email delivery failed')
+        return reply.status(502).send({
+          statusCode: 502,
+          error: 'Bad Gateway',
+          message: 'Joined waitlist, but confirmation email delivery failed. Please try again later.',
+        })
+      }
 
       return reply.status(201).send({
-        message: "You're on the waitlist! We'll be in touch soon.",
+        message: "You're on the waitlist! Confirmation email sent.",
       })
     } catch (error) {
       fastify.log.error({ error }, 'Waitlist join failed')

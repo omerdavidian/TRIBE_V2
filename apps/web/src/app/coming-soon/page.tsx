@@ -21,9 +21,9 @@ export default function ComingSoonPage() {
       })
       setStatus('success')
       setMessage("You're on the list! We'll be in touch soon. 🌿")
-    } catch {
+    } catch (error) {
       setStatus('error')
-      setMessage('Something went wrong. Please try again.')
+      setMessage(error instanceof Error ? error.message : 'Something went wrong. Please try again.')
     }
   }
 

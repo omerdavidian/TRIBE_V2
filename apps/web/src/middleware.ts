@@ -44,6 +44,10 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const host = normalizeHost(request.headers.get('host'))
 
+  if (host === 'www.tribewishlist.com' && !isExcludedPath(pathname)) {
+    return NextResponse.redirect(new URL('/coming-soon', request.url), 307)
+  }
+
   // Only gate known production hosts when COMING_SOON_MODE is active
   const comingSoonMode = process.env['COMING_SOON_MODE'] === 'true'
   const isProductionHost = getProductionHosts().includes(host)
