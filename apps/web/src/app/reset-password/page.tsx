@@ -1,15 +1,16 @@
 import { redirect } from 'next/navigation'
 
 type ResetPasswordAliasPageProps = {
-  searchParams?: {
+  searchParams?: Promise<{
     token?: string
-  }
+  }>
 }
 
-export default function ResetPasswordAliasPage({
+export default async function ResetPasswordAliasPage({
   searchParams,
 }: ResetPasswordAliasPageProps) {
-  const token = searchParams?.token
+  const resolvedSearchParams = await searchParams
+  const token = resolvedSearchParams?.token
   const query = token ? `?token=${encodeURIComponent(token)}` : ''
   redirect(`/auth/reset-password${query}`)
 }
