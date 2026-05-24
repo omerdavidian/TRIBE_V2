@@ -21,6 +21,36 @@ export async function ensureBaselineSchema() {
 
   await db.execute(sql`
     alter table if exists "users"
+      add column if not exists "avatar_url" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "users"
+      add column if not exists "google_id" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "users"
+      add column if not exists "apple_id" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "users"
+      add column if not exists "email_verification_token" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "users"
+      add column if not exists "password_reset_token" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "users"
+      add column if not exists "password_reset_expires_at" timestamp with time zone;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "users"
       add column if not exists "suspended_at" timestamp with time zone;
   `)
 
