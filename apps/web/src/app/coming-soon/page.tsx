@@ -57,7 +57,7 @@ export default function ComingSoonPage() {
             Something beautiful<br />is coming.
           </h1>
           <p className="text-teal-100 text-lg leading-relaxed mb-8">
-            We're building a postpartum care marketplace to help new mothers 
+            We&apos;re building a postpartum care marketplace to help new mothers 
             get the support they actually need. Join the waitlist and be first to know.
           </p>
 

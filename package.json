@@ -21,7 +21,8 @@
     "db:studio": "npm run db:studio --workspace=apps/api"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "eslint": "^8.57.1"
   },
   "engines": {
     "node": ">=20.0.0",

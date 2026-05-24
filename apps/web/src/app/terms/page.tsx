@@ -18,7 +18,7 @@ export default function TermsPage() {
             Payments, bookings, and provider services may be subject to additional policies. TRIBE may suspend or terminate accounts that violate terms or create platform risk.
           </p>
           <p>
-            Services are provided on an "as is" basis to the extent permitted by law. TRIBE disclaims warranties and limits liability as allowed by applicable regulations.
+            Services are provided on an &quot;as is&quot; basis to the extent permitted by law. TRIBE disclaims warranties and limits liability as allowed by applicable regulations.
           </p>
           <p>
             For legal questions, contact us at info@tribewishlist.com.

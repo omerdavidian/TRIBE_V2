@@ -307,7 +307,7 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-3 gap-6">
             {TESTIMONIALS.map((t) => (
               <div key={t.name} className="bg-cream-100 rounded-3xl p-8">
-                <div className="text-coral-400 text-4xl font-serif mb-4">"</div>
+                <div className="text-coral-400 text-4xl font-serif mb-4">&ldquo;</div>
                 <p className="text-gray-700 leading-relaxed mb-6 italic">{t.quote}</p>
                 <div>
                   <div className="font-semibold text-teal-700">{t.name}</div>
