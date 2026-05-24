@@ -1,28 +1,28 @@
 # TRIBE v2
 
-Postpartum care marketplace — monorepo.
+Postpartum care marketplace, monorepo.
 
 ## Stack
 
-| Layer | Tech |
-|-------|------|
-| Frontend | Next.js 15 App Router + Tailwind CSS |
-| Backend | Fastify 4 + TypeScript |
-| Database | PostgreSQL (Neon) + Drizzle ORM |
-| Auth | `jose` JWT + Google OAuth + Apple Sign-In |
-| Email | Resend |
-| Payments | Stripe Checkout + Connect |
-| Hosting (web) | Vercel |
-| Hosting (api) | Railway |
+| Layer         | Tech                                      |
+| ------------- | ----------------------------------------- |
+| Frontend      | Next.js 15 App Router + Tailwind CSS      |
+| Backend       | Fastify 4 + TypeScript                    |
+| Database      | PostgreSQL (Neon) + Drizzle ORM           |
+| Auth          | `jose` JWT + Google OAuth + Apple Sign-In |
+| Email         | Resend                                    |
+| Payments      | Stripe Checkout + Connect                 |
+| Hosting (web) | Vercel                                    |
+| Hosting (api) | Railway                                   |
 
 ## Workspace structure
 
 ```
 apps/
-  web/   — Next.js frontend
-  api/   — Fastify backend
+  web/  , Next.js frontend
+  api/  , Fastify backend
 packages/
-  shared/ — shared TypeScript types
+  shared/, shared TypeScript types
 ```
 
 ## Getting started
@@ -46,9 +46,9 @@ npm run db:studio    # open drizzle studio
 
 ## User roles
 
-| Role | Description |
-|------|-------------|
-| `mother` | Creates registries listing the postpartum services she needs |
-| `supporter` | Friends/family who donate to fund a mother's registry |
-| `provider` | Businesses offering postpartum services (doulas, lactation, etc.) |
-| `admin` | Platform admin |
+| Role        | Description                                                       |
+| ----------- | ----------------------------------------------------------------- |
+| `mother`    | Creates registries listing the postpartum services she needs      |
+| `supporter` | Friends/family who donate to fund a mother's registry             |
+| `provider`  | Businesses offering postpartum services (doulas, lactation, etc.) |
+| `admin`     | Platform admin                                                    |

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 type ThemeMode = 'light' | 'dark'
 type ThemeModeStored = 'light' | 'dark'
@@ -14,8 +14,8 @@ function applyTheme(mode: ThemeMode) {
 }
 
 export default function ThemeToggle() {
-  const [mounted, setMounted] = useState(false)
   const [mode, setMode] = useState<ThemeModeStored>('light')
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     const stored = (localStorage.getItem(STORAGE_KEY) as ThemeModeStored | null) ?? 'light'
@@ -24,11 +24,6 @@ export default function ThemeToggle() {
     setMounted(true)
   }, [])
 
-  const label = useMemo(() => {
-    if (!mounted) return 'Theme'
-    return mode === 'dark' ? 'Dark' : 'Light'
-  }, [mode, mounted])
-
   const cycleTheme = () => {
     const next: ThemeModeStored = mode === 'dark' ? 'light' : 'dark'
     setMode(next)
@@ -36,15 +31,34 @@ export default function ThemeToggle() {
     applyTheme(next)
   }
 
+  if (!mounted) {
+    return (
+      <button
+        type="button"
+        className="h-10 w-24 rounded-full border border-[#d6dbe8] bg-[#eef2fa]"
+        aria-label="Theme toggle"
+      />
+    )
+  }
+
   return (
     <button
       type="button"
       onClick={cycleTheme}
-      className="text-sm font-semibold border border-cream-200 bg-cream-50 text-teal-700 px-3 py-2 rounded-full hover:bg-coral-100 hover:text-coral-700 transition-colors"
-      aria-label="Switch theme"
-      title="Toggle theme"
+      className="group relative h-10 w-24 rounded-full border border-[#7d93c0] bg-gradient-to-r from-[#b9d0f9] to-[#8fb0ee] dark:from-[#1f2a55] dark:to-[#192242] shadow-inner transition-all duration-500"
+      aria-label="Toggle dark mode"
+      title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
     >
-      {label}
+      <span
+        className={`absolute top-1 h-8 w-8 rounded-full bg-white shadow-md transition-all duration-500 ${
+          mode === 'dark' ? 'left-[3.5rem]' : 'left-1'
+        }`}
+      />
+
+      <span className="absolute left-2 top-2 text-[14px] transition-opacity duration-300">☀️</span>
+      <span className="absolute right-2 top-2 text-[14px] transition-opacity duration-300">🌙</span>
+
+      <span className="sr-only">Current theme: {mode}</span>
     </button>
   )
 }

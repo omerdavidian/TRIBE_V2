@@ -11,7 +11,7 @@ declare module 'fastify' {
 
 /**
  * Extracts and verifies the Bearer JWT from the Authorization header.
- * Sets `request.user` if valid. Does NOT reject requests without a token —
+ * Sets `request.user` if valid. Does NOT reject requests without a token,
  * use `requireAuth` preHandler for that.
  */
 const authPlugin: FastifyPluginAsync = async (fastify) => {
@@ -25,7 +25,7 @@ const authPlugin: FastifyPluginAsync = async (fastify) => {
     try {
       request.user = await verifyJwt(token)
     } catch {
-      // Invalid token — leave user as undefined; protected routes will reject
+      // Invalid token, leave user as undefined; protected routes will reject
     }
   })
 }
@@ -42,7 +42,7 @@ export async function requireAuth(request: FastifyRequest) {
 }
 
 /**
- * Prehandler factory — requires a specific role.
+ * Prehandler factory, requires a specific role.
  */
 export function requireRole(...roles: string[]) {
   return async function (request: FastifyRequest) {

@@ -29,7 +29,7 @@ const healthRoutes: FastifyPluginAsync = async (fastify) => {
     })
   })
 
-  // GET /health/ping — lightweight liveness check
+  // GET /health/ping, lightweight liveness check
   fastify.get('/health/ping', async (_request, reply) => {
     return reply.send({ pong: true })
   })

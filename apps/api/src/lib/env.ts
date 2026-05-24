@@ -32,6 +32,7 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   FRONTEND_URL: z.string().default('http://localhost:3000'),
+  API_PUBLIC_URL: z.string().default('http://localhost:3001'),
 })
 
 const parsed = envSchema.safeParse(process.env)

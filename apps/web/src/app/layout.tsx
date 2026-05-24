@@ -17,7 +17,7 @@ const playfair = Playfair_Display({
 
 export const metadata: Metadata = {
   title: {
-    default: 'TRIBE — Postpartum Care Marketplace',
+    default: 'TRIBE, Postpartum Care Marketplace',
     template: '%s | TRIBE',
   },
   description:
@@ -26,14 +26,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'TRIBE',
-    title: 'TRIBE — Postpartum Care Marketplace',
+    title: 'TRIBE, Postpartum Care Marketplace',
     description:
-      'Give new mothers the gift that actually matters — real postpartum support.',
+      'Give new mothers the gift that actually matters, real postpartum support.',
     images: ['/og-image.jpg'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'TRIBE — Postpartum Care Marketplace',
+    title: 'TRIBE, Postpartum Care Marketplace',
     description: 'Real support for new mothers.',
   },
 }

@@ -21,7 +21,7 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     })))
   })
 
-  // GET /catalog/providers — list approved providers
+  // GET /catalog/providers, list approved providers
   fastify.get('/catalog/providers', async (request, reply) => {
     const query = request.query as Record<string, string>
     const limit = Math.min(parseInt(query['limit'] ?? '20', 10), 100)

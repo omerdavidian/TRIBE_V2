@@ -6,6 +6,7 @@ import { db } from '../db/client.js'
 import { users } from '../db/schema.js'
 import { hashPassword, verifyPassword } from '../lib/password.js'
 import { signJwt } from '../lib/jwt.js'
+import { env } from '../lib/env.js'
 import {
   sendWelcomeEmail,
   sendEmailVerification,
@@ -38,6 +39,26 @@ const resetPasswordSchema = z.object({
 const verifyEmailSchema = z.object({
   token: z.string().min(1),
 })
+
+function getResetBaseOrigin(headers: Record<string, unknown>): string {
+  const origin = typeof headers['origin'] === 'string' ? headers['origin'] : ''
+  const referer = typeof headers['referer'] === 'string' ? headers['referer'] : ''
+
+  const candidates = [origin, referer]
+  for (const candidate of candidates) {
+    if (!candidate) continue
+    try {
+      const parsed = new URL(candidate)
+      if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+        return parsed.origin
+      }
+    } catch {
+      // ignore malformed header values and continue
+    }
+  }
+
+  return env.FRONTEND_URL
+}
 
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authSelect = {
@@ -208,7 +229,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   })
 
-  // GET /auth/me — requires auth
+  // GET /auth/me, requires auth
   fastify.get('/auth/me', { preHandler: requireAuth }, async (request, reply) => {
     const [user] = await db
       .select(authSelect)
@@ -279,13 +300,14 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     if (user) {
       const token = crypto.randomBytes(32).toString('hex')
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000) // 1 hour
+      const resetBaseOrigin = getResetBaseOrigin(request.headers as unknown as Record<string, unknown>)
 
       await db
         .update(users)
         .set({ passwordResetToken: token, passwordResetExpiresAt: expiresAt })
         .where(eq(users.id, user.id))
 
-      sendPasswordReset(user.email, token).catch(console.error)
+      sendPasswordReset(user.email, token, resetBaseOrigin).catch(console.error)
     }
 
     return reply.send({ message: 'If an account with that email exists, a reset link has been sent.' })

@@ -3,7 +3,7 @@ import Link from 'next/link'
 import ThemeToggle from '@/components/theme-toggle'
 
 export const metadata: Metadata = {
-  title: 'TRIBE — Real Postpartum Support for New Mothers',
+  title: 'TRIBE, Real Postpartum Support for New Mothers',
 }
 
 const SERVICES = [
@@ -23,7 +23,7 @@ const HOW_IT_WORKS = [
     role: 'For Mothers',
     title: 'Create your care registry',
     description:
-      'Tell your village what you actually need. Choose from local providers — doulas, lactation consultants, meal services, and more.',
+      'Tell your village what you actually need. Choose from local providers, doulas, lactation consultants, meal services, and more.',
   },
   {
     step: '02',
@@ -44,7 +44,7 @@ const HOW_IT_WORKS = [
 const TESTIMONIALS = [
   {
     quote:
-      "After our daughter was born, I was drowning. TRIBE let my family actually help — they funded my lactation visits and postpartum doula hours. It changed everything.",
+      "After our daughter was born, I was drowning. TRIBE let my family actually help, they funded my lactation visits and postpartum doula hours. It changed everything.",
     name: 'Sarah M.',
     role: 'Mother of 2',
   },
@@ -115,7 +115,7 @@ export default function LandingPage() {
             </h1>
             <p className="text-xl md:text-2xl text-gray-600 leading-relaxed mb-10 max-w-2xl text-balance">
               TRIBE is the postpartum care marketplace that connects new mothers 
-              with the services they need — and makes it easy for loved ones to 
+              with the services they need, and makes it easy for loved ones to 
               actually help.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
@@ -161,7 +161,7 @@ export default function LandingPage() {
               </h2>
               <p className="text-teal-100 text-lg leading-relaxed">
                 New mothers need physical recovery support, mental health care, nutritious meals, 
-                and sleep — not more receiving blankets. Yet $2.4B is spent on baby gifts every 
+                and sleep, not more receiving blankets. Yet $2.4B is spent on baby gifts every 
                 year while postpartum care remains underfunded and overlooked.
               </p>
             </div>
@@ -261,7 +261,7 @@ export default function LandingPage() {
                 <span>For postpartum providers</span>
               </div>
               <h2 className="font-display text-4xl md:text-5xl font-bold mb-6 leading-tight">
-                Reach mothers who need you — and are ready to book.
+                Reach mothers who need you, and are ready to book.
               </h2>
               <p className="text-teal-100 text-lg leading-relaxed mb-8">
                 TRIBE connects you with pre-funded clients. Registry items backed by family 
@@ -270,7 +270,7 @@ export default function LandingPage() {
               <ul className="space-y-3 mb-10">
                 {[
                   'Your profile in front of motivated, funded clients',
-                  'Direct bookings — no marketplace commission on first contact',
+                  'Direct bookings, no marketplace commission on first contact',
                   'Stripe Connect for fast, secure payouts',
                   'Dashboard to manage bookings and availability',
                 ].map((point) => (

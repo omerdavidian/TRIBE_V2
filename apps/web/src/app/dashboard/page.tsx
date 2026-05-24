@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getStoredUser, isAuthenticated } from '@/lib/auth'
 
 /**
- * Dashboard root — reads role from stored user, redirects to
+ * Dashboard root, reads role from stored user, redirects to
  * the appropriate dashboard section.
  */
 export default function DashboardPage() {

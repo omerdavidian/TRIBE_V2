@@ -14,6 +14,10 @@ const unsubscribeSchema = z.object({
   email: z.string().email(),
 })
 
+const unsubscribeQuerySchema = z.object({
+  email: z.string().email(),
+})
+
 const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /waitlist/join
   fastify.post('/waitlist/join', async (request, reply) => {
@@ -34,26 +38,7 @@ const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
       })
 
       if (existing) {
-        if (existing.unsubscribedAt) {
-          await db
-            .update(waitlist)
-            .set({ unsubscribedAt: null })
-            .where(eq(waitlist.id, existing.id))
-
-          const result = await sendWaitlistConfirmation(email)
-          if (!result.delivered) {
-            fastify.log.error({ email, result }, 'Waitlist email delivery failed on re-subscribe')
-            return reply.status(502).send({
-              statusCode: 502,
-              error: 'Bad Gateway',
-              message: 'Joined waitlist, but confirmation email delivery failed. Please try again later.',
-            })
-          }
-
-          return reply.send({ message: "You've been re-added to the waitlist and confirmation email was sent." })
-        }
-
-        return reply.send({ message: "You're already on the waitlist." })
+        return reply.send({ message: 'This email is already on our list' })
       }
 
       await db.insert(waitlist).values({
@@ -97,13 +82,49 @@ const waitlistRoutes: FastifyPluginAsync = async (fastify) => {
 
     const email = body.data.email.toLowerCase()
 
-    await db
-      .update(waitlist)
-      .set({ unsubscribedAt: new Date() })
-      .where(eq(waitlist.email, email))
+    await db.delete(waitlist).where(eq(waitlist.email, email))
 
-    // Always succeed — no enumeration
+    // Always succeed, no enumeration
     return reply.send({ message: 'You have been unsubscribed.' })
+  })
+
+  // GET /waitlist/unsubscribe?email=... (public email footer endpoint)
+  fastify.get('/waitlist/unsubscribe', async (request, reply) => {
+    const parsed = unsubscribeQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply
+        .type('text/html; charset=utf-8')
+        .status(400)
+        .send('<h1>Invalid unsubscribe link</h1>')
+    }
+
+    const email = parsed.data.email.toLowerCase()
+    await db.delete(waitlist).where(eq(waitlist.email, email))
+
+    return reply
+      .type('text/html; charset=utf-8')
+      .send(`
+        <!doctype html>
+        <html lang="en">
+          <head>
+            <meta charset="utf-8" />
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>TRIBE Unsubscribe</title>
+            <style>
+              body { font-family: Arial, sans-serif; background: #f4f6fb; margin: 0; padding: 32px; color: #1f2937; }
+              .card { max-width: 560px; margin: 40px auto; background: #fff; border: 1px solid #e7eaf1; border-radius: 16px; padding: 28px; }
+              h1 { margin: 0 0 10px 0; color: #1f4a45; }
+              p { line-height: 1.6; margin: 0; }
+            </style>
+          </head>
+          <body>
+            <div class="card">
+              <h1>You have successfully unsubscribed</h1>
+              <p>Your email has been removed from the TRIBE waitlist.</p>
+            </div>
+          </body>
+        </html>
+      `)
   })
 }
 

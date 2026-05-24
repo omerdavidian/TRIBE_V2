@@ -37,7 +37,7 @@ function generateSlug(title: string, userId: string): string {
 }
 
 const registryRoutes: FastifyPluginAsync = async (fastify) => {
-  // POST /registries — create a registry (mother only)
+  // POST /registries, create a registry (mother only)
   fastify.post(
     '/registries',
     { preHandler: requireRole('mother') },
@@ -71,7 +71,7 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // GET /registries/mine — list my registries
+  // GET /registries/mine, list my registries
   fastify.get(
     '/registries/mine',
     { preHandler: requireAuth },
@@ -86,7 +86,7 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // GET /registries/:slug — public view
+  // GET /registries/:slug, public view
   fastify.get('/registries/:slug', async (request, reply) => {
     const { slug } = request.params as { slug: string }
 
@@ -126,7 +126,7 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(registry)
   })
 
-  // PATCH /registries/:id — update my registry
+  // PATCH /registries/:id, update my registry
   fastify.patch(
     '/registries/:id',
     { preHandler: requireRole('mother') },
@@ -167,7 +167,7 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // POST /registries/:id/items — add an item to a registry
+  // POST /registries/:id/items, add an item to a registry
   fastify.post(
     '/registries/:id/items',
     { preHandler: requireRole('mother') },

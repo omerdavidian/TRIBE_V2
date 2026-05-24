@@ -115,8 +115,13 @@ export async function sendEmailVerification(
   })
 }
 
-export async function sendPasswordReset(to: string, token: string) {
-  const url = `${env.FRONTEND_URL}/auth/reset-password?token=${token}`
+export async function sendPasswordReset(
+  to: string,
+  token: string,
+  resetBaseOrigin = env.FRONTEND_URL
+) {
+  const normalizedBase = resetBaseOrigin.replace(/\/$/, '')
+  const url = `${normalizedBase}/auth/reset-password?token=${encodeURIComponent(token)}`
   const subject = 'Reset your TRIBE password'
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
@@ -144,23 +149,39 @@ export async function sendPasswordReset(to: string, token: string) {
 }
 
 export async function sendWaitlistConfirmation(to: string) {
-  const subject = "You're on the TRIBE waitlist 🌿"
+  const unsubscribeUrl = `${env.API_PUBLIC_URL}/v1/waitlist/unsubscribe?email=${encodeURIComponent(to)}`
+  const subject = 'Welcome to the Tribe!'
   const html = `
-    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
-      <h1 style="color: #004C54; font-size: 28px;">You're in!</h1>
-      <p style="color: #555; font-size: 16px; line-height: 1.6;">
-        Thank you for joining the TRIBE waitlist. We're building something special for new mothers 
-        and we can't wait to have you with us.
-      </p>
-      <p style="color: #555; font-size: 16px; line-height: 1.6;">
-        We'll reach out as soon as we launch in your area.
-      </p>
-      <p style="color: #999; font-size: 12px; margin-top: 32px;">
-        To unsubscribe, 
-        <a href="${env.FRONTEND_URL}/unsubscribe?email=${encodeURIComponent(to)}" style="color: #999;">
-          click here
-        </a>.
-      </p>
+    <div style="margin:0;padding:0;background:#f4f6fb;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f4f6fb;padding:24px 12px;">
+        <tr>
+          <td align="center">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:600px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e7eaf1;">
+              <tr>
+                <td style="padding:28px 32px;background:linear-gradient(135deg,#1f4a45 0%,#2f6a63 100%);color:#ffffff;font-family:Arial,sans-serif;">
+                  <div style="font-size:26px;font-weight:700;letter-spacing:0.3px;">TRIBE</div>
+                  <div style="margin-top:6px;font-size:14px;opacity:0.9;">Postpartum care marketplace</div>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:34px 32px 12px 32px;font-family:Arial,sans-serif;color:#1f2937;">
+                  <h1 style="margin:0 0 12px 0;font-size:28px;line-height:1.25;color:#1f4a45;">Welcome to the Tribe!</h1>
+                  <p style="margin:0;font-size:17px;line-height:1.7;color:#334155;">
+                    Thank you for joining the Tribe. We'll reach out as soon as we go live.
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:18px 32px 30px 32px;font-family:Arial,sans-serif;color:#64748b;font-size:13px;line-height:1.6;">
+                  You are receiving this email because you joined the TRIBE waitlist.
+                  <br />
+                  <a href="${unsubscribeUrl}" style="color:#8e3349;text-decoration:underline;font-weight:600;">Unsubscribe</a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
     </div>
   `
 
@@ -168,7 +189,7 @@ export async function sendWaitlistConfirmation(to: string) {
     to,
     subject,
     html,
-    fallbackText: `Waitlist confirmed for ${to}`,
+    fallbackText: `Welcome to the Tribe! You can unsubscribe at ${unsubscribeUrl}`,
   })
 }
 
