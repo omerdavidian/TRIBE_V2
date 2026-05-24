@@ -6,7 +6,7 @@
   },
   "deploy": {
     "startCommand": "npm run start --workspace=@tribe/api",
-    "healthCheckPath": "/health",
+    "healthCheckPath": "/v1/health",
     "restartPolicyType": "ON_FAILURE"
   }
 }
