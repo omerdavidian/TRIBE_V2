@@ -1,3 +1,4 @@
+// Trigger Railway deployment
 import 'dotenv/config'
 import './lib/env.js' // validate env vars before anything else
 import Fastify from 'fastify'

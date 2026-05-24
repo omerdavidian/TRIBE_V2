@@ -1,0 +1,12 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "installCommand": "npm ci --workspace=@tribe/api --workspace=@tribe/shared --omit=dev",
+    "buildCommand": "npm run build --workspace=@tribe/api"
+  },
+  "deploy": {
+    "startCommand": "npm run start --workspace=@tribe/api",
+    "healthCheckPath": "/health",
+    "restartPolicyType": "ON_FAILURE"
+  }
+}
