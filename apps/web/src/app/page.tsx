@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import ThemeToggle from '@/components/theme-toggle'
 
 export const metadata: Metadata = {
   title: 'TRIBE — Real Postpartum Support for New Mothers',
@@ -82,6 +83,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <div className="flex items-center gap-3">
+            <ThemeToggle />
             <Link
               href="/auth"
               className="text-sm font-medium text-teal-700 hover:text-teal-800 transition-colors"

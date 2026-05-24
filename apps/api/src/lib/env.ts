@@ -15,7 +15,11 @@ const envSchema = z.object({
   JWT_EXPIRES_IN: z.string().default('7d'),
   ADMIN_BOOTSTRAP_KEY: z.string().optional(),
   ADMIN_BOOTSTRAP_EMAIL: z.string().email().optional(),
-  CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  CORS_ORIGIN: z
+    .string()
+    .default(
+      'http://localhost:3000,https://tribe-v2-web.vercel.app,https://tribewishlist.com,https://www.tribewishlist.com,https://*.vercel.app'
+    ),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().default('info@tribewishlist.com'),
   GOOGLE_CLIENT_ID: z.string().optional(),

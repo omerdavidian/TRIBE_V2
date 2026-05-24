@@ -35,12 +35,41 @@ const fastify = Fastify({
 fastify.setValidatorCompiler(validatorCompiler)
 fastify.setSerializerCompiler(serializerCompiler)
 
+function buildCorsMatchers(raw: string) {
+  return raw
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+    .map((origin) => {
+      if (!origin.includes('*')) {
+        return { kind: 'exact' as const, value: origin }
+      }
+
+      const escaped = origin.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+      const pattern = `^${escaped.replace(/\*/g, '.*')}$`
+      return { kind: 'regex' as const, value: new RegExp(pattern, 'i') }
+    })
+}
+
 async function bootstrap() {
   await ensureBaselineSchema()
+  const corsMatchers = buildCorsMatchers(env.CORS_ORIGIN)
 
   // ─── Security plugins ────────────────────────────────────────────────────────
   await fastify.register(cors, {
-    origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()),
+    origin: (origin, cb) => {
+      if (!origin) {
+        cb(null, true)
+        return
+      }
+
+      const allowed = corsMatchers.some((matcher) => {
+        if (matcher.kind === 'exact') return matcher.value === origin
+        return matcher.value.test(origin)
+      })
+
+      cb(null, allowed)
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
