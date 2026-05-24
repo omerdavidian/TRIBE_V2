@@ -17,6 +17,7 @@ import authRoutes from './routes/auth.js'
 import waitlistRoutes from './routes/waitlist.js'
 import catalogRoutes from './routes/catalog.js'
 import registryRoutes from './routes/registry.js'
+import adminRoutes from './routes/admin.js'
 
 const fastify = Fastify({
   logger:
@@ -67,6 +68,7 @@ async function bootstrap() {
       await app.register(waitlistRoutes)
       await app.register(catalogRoutes)
       await app.register(registryRoutes)
+      await app.register(adminRoutes)
     },
     { prefix: '/v1' }
   )

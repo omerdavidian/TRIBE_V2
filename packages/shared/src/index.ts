@@ -1,6 +1,11 @@
 // ─── Roles & Enums ────────────────────────────────────────────────────────────
 
-export type UserRole = 'mother' | 'supporter' | 'provider' | 'admin'
+export type UserRole =
+  | 'mother'
+  | 'supporter'
+  | 'provider'
+  | 'business'
+  | 'admin'
 
 export type AuthProvider = 'email' | 'google' | 'apple'
 
@@ -173,4 +178,56 @@ export interface WaitlistJoinBody {
 
 export interface WaitlistJoinResponse {
   message: string
+}
+
+// Admin
+export interface AdminOverviewMetrics {
+  gmvCents: number
+  activeUsers: Record<UserRole, number>
+  waitlistCount: number
+  waitlistToSignupConversionRate: number
+  retention30dRate: number
+  retention90dRate: number
+  rescueQueueCount: number
+  openProviderVettingCount: number
+  migrationCount: number
+  latestMigrationAt: string | null
+}
+
+export interface AdminHealthSnapshot {
+  apiLatencyMs: number
+  dbLatencyMs: number
+  errorRate1h: number
+  schemaMigrationCount: number
+  latestMigrationAt: string | null
+  generatedAt: string
+}
+
+export interface AdminUserDirectoryItem {
+  id: string
+  email: string
+  role: UserRole
+  fullName: string | null
+  isActive: boolean
+  suspendedAt: string | null
+  lastLoginAt: string | null
+  createdAt: string
+}
+
+export interface SystemFeatureFlag {
+  key: string
+  label: string
+  enabled: boolean
+  updatedAt: string
+}
+
+export interface BetaInvitation {
+  id: string
+  email: string
+  inviteCode: string
+  status: 'draft' | 'sent' | 'opened' | 'accepted' | 'revoked'
+  sentAt: string | null
+  openedAt: string | null
+  acceptedAt: string | null
+  createdAt: string
 }

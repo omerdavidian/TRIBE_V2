@@ -15,6 +15,7 @@ export const userRoleEnum = pgEnum('user_role', [
   'mother',
   'supporter',
   'provider',
+  'business',
   'admin',
 ])
 
@@ -46,6 +47,14 @@ export const donationStatusEnum = pgEnum('donation_status', [
   'failed',
 ])
 
+export const betaInvitationStatusEnum = pgEnum('beta_invitation_status', [
+  'draft',
+  'sent',
+  'opened',
+  'accepted',
+  'revoked',
+])
+
 // ─── Tables ───────────────────────────────────────────────────────────────────
 
 export const users = pgTable('users', {
@@ -53,6 +62,9 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash'),
   role: userRoleEnum('role').notNull().default('supporter'),
+  isActive: boolean('is_active').notNull().default(true),
+  suspendedAt: timestamp('suspended_at', { withTimezone: true }),
+  suspendedReason: text('suspended_reason'),
   fullName: text('full_name'),
   avatarUrl: text('avatar_url'),
   authProvider: authProviderEnum('auth_provider').notNull().default('email'),
@@ -220,6 +232,89 @@ export const waitlist = pgTable('waitlist', {
   unsubscribedAt: timestamp('unsubscribed_at', { withTimezone: true }),
 })
 
+export const betaInvitations = pgTable('beta_invitations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull(),
+  inviteCode: text('invite_code').notNull().unique(),
+  status: betaInvitationStatusEnum('status').notNull().default('draft'),
+  sentAt: timestamp('sent_at', { withTimezone: true }),
+  openedAt: timestamp('opened_at', { withTimezone: true }),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  createdBy: uuid('created_by').references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export const systemFeatureFlags = pgTable('system_feature_flags', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: text('key').notNull().unique(),
+  label: text('label').notNull(),
+  enabled: boolean('enabled').notNull().default(true),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export const passItForwardAllocations = pgTable('pass_it_forward_allocations', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  recipientUserId: uuid('recipient_user_id')
+    .notNull()
+    .references(() => users.id),
+  amountCents: integer('amount_cents').notNull(),
+  note: text('note'),
+  allocatedBy: uuid('allocated_by').references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export const enterprisePartners = pgTable('enterprise_partners', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  domain: text('domain').notNull().unique(),
+  budgetCents: integer('budget_cents').notNull().default(0),
+  isActive: boolean('is_active').notNull().default(true),
+  createdBy: uuid('created_by').references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export const servicePriceCaps = pgTable('service_price_caps', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  categoryId: uuid('category_id')
+    .notNull()
+    .references(() => serviceCategories.id, { onDelete: 'cascade' })
+    .unique(),
+  capCents: integer('cap_cents').notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export const adminActionLogs = pgTable('admin_action_logs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  adminUserId: uuid('admin_user_id')
+    .notNull()
+    .references(() => users.id),
+  action: text('action').notNull(),
+  targetType: text('target_type'),
+  targetId: text('target_id'),
+  details: text('details'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -231,6 +326,9 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   donations: many(donations),
   motherBookings: many(bookings, { relationName: 'motherBookings' }),
   providerBookings: many(bookings, { relationName: 'providerBookings' }),
+  createdInvitations: many(betaInvitations),
+  receivedAllocations: many(passItForwardAllocations),
+  adminActionLogs: many(adminActionLogs),
 }))
 
 export const providerProfilesRelations = relations(
@@ -293,5 +391,58 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
     fields: [bookings.providerId],
     references: [users.id],
     relationName: 'providerBookings',
+  }),
+}))
+
+export const betaInvitationsRelations = relations(betaInvitations, ({ one }) => ({
+  creator: one(users, {
+    fields: [betaInvitations.createdBy],
+    references: [users.id],
+  }),
+}))
+
+export const systemFeatureFlagsRelations = relations(systemFeatureFlags, ({ one }) => ({
+  updater: one(users, {
+    fields: [systemFeatureFlags.updatedBy],
+    references: [users.id],
+  }),
+}))
+
+export const passItForwardAllocationsRelations = relations(
+  passItForwardAllocations,
+  ({ one }) => ({
+    recipient: one(users, {
+      fields: [passItForwardAllocations.recipientUserId],
+      references: [users.id],
+    }),
+    allocator: one(users, {
+      fields: [passItForwardAllocations.allocatedBy],
+      references: [users.id],
+    }),
+  })
+)
+
+export const enterprisePartnersRelations = relations(enterprisePartners, ({ one }) => ({
+  creator: one(users, {
+    fields: [enterprisePartners.createdBy],
+    references: [users.id],
+  }),
+}))
+
+export const servicePriceCapsRelations = relations(servicePriceCaps, ({ one }) => ({
+  category: one(serviceCategories, {
+    fields: [servicePriceCaps.categoryId],
+    references: [serviceCategories.id],
+  }),
+  updater: one(users, {
+    fields: [servicePriceCaps.updatedBy],
+    references: [users.id],
+  }),
+}))
+
+export const adminActionLogsRelations = relations(adminActionLogs, ({ one }) => ({
+  admin: one(users, {
+    fields: [adminActionLogs.adminUserId],
+    references: [users.id],
   }),
 }))
