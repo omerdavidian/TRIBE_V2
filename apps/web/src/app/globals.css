@@ -3,13 +3,13 @@
 @tailwind utilities;
 
 :root {
-  --color-primary: #5F6F65;
-  --color-secondary: #FEDEE1;
-  --color-accent: #D8C3A5;
-  --color-text-primary: #2A2A2A;
-  --color-text-secondary: #5C5C5C;
-  --color-ui-neutral: #EAEAEA;
-  --color-bg-main: #FAFAF8;
+  --color-primary: #1F4A45;
+  --color-secondary: #A63D55;
+  --color-accent: #B5966E;
+  --color-text-primary: #111827;
+  --color-text-secondary: #334155;
+  --color-ui-neutral: #D9D1C3;
+  --color-bg-main: #F6F3ED;
 }
 
 html {
@@ -19,6 +19,7 @@ html {
 body {
   background-color: var(--color-bg-main);
   color: var(--color-text-primary);
+  transition: background-color 220ms ease, color 220ms ease;
 }
 
 @layer base {
@@ -29,10 +30,91 @@ body {
   p {
     color: var(--color-text-secondary);
   }
+
+  a:focus-visible,
+  button:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid #0f766e;
+    outline-offset: 2px;
+  }
 }
 
 @layer utilities {
   .text-balance {
     text-wrap: balance;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-primary: #7BC1B7;
+    --color-secondary: #E28AA2;
+    --color-accent: #D4B48B;
+    --color-text-primary: #E6EDF5;
+    --color-text-secondary: #C5D0DC;
+    --color-ui-neutral: #2A3545;
+    --color-bg-main: #111827;
+  }
+
+  body {
+    color-scheme: dark;
+  }
+
+  .bg-cream-100,
+  .bg-cream-100\/95 {
+    background-color: #111827 !important;
+  }
+
+  .bg-white,
+  .bg-cream-50 {
+    background-color: #162131 !important;
+  }
+
+  .border-cream-100,
+  .border-cream-200,
+  .border-gray-300,
+  .border-gray-200 {
+    border-color: #2d3b4d !important;
+  }
+
+  .text-gray-400 {
+    color: #b7c2ce !important;
+  }
+
+  .text-gray-500,
+  .text-gray-600,
+  .text-gray-700 {
+    color: #ced7e1 !important;
+  }
+
+  .text-gray-900,
+  .text-teal-700 {
+    color: #f0f6ff !important;
+  }
+
+  .bg-teal-700 {
+    background-color: #285b55 !important;
+  }
+
+  .bg-coral-500 {
+    background-color: #8e3349 !important;
+  }
+
+  .hover\:bg-coral-600:hover {
+    background-color: #74283b !important;
+  }
+
+  .bg-red-50 {
+    background-color: #3b1520 !important;
+  }
+
+  .border-red-200 {
+    border-color: #8b2f45 !important;
+  }
+
+  .text-red-700 {
+    color: #ffd4df !important;
   }
 }

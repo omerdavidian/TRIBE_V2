@@ -18,6 +18,7 @@ import waitlistRoutes from './routes/waitlist.js'
 import catalogRoutes from './routes/catalog.js'
 import registryRoutes from './routes/registry.js'
 import adminRoutes from './routes/admin.js'
+import { ensureBaselineSchema } from './db/ensure-baseline-schema.js'
 
 const fastify = Fastify({
   logger:
@@ -35,6 +36,8 @@ fastify.setValidatorCompiler(validatorCompiler)
 fastify.setSerializerCompiler(serializerCompiler)
 
 async function bootstrap() {
+  await ensureBaselineSchema()
+
   // ─── Security plugins ────────────────────────────────────────────────────────
   await fastify.register(cors, {
     origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()),

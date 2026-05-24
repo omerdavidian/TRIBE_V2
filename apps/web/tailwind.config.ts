@@ -1,6 +1,7 @@
 import type { Config } from 'tailwindcss'
 
 const config: Config = {
+  darkMode: 'media',
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -10,29 +11,29 @@ const config: Config = {
     extend: {
       colors: {
         teal: {
-          50: '#F4F6F5',
-          100: '#E7ECE9',
-          500: '#87958D',
-          600: '#738279',
-          700: '#5F6F65', // brand primary
-          800: '#4E5D54',
-          900: '#3F4C44',
+          50: '#EFF6F5',
+          100: '#D8E8E4',
+          500: '#2F6A63',
+          600: '#285B55',
+          700: '#1F4A45',
+          800: '#173934',
+          900: '#122D29',
         },
         coral: {
-          50: '#FEDEE1', // brand secondary
-          100: '#F9CFD3',
-          400: '#E39BA4',
-          500: '#CF7F8A',
-          600: '#B36B75',
-          700: '#93555F',
+          50: '#FDECEF',
+          100: '#F8D3DA',
+          400: '#C85A70',
+          500: '#A63D55',
+          600: '#8E3349',
+          700: '#74283B',
         },
         cream: {
           50: '#FFFFFF',
-          100: '#FAFAF8', // brand background
-          200: '#EAEAEA', // neutral UI
+          100: '#F6F3ED',
+          200: '#D9D1C3',
         },
         sand: {
-          500: '#D8C3A5', // brand accent
+          500: '#B5966E',
         },
       },
       fontFamily: {

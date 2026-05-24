@@ -10,6 +10,49 @@ function logFallback(to: string, subject: string, text: string) {
   console.log(text)
 }
 
+async function dispatchEmail(params: {
+  to: string
+  subject: string
+  html: string
+  fallbackText: string
+}) {
+  if (!resend) {
+    logFallback(params.to, params.subject, params.fallbackText)
+    return { delivered: false, provider: 'fallback' as const }
+  }
+
+  try {
+    const result = await resend.emails.send({
+      from: FROM,
+      to: params.to,
+      subject: params.subject,
+      html: params.html,
+    })
+
+    if ('error' in result && result.error) {
+      console.error('[EMAIL ERROR]', {
+        to: params.to,
+        subject: params.subject,
+        provider: 'resend',
+        error: result.error,
+      })
+      logFallback(params.to, params.subject, params.fallbackText)
+      return { delivered: false, provider: 'fallback' as const }
+    }
+
+    return { delivered: true, provider: 'resend' as const }
+  } catch (error) {
+    console.error('[EMAIL ERROR]', {
+      to: params.to,
+      subject: params.subject,
+      provider: 'resend',
+      error,
+    })
+    logFallback(params.to, params.subject, params.fallbackText)
+    return { delivered: false, provider: 'fallback' as const }
+  }
+}
+
 export async function sendWelcomeEmail(to: string, fullName: string) {
   const subject = 'Welcome to TRIBE 🌿'
   const html = `
@@ -32,12 +75,12 @@ export async function sendWelcomeEmail(to: string, fullName: string) {
     </div>
   `
 
-  if (!resend) {
-    logFallback(to, subject, `Welcome ${fullName}! Visit ${env.FRONTEND_URL}/dashboard`)
-    return
-  }
-
-  await resend.emails.send({ from: FROM, to, subject, html })
+  await dispatchEmail({
+    to,
+    subject,
+    html,
+    fallbackText: `Welcome ${fullName}! Visit ${env.FRONTEND_URL}/dashboard`,
+  })
 }
 
 export async function sendEmailVerification(
@@ -64,12 +107,12 @@ export async function sendEmailVerification(
     </div>
   `
 
-  if (!resend) {
-    logFallback(to, subject, `Verify: ${url}`)
-    return
-  }
-
-  await resend.emails.send({ from: FROM, to, subject, html })
+  await dispatchEmail({
+    to,
+    subject,
+    html,
+    fallbackText: `Verify: ${url}`,
+  })
 }
 
 export async function sendPasswordReset(to: string, token: string) {
@@ -92,12 +135,12 @@ export async function sendPasswordReset(to: string, token: string) {
     </div>
   `
 
-  if (!resend) {
-    logFallback(to, subject, `Reset: ${url}`)
-    return
-  }
-
-  await resend.emails.send({ from: FROM, to, subject, html })
+  await dispatchEmail({
+    to,
+    subject,
+    html,
+    fallbackText: `Reset: ${url}`,
+  })
 }
 
 export async function sendWaitlistConfirmation(to: string) {
@@ -121,12 +164,12 @@ export async function sendWaitlistConfirmation(to: string) {
     </div>
   `
 
-  if (!resend) {
-    logFallback(to, subject, `Waitlist confirmed for ${to}`)
-    return
-  }
-
-  await resend.emails.send({ from: FROM, to, subject, html })
+  await dispatchEmail({
+    to,
+    subject,
+    html,
+    fallbackText: `Waitlist confirmed for ${to}`,
+  })
 }
 
 export async function sendProviderApplicationReceived(
@@ -144,10 +187,10 @@ export async function sendProviderApplicationReceived(
     </div>
   `
 
-  if (!resend) {
-    logFallback(to, subject, `Application received for ${businessName}`)
-    return
-  }
-
-  await resend.emails.send({ from: FROM, to, subject, html })
+  await dispatchEmail({
+    to,
+    subject,
+    html,
+    fallbackText: `Application received for ${businessName}`,
+  })
 }

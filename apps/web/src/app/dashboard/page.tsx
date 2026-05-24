@@ -27,6 +27,9 @@ export default function DashboardPage() {
       case 'mother':
         router.replace('/dashboard/mother')
         break
+      case 'business':
+        router.replace('/dashboard/supporter')
+        break
       case 'provider':
         router.replace('/dashboard/provider')
         break

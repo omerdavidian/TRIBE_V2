@@ -12,6 +12,7 @@ const ROLE_OPTIONS: { value: UserRole; label: string; desc: string; icon: string
   { value: 'mother', label: 'New mother', desc: "I'm expecting or recently gave birth", icon: '🌸' },
   { value: 'supporter', label: 'Supporter', desc: "I want to support a mother I love", icon: '💛' },
   { value: 'provider', label: 'Provider', desc: "I offer postpartum care services", icon: '🌿' },
+  { value: 'business', label: 'Business', desc: 'I sponsor postpartum care for families', icon: '🏢' },
 ]
 
 function AuthContent() {
@@ -87,7 +88,7 @@ function AuthContent() {
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   I am a…
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {ROLE_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}

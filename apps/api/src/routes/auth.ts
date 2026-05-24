@@ -118,64 +118,81 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
 
   // POST /auth/login
   fastify.post('/auth/login', async (request, reply) => {
-    const body = loginSchema.safeParse(request.body)
-    if (!body.success) {
-      return reply.status(400).send({
-        statusCode: 400,
-        error: 'Bad Request',
-        message: body.error.flatten().fieldErrors,
+    try {
+      const body = loginSchema.safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: body.error.flatten().fieldErrors,
+        })
+      }
+
+      const { email, password } = body.data
+
+      const user = await db.query.users.findFirst({
+        where: eq(users.email, email.toLowerCase()),
       })
-    }
 
-    const { email, password } = body.data
+      if (!user || !user.passwordHash) {
+        return reply.status(401).send({
+          statusCode: 401,
+          error: 'Unauthorized',
+          message: 'Invalid email or password',
+        })
+      }
 
-    const user = await db.query.users.findFirst({
-      where: eq(users.email, email.toLowerCase()),
-    })
+      if (!user.isActive) {
+        return reply.status(403).send({
+          statusCode: 403,
+          error: 'Forbidden',
+          message: 'Account is currently suspended. Please contact support.',
+        })
+      }
 
-    if (!user || !user.passwordHash) {
-      return reply.status(401).send({
-        statusCode: 401,
-        error: 'Unauthorized',
-        message: 'Invalid email or password',
-      })
-    }
+      const valid = await verifyPassword(password, user.passwordHash)
+      if (!valid) {
+        return reply.status(401).send({
+          statusCode: 401,
+          error: 'Unauthorized',
+          message: 'Invalid email or password',
+        })
+      }
 
-    const valid = await verifyPassword(password, user.passwordHash)
-    if (!valid) {
-      return reply.status(401).send({
-        statusCode: 401,
-        error: 'Unauthorized',
-        message: 'Invalid email or password',
-      })
-    }
+      await db
+        .update(users)
+        .set({ lastLoginAt: new Date() })
+        .where(eq(users.id, user.id))
 
-    await db
-      .update(users)
-      .set({ lastLoginAt: new Date() })
-      .where(eq(users.id, user.id))
-
-    const accessToken = await signJwt({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    })
-
-    return reply.send({
-      accessToken,
-      user: {
-        id: user.id,
+      const accessToken = await signJwt({
+        sub: user.id,
         email: user.email,
         role: user.role,
-        fullName: user.fullName,
-        avatarUrl: user.avatarUrl,
-        authProvider: user.authProvider,
-        emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
-        lastLoginAt: new Date().toISOString(),
-        createdAt: user.createdAt.toISOString(),
-        updatedAt: user.updatedAt.toISOString(),
-      },
-    })
+      })
+
+      return reply.send({
+        accessToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          role: user.role,
+          fullName: user.fullName,
+          avatarUrl: user.avatarUrl,
+          authProvider: user.authProvider,
+          emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+          lastLoginAt: new Date().toISOString(),
+          createdAt: user.createdAt.toISOString(),
+          updatedAt: user.updatedAt.toISOString(),
+        },
+      })
+    } catch (error) {
+      fastify.log.error({ error }, 'Login failed')
+      return reply.status(500).send({
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: 'Unable to log in right now',
+      })
+    }
   })
 
   // GET /auth/me — requires auth
