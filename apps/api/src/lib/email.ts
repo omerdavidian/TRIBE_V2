@@ -16,9 +16,11 @@ async function dispatchEmail(params: {
   html: string
   fallbackText: string
 }) {
+  const isLocalDev = env.NODE_ENV !== 'production'
+
   if (!resend) {
     logFallback(params.to, params.subject, params.fallbackText)
-    return { delivered: false, provider: 'fallback' as const }
+    return { delivered: isLocalDev, provider: 'fallback' as const }
   }
 
   try {
@@ -37,7 +39,7 @@ async function dispatchEmail(params: {
         error: result.error,
       })
       logFallback(params.to, params.subject, params.fallbackText)
-      return { delivered: false, provider: 'fallback' as const }
+      return { delivered: isLocalDev, provider: 'fallback' as const }
     }
 
     return { delivered: true, provider: 'resend' as const }
@@ -49,7 +51,7 @@ async function dispatchEmail(params: {
       error,
     })
     logFallback(params.to, params.subject, params.fallbackText)
-    return { delivered: false, provider: 'fallback' as const }
+    return { delivered: isLocalDev, provider: 'fallback' as const }
   }
 }
 

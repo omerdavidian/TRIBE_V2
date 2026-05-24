@@ -101,7 +101,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(409).send({
         statusCode: 409,
         error: 'Conflict',
-        message: 'An account with this email already exists',
+        message: 'This email is already registered. Please log in or reset your password.',
       })
     }
 
@@ -229,7 +229,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   })
 
-  // GET /auth/me, requires auth
+  // GET /auth/me , requires auth
   fastify.get('/auth/me', { preHandler: requireAuth }, async (request, reply) => {
     const [user] = await db
       .select(authSelect)

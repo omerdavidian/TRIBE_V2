@@ -78,4 +78,24 @@ export async function ensureBaselineSchema() {
     alter table if exists "waitlist"
       add column if not exists "unsubscribed_at" timestamp with time zone;
   `)
+
+  await db.execute(sql`
+    create table if not exists "system_feature_flags" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "key" text not null unique,
+      "label" text not null,
+      "enabled" boolean default true not null,
+      "updated_by" uuid,
+      "updated_at" timestamp with time zone default now() not null
+    );
+  `)
+
+  await db.execute(sql`
+    insert into "system_feature_flags" ("key", "label", "enabled")
+    values
+      ('maintenance_mode', 'Global maintenance mode', false),
+      ('pause_payouts', 'Pause payouts', false),
+      ('pause_new_bookings', 'Pause new bookings', false)
+    on conflict ("key") do nothing;
+  `)
 }

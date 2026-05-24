@@ -44,7 +44,12 @@ function AuthContent() {
       router.push('/dashboard')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.'
-      setError(msg)
+      const normalized = msg.toLowerCase()
+      if (tab === 'register' && (normalized.includes('already exists') || normalized.includes('already registered'))) {
+        setError('This email is already registered. Please log in or reset your password.')
+      } else {
+        setError(msg)
+      }
     } finally {
       setLoading(false)
     }
