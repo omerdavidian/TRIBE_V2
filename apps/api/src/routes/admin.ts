@@ -98,6 +98,15 @@ const featureFlagSchema = z.object({
   label: z.string().min(2).max(120).optional(),
 })
 
+const createProviderSchema = z.object({
+  email: z.string().email(),
+  fullName: z.string().min(1).max(120),
+  password: z.string().min(8).optional(),
+  businessName: z.string().min(1).max(200).optional(),
+  bio: z.string().max(2000).optional(),
+  serviceAreas: z.array(z.string()).default([]),
+})
+
 const enterprisePartnerSchema = z.object({
   name: z.string().min(2).max(200),
   domain: z
@@ -804,6 +813,62 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     })
 
     return reply.send(rows)
+  })
+
+  // POST /dashboard/admin/providers — manually onboard an approved provider
+  fastify.post('/dashboard/admin/providers', { preHandler: adminOnly }, async (request, reply) => {
+    const body = createProviderSchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: body.error.flatten().fieldErrors })
+    }
+
+    const existing = await db.query.users.findFirst({ where: eq(users.email, body.data.email.toLowerCase()) })
+    if (existing) {
+      return reply.status(409).send({ statusCode: 409, error: 'Conflict', message: 'A user with this email already exists' })
+    }
+
+    const password = body.data.password ?? makeTempPassword()
+    const passwordHash = await hashPassword(password)
+
+    const [newUser] = await db
+      .insert(users)
+      .values({
+        email: body.data.email.toLowerCase(),
+        fullName: body.data.fullName,
+        role: 'provider',
+        passwordHash,
+      })
+      .returning()
+
+    if (!newUser) {
+      return reply.status(500).send({ statusCode: 500, error: 'Internal Server Error', message: 'Failed to create provider account' })
+    }
+
+    const [profile] = await db
+      .insert(providerProfiles)
+      .values({
+        userId: newUser.id,
+        businessName: body.data.businessName ?? null,
+        bio: body.data.bio ?? null,
+        serviceAreas: body.data.serviceAreas,
+        applicationStatus: 'approved',
+        reviewedAt: new Date(),
+      })
+      .returning()
+
+    await logAdminAction({
+      adminUserId: request.user!.sub,
+      action: 'provider.admin_create',
+      targetType: 'user',
+      targetId: newUser.id,
+      details: JSON.stringify({ email: newUser.email, businessName: body.data.businessName }),
+    })
+
+    return reply.status(201).send({
+      user: newUser,
+      providerProfile: profile,
+      temporaryPassword: body.data.password ? undefined : password,
+    })
   })
 
   fastify.post('/dashboard/admin/providers/:id/vetting', { preHandler: adminOnly }, async (request, reply) => {

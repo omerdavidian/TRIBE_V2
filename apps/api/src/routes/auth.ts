@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import crypto from 'crypto'
 import { db } from '../db/client.js'
-import { users } from '../db/schema.js'
+import { users, providerProfiles } from '../db/schema.js'
 import { hashPassword, verifyPassword } from '../lib/password.js'
 import { signJwt } from '../lib/jwt.js'
 import { env } from '../lib/env.js'
@@ -11,6 +11,7 @@ import {
   sendWelcomeEmail,
   sendEmailVerification,
   sendPasswordReset,
+  sendProviderVerificationAlert,
 } from '../lib/email.js'
 import { requireAuth } from '../plugins/auth.js'
 import type { UserRole } from '@tribe/shared'
@@ -137,6 +138,17 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     // Fire-and-forget emails
     sendWelcomeEmail(user.email, user.firstName ?? user.fullName ?? 'there').catch(console.error)
     sendEmailVerification(user.email, verificationToken).catch(console.error)
+
+    // If provider role: bootstrap pending profile and alert platform management
+    if (role === 'provider') {
+      db.insert(providerProfiles)
+        .values({ userId: user.id, applicationStatus: 'pending' })
+        .catch((err: unknown) => console.error('[PROVIDER PROFILE CREATE]', err))
+      sendProviderVerificationAlert(
+        user.fullName ?? user.email,
+        user.email
+      ).catch(console.error)
+    }
 
     const accessToken = await signJwt({
       sub: user.id,

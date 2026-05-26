@@ -1,7 +1,49 @@
 import type { FastifyPluginAsync } from 'fastify'
-import { eq } from 'drizzle-orm'
+import { avg, count, eq, inArray, sql } from 'drizzle-orm'
+import { z } from 'zod'
 import { db } from '../db/client.js'
-import { serviceCategories, providerProfiles, providerServices, users } from '../db/schema.js'
+import {
+  serviceCategories,
+  providerProfiles,
+  providerServices,
+  providerReviews,
+  users,
+} from '../db/schema.js'
+import { requireRole } from '../plugins/auth.js'
+
+const createReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  isRecommended: z.boolean(),
+  reviewText: z.string().max(2000).optional(),
+})
+
+/** Pull avg rating + review/recommendation counts for a list of provider profile IDs */
+async function getRatingsMap(profileIds: string[]) {
+  if (profileIds.length === 0) return new Map<string, { avgRating: number; reviewCount: number; recommendCount: number }>()
+
+  const rows = await db
+    .select({
+      providerProfileId: providerReviews.providerProfileId,
+      avgRating: avg(providerReviews.rating),
+      reviewCount: count(providerReviews.id),
+      recommendCount: count(
+        sql`case when ${providerReviews.isRecommended} = true then 1 end`
+      ),
+    })
+    .from(providerReviews)
+    .where(inArray(providerReviews.providerProfileId, profileIds))
+    .groupBy(providerReviews.providerProfileId)
+
+  const map = new Map<string, { avgRating: number; reviewCount: number; recommendCount: number }>()
+  for (const row of rows) {
+    map.set(row.providerProfileId, {
+      avgRating: row.avgRating ? parseFloat(row.avgRating) : 0,
+      reviewCount: Number(row.reviewCount),
+      recommendCount: Number(row.recommendCount),
+    })
+  }
+  return map
+}
 
 const catalogRoutes: FastifyPluginAsync = async (fastify) => {
   // GET /catalog/categories

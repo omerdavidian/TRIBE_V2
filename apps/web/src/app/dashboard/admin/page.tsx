@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { Suspense, useEffect, useState, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { getToken, getStoredUser, logout } from '@/lib/auth'
@@ -469,7 +469,7 @@ function TabIntegrations() {
 
 // --- Main page ----------------------------------------------------------------
 
-export default function AdminDashboardPage() {
+function AdminDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [loading, setLoading] = useState(true)
@@ -605,5 +605,18 @@ export default function AdminDashboardPage() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function AdminDashboardPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#f7f4f2] dark:bg-[#00141a] flex font-sans">
+        <div className="w-64 flex-shrink-0 bg-[#00343a] hidden lg:block" />
+        <div className="flex-1 p-8 space-y-6"><div className="h-8 w-48 bg-[#e0ebe9] dark:bg-[#004c54]/30 rounded-xl animate-pulse" /><div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array.from({length:8}).map((_,i)=><div key={i} className="h-28 bg-[#e0ebe9] dark:bg-[#004c54]/30 rounded-xl animate-pulse"/>)}</div><div className="h-64 bg-[#e0ebe9] dark:bg-[#004c54]/30 rounded-xl animate-pulse" /></div>
+      </div>
+    }>
+      <AdminDashboardContent />
+    </Suspense>
   )
 }

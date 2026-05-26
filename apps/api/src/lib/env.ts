@@ -22,6 +22,7 @@ const envSchema = z.object({
     ),
   RESEND_API_KEY: z.string().optional(),
   RESEND_FROM_EMAIL: z.string().default('info@tribewishlist.com'),
+  PLATFORM_ALERT_EMAIL: z.string().email().optional(),
   GOOGLE_CLIENT_ID: z.string().optional(),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_CALLBACK_URL: z.string().optional(),

@@ -406,4 +406,53 @@ export async function ensureBaselineSchema() {
       ('pause_new_bookings', 'Pause new bookings', false)
     on conflict ("key") do nothing;
   `)
+
+  // ── funding_frequency enum ──────────────────────────────────────────────────
+  await db.execute(sql`
+    do $$ begin
+      create type "public"."funding_frequency" as enum ('one_time', 'daily', 'weekly', 'monthly');
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  await db.execute(sql`
+    do $$ begin
+      alter type "public"."funding_frequency" add value if not exists 'one_time';
+      alter type "public"."funding_frequency" add value if not exists 'daily';
+      alter type "public"."funding_frequency" add value if not exists 'weekly';
+      alter type "public"."funding_frequency" add value if not exists 'monthly';
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  // ── registry_items new columns ──────────────────────────────────────────────
+  await db.execute(sql`
+    alter table if exists "registry_items"
+      add column if not exists "custom_purpose" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "registry_items"
+      add column if not exists "funding_frequency" "public"."funding_frequency" not null default 'one_time';
+  `)
+
+  // ── provider_reviews table ──────────────────────────────────────────────────
+  await db.execute(sql`
+    create table if not exists "provider_reviews" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "provider_profile_id" uuid not null references "provider_profiles"("id") on delete cascade,
+      "mother_id" uuid not null references "users"("id"),
+      "rating" integer not null check ("rating" between 1 and 5),
+      "is_recommended" boolean not null default false,
+      "review_text" text,
+      "created_at" timestamp with time zone not null default now()
+    );
+  `)
+
+  await db.execute(sql`
+    create unique index if not exists "provider_reviews_unique_mother_provider"
+      on "provider_reviews" ("provider_profile_id", "mother_id");
+  `)
 }

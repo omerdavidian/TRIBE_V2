@@ -3,15 +3,21 @@
 **Last Updated:** May 26, 2026  
 **Project**: TRIBE - Postpartum Care Marketplace  
 **URL**: https://tribewishlist.com  
-**Repository**: https://github.com/omerdavidian/TRIBE_V2  
+**Repository**: https://github.com/omerdavidian/TRIBE_V2
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-TRIBE is a B2C marketplace platform that connects new mothers with postpartum care services (doulas, lactation consultants, meal prep, mental health support, etc.). The platform enables mothers to create registries of needed services, allows supporters (friends/family) to fund specific services, and connects everything through service providers who fulfill bookings in exchange for platform fees.
+TRIBE is a B2C marketplace platform that connects new mothers with postpartum
+care services (doulas, lactation consultants, meal prep, mental health support,
+etc.). The platform enables mothers to create registries of needed services,
+allows supporters (friends/family) to fund specific services, and connects
+everything through service providers who fulfill bookings in exchange for
+platform fees.
 
-**Mission**: Give new mothers the gift that actually matters—real postpartum support through a community-powered marketplace.
+**Mission**: Give new mothers the gift that actually matters—real postpartum
+support through a community-powered marketplace.
 
 ---
 
@@ -20,44 +26,52 @@ TRIBE is a B2C marketplace platform that connects new mothers with postpartum ca
 ### Value Proposition
 
 **For Mothers:**
-- Create public registries listing specific postpartum care needs (hours, services, due dates)
+
+- Create public registries listing specific postpartum care needs (hours,
+  services, due dates)
 - Accept funded bookings from supporters or direct payments
 - Centralized discovery and booking of vetted local providers
 - No upfront costs
 
 **For Supporters (Friends/Family):**
+
 - Gift tangible postpartum care services instead of traditional gifts
 - Browse and fund mother's registry items directly
 - Transparent checkout via Stripe
 - Anonymous donation option
 
 **For Providers:**
+
 - Access new customer pipeline of mothers actively seeking services
 - Manage bookings and service availability through dashboard
 - Accept payments via Stripe Connect
 - Build reviews and portfolio presence
 
 **For Business Sponsors:**
+
 - Corporate wellness programs can sponsor care packages for employees
 - Tax-deductible "pass it forward" allocations support low-income mothers
 - Usage tracking and reporting
 
 ### Revenue Model
 
-1. **Booking Platform Fee**: 10% platform fee on all completed care bookings (funded by support community)
+1. **Booking Platform Fee**: 10% platform fee on all completed care bookings
+   (funded by support community)
 2. **Donation Processing**: Stripe processing fees (3% + $0.30) on donations
-3. **Premium Features**: (future) advanced analytics, priority support for providers
-4. **Enterprise Sponsorships**: Corporate wellness programs, insurance partnerships
+3. **Premium Features**: (future) advanced analytics, priority support for
+   providers
+4. **Enterprise Sponsorships**: Corporate wellness programs, insurance
+   partnerships
 
 ### User Roles & Core Workflows
 
-| Role | Capabilities | Key Workflows |
-|------|--------------|---------------|
-| **Mother** | Create registries, accept bookings, fund through donations | Create registry → Add items → Accept bookings → Rate providers |
-| **Supporter** | Browse registries, fund items, track contributions | Search registries → Fund items → Receive confirmation |
-| **Provider** | Offer services, manage profile, accept bookings, receive payments | Create profile → Await vetting → Accept bookings → Invoice completion |
-| **Business/Sponsor** | Allocate care budgets, track usage, build employer brand | Set budget → Allocate to mothers → View reports |
-| **Admin** | Oversee platform health, vet providers, manage disputes, system configuration | Monitor metrics → Approve providers → Manage flags → Configure system |
+| Role                 | Capabilities                                                                  | Key Workflows                                                         |
+| -------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| **Mother**           | Create registries, accept bookings, fund through donations                    | Create registry → Add items → Accept bookings → Rate providers        |
+| **Supporter**        | Browse registries, fund items, track contributions                            | Search registries → Fund items → Receive confirmation                 |
+| **Provider**         | Offer services, manage profile, accept bookings, receive payments             | Create profile → Await vetting → Accept bookings → Invoice completion |
+| **Business/Sponsor** | Allocate care budgets, track usage, build employer brand                      | Set budget → Allocate to mothers → View reports                       |
+| **Admin**            | Oversee platform health, vet providers, manage disputes, system configuration | Monitor metrics → Approve providers → Manage flags → Configure system |
 
 ---
 
@@ -65,15 +79,15 @@ TRIBE is a B2C marketplace platform that connects new mothers with postpartum ca
 
 ### Infrastructure & Deployment
 
-| Component | Technology | Provider | Details |
-|-----------|-----------|----------|---------|
-| **Web** | Next.js 15 (App Router) | Vercel | Production: tribewishlist.com; preview deployments on PR |
-| **API** | Fastify 4 + TypeScript | Railway | Production: api.tribewishlist.com on port 3001 |
-| **Database** | PostgreSQL 15+ | Neon | Serverless with connection pooling; migrations via drizzle-kit |
-| **Auth** | JWT (jose) + OAuth | Custom + Google/Apple | Email/password, Google OAuth, Apple Sign-In |
-| **Email** | Transactional | Resend | Welcome, verification, password reset, waitlist confirmation |
-| **Payments** | Stripe Checkout + Connect | Stripe | Donations via Checkout; payouts via Connect |
-| **Storage** | Static files | Vercel/Neon | Next.js static optimization; image optimization on demand |
+| Component    | Technology                | Provider              | Details                                                        |
+| ------------ | ------------------------- | --------------------- | -------------------------------------------------------------- |
+| **Web**      | Next.js 15 (App Router)   | Vercel                | Production: tribewishlist.com; preview deployments on PR       |
+| **API**      | Fastify 4 + TypeScript    | Railway               | Production: api.tribewishlist.com on port 3001                 |
+| **Database** | PostgreSQL 15+            | Neon                  | Serverless with connection pooling; migrations via drizzle-kit |
+| **Auth**     | JWT (jose) + OAuth        | Custom + Google/Apple | Email/password, Google OAuth, Apple Sign-In                    |
+| **Email**    | Transactional             | Resend                | Welcome, verification, password reset, waitlist confirmation   |
+| **Payments** | Stripe Checkout + Connect | Stripe                | Donations via Checkout; payouts via Connect                    |
+| **Storage**  | Static files              | Vercel/Neon           | Next.js static optimization; image optimization on demand      |
 
 ### Workspace Structure
 
@@ -155,13 +169,15 @@ TRIBE-V2/                       # Monorepo root
 
 ### Key Design Decisions
 
-1. **Monorepo (npm workspaces)**: Shared types in `packages/shared` keep API and web in sync
+1. **Monorepo (npm workspaces)**: Shared types in `packages/shared` keep API and
+   web in sync
 2. **TypeScript everywhere**: Full type safety across API/web/shared
 3. **Next.js 15 with App Router**: Modern React server components + streaming
 4. **Fastify + Zod**: Minimal, fast API with runtime validation
 5. **Drizzle ORM**: Type-safe SQL with migrations
 6. **Tailwind CSS**: Utility-first design system with custom palette
-7. **JWT + role-based access control**: Stateless auth suitable for distributed deployments
+7. **JWT + role-based access control**: Stateless auth suitable for distributed
+   deployments
 
 ---
 
@@ -296,10 +312,17 @@ service_price_caps
 
 ### Critical Notes on Schema
 
-- **`ensure-baseline-schema.ts` (CRITICAL)**:  Runs at API startup before route registration. Creates/migrates missing enums and tables to support production DB rollout compatibility. Prevents `relation does not exist` crashes when production DBs lag behind schema definitions. All new tables must be added here.
-- **enum types**: Created as PostgreSQL enums; existing values cannot be removed; only append new values.
-- **Cascade deletes**: User deletion cascades to registries, bookings, provider profiles; ensures data consistency.
-- **Indexes**: Unique constraints on email, slug, stripe_session_id; consider adding indexes on foreign keys for query performance.
+- **`ensure-baseline-schema.ts` (CRITICAL)**: Runs at API startup before route
+  registration. Creates/migrates missing enums and tables to support production
+  DB rollout compatibility. Prevents `relation does not exist` crashes when
+  production DBs lag behind schema definitions. All new tables must be added
+  here.
+- **enum types**: Created as PostgreSQL enums; existing values cannot be
+  removed; only append new values.
+- **Cascade deletes**: User deletion cascades to registries, bookings, provider
+  profiles; ensures data consistency.
+- **Indexes**: Unique constraints on email, slug, stripe_session_id; consider
+  adding indexes on foreign keys for query performance.
 
 ---
 
@@ -307,65 +330,65 @@ service_price_caps
 
 ### Authentication Routes
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/auth/register` | None | Register new user (email, password, fullName, role) |
-| POST | `/auth/login` | None | Login with email/password |
-| POST | `/auth/forgot-password` | None | Send password reset email |
-| POST | `/auth/reset-password` | None | Reset password with token |
-| POST | `/auth/verify-email` | None | Verify email with token |
-| GET | `/auth/me` | Bearer | Get current authenticated user |
-| GET | `/auth/google` | None | Redirect to Google OAuth (returns token + user via callback) |
-| GET | `/auth/apple` | None | Redirect to Apple Sign-In |
+| Method | Path                    | Auth   | Description                                                  |
+| ------ | ----------------------- | ------ | ------------------------------------------------------------ |
+| POST   | `/auth/register`        | None   | Register new user (email, password, fullName, role)          |
+| POST   | `/auth/login`           | None   | Login with email/password                                    |
+| POST   | `/auth/forgot-password` | None   | Send password reset email                                    |
+| POST   | `/auth/reset-password`  | None   | Reset password with token                                    |
+| POST   | `/auth/verify-email`    | None   | Verify email with token                                      |
+| GET    | `/auth/me`              | Bearer | Get current authenticated user                               |
+| GET    | `/auth/google`          | None   | Redirect to Google OAuth (returns token + user via callback) |
+| GET    | `/auth/apple`           | None   | Redirect to Apple Sign-In                                    |
 
 ### Waitlist Routes
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/waitlist/join` | None | Join waitlist (email, source) |
-| POST | `/waitlist/unsubscribe` | None | Unsubscribe from waitlist |
-| GET | `/waitlist/unsubscribe?email=...` | None | Public unsubscribe link (HTML response) |
+| Method | Path                              | Auth | Description                             |
+| ------ | --------------------------------- | ---- | --------------------------------------- |
+| POST   | `/waitlist/join`                  | None | Join waitlist (email, source)           |
+| POST   | `/waitlist/unsubscribe`           | None | Unsubscribe from waitlist               |
+| GET    | `/waitlist/unsubscribe?email=...` | None | Public unsubscribe link (HTML response) |
 
 ### Catalog Routes
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/catalog/categories` | None | List active service categories |
-| GET | `/catalog/providers?limit=20&offset=0` | None | List approved providers with services |
-| GET | `/catalog/providers/:id` | None | Get single provider profile + services |
+| Method | Path                                   | Auth | Description                            |
+| ------ | -------------------------------------- | ---- | -------------------------------------- |
+| GET    | `/catalog/categories`                  | None | List active service categories         |
+| GET    | `/catalog/providers?limit=20&offset=0` | None | List approved providers with services  |
+| GET    | `/catalog/providers/:id`               | None | Get single provider profile + services |
 
 ### Registry Routes (Mothers)
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| POST | `/registries` | Bearer (mother) | Create new registry |
-| GET | `/registries/mine` | Bearer (any) | Get user's registries |
-| GET | `/registries/:slug` | None | Get public registry by slug |
-| PATCH | `/registries/:id` | Bearer (owner) | Update registry metadata |
-| POST | `/registries/:id/items` | Bearer (owner) | Add item to registry |
-| PATCH | `/registries/:id/items/:itemId` | Bearer (owner) | Update registry item |
-| DELETE | `/registries/:id/items/:itemId` | Bearer (owner) | Remove item from registry |
+| Method | Path                            | Auth            | Description                 |
+| ------ | ------------------------------- | --------------- | --------------------------- |
+| POST   | `/registries`                   | Bearer (mother) | Create new registry         |
+| GET    | `/registries/mine`              | Bearer (any)    | Get user's registries       |
+| GET    | `/registries/:slug`             | None            | Get public registry by slug |
+| PATCH  | `/registries/:id`               | Bearer (owner)  | Update registry metadata    |
+| POST   | `/registries/:id/items`         | Bearer (owner)  | Add item to registry        |
+| PATCH  | `/registries/:id/items/:itemId` | Bearer (owner)  | Update registry item        |
+| DELETE | `/registries/:id/items/:itemId` | Bearer (owner)  | Remove item from registry   |
 
 ### Admin Routes
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/dashboard/admin/overview` | Bearer (admin) | Platform metrics (GMV, users, retention) |
-| GET | `/dashboard/admin/health` | Bearer (admin) | API/DB health (latency, error rate) |
-| GET | `/dashboard/admin/system/flags` | Bearer (admin) | List feature flags |
-| PUT | `/dashboard/admin/system/flags/:key` | Bearer (admin) | Update feature flag |
-| GET | `/dashboard/admin/users?page=1&pageSize=50&q=...&role=...` | Bearer (admin) | List users with search/filter |
-| POST | `/dashboard/admin/users` | Bearer (admin) | Create user manually |
-| PATCH | `/dashboard/admin/users/:id` | Bearer (admin) | Update user (role, fullName, isActive) |
-| POST | `/dashboard/admin/users/:id/reset-password-trigger` | Bearer (admin) | Send reset email |
-| GET | `/dashboard/admin/providers/vetting` | Bearer (admin) | List pending provider applications |
-| POST | `/dashboard/admin/providers/:id/vetting` | Bearer (admin) | Approve/reject provider |
-| GET | `/dashboard/admin/beta/invitations` | Bearer (admin) | List beta invitations |
-| POST | `/dashboard/admin/beta/invitations/bulk` | Bearer (admin) | Bulk send invitations |
-| GET | `/dashboard/admin/ledger/overview` | Bearer (admin) | Financial overview (escrow, refunded, etc.) |
-| POST | `/dashboard/admin/ledger/refunds` | Bearer (admin) | Refund donation or cancel booking |
-| GET | `/dashboard/admin/bookings/dead-air?minutes=180` | Bearer (admin) | List stale pending bookings |
-| GET | `/dashboard/admin/enterprise/partners` | Bearer (admin) | List enterprise sponsors |
+| Method | Path                                                       | Auth           | Description                                 |
+| ------ | ---------------------------------------------------------- | -------------- | ------------------------------------------- |
+| GET    | `/dashboard/admin/overview`                                | Bearer (admin) | Platform metrics (GMV, users, retention)    |
+| GET    | `/dashboard/admin/health`                                  | Bearer (admin) | API/DB health (latency, error rate)         |
+| GET    | `/dashboard/admin/system/flags`                            | Bearer (admin) | List feature flags                          |
+| PUT    | `/dashboard/admin/system/flags/:key`                       | Bearer (admin) | Update feature flag                         |
+| GET    | `/dashboard/admin/users?page=1&pageSize=50&q=...&role=...` | Bearer (admin) | List users with search/filter               |
+| POST   | `/dashboard/admin/users`                                   | Bearer (admin) | Create user manually                        |
+| PATCH  | `/dashboard/admin/users/:id`                               | Bearer (admin) | Update user (role, fullName, isActive)      |
+| POST   | `/dashboard/admin/users/:id/reset-password-trigger`        | Bearer (admin) | Send reset email                            |
+| GET    | `/dashboard/admin/providers/vetting`                       | Bearer (admin) | List pending provider applications          |
+| POST   | `/dashboard/admin/providers/:id/vetting`                   | Bearer (admin) | Approve/reject provider                     |
+| GET    | `/dashboard/admin/beta/invitations`                        | Bearer (admin) | List beta invitations                       |
+| POST   | `/dashboard/admin/beta/invitations/bulk`                   | Bearer (admin) | Bulk send invitations                       |
+| GET    | `/dashboard/admin/ledger/overview`                         | Bearer (admin) | Financial overview (escrow, refunded, etc.) |
+| POST   | `/dashboard/admin/ledger/refunds`                          | Bearer (admin) | Refund donation or cancel booking           |
+| GET    | `/dashboard/admin/bookings/dead-air?minutes=180`           | Bearer (admin) | List stale pending bookings                 |
+| GET    | `/dashboard/admin/enterprise/partners`                     | Bearer (admin) | List enterprise sponsors                    |
 
 ---
 
@@ -373,47 +396,50 @@ service_price_caps
 
 ### Public Pages
 
-| Route | Purpose | Features |
-|-------|---------|----------|
-| `/` | Landing / home | Hero, value props, testimonials, waitlist CTA |
-| `/coming-soon` | Waitlist signup | Hero section, email input, duplicate detection |
-| `/terms` | Terms of Service | Legal text, full policy |
-| `/privacy` | Privacy Policy | Data handling, compliance |
+| Route          | Purpose          | Features                                       |
+| -------------- | ---------------- | ---------------------------------------------- |
+| `/`            | Landing / home   | Hero, value props, testimonials, waitlist CTA  |
+| `/coming-soon` | Waitlist signup  | Hero section, email input, duplicate detection |
+| `/terms`       | Terms of Service | Legal text, full policy                        |
+| `/privacy`     | Privacy Policy   | Data handling, compliance                      |
 
 ### Auth Pages
 
-| Route | Purpose | Features |
-|-------|---------|----------|
-| `/auth` | Unified login + signup | Tab switcher, role selector (register only), Google OAuth, email/password, error handling |
-| `/auth/callback` | OAuth callback handler | Token extraction, user state setup, redirect to dashboard |
-| `/auth/forgot-password` | Password reset request | Email entry, confirmation message |
-| `/auth/reset-password?token=...` | Password reset form | Token validation, new password entry |
+| Route                            | Purpose                | Features                                                                                  |
+| -------------------------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
+| `/auth`                          | Unified login + signup | Tab switcher, role selector (register only), Google OAuth, email/password, error handling |
+| `/auth/callback`                 | OAuth callback handler | Token extraction, user state setup, redirect to dashboard                                 |
+| `/auth/forgot-password`          | Password reset request | Email entry, confirmation message                                                         |
+| `/auth/reset-password?token=...` | Password reset form    | Token validation, new password entry                                                      |
 
 ### Dashboard Pages (Authenticated)
 
-| Route | Purpose | Auth | Features |
-|-------|---------|------|----------|
-| `/dashboard` | Role router | Bearer | Redirects to role-specific dashboard |
-| `/dashboard/admin` | Admin overview | admin | Metrics, tabs (overview, users, financials, security, integrations), provider vetting queue |
-| `/dashboard/mother` | Mother's registries | mother | Create/manage registries, view bookings, track donors |
-| `/dashboard/provider` | Provider profile | provider | Manage services, view pending bookings, earnings, vetting status |
-| `/dashboard/supporter` | Browse + donate | supporter | Search registries, fund items, view history |
-| `/registry/[slug]` | Public registry | None | Mother's registry, items, donation targets, public profile |
-| `/unsubscribe?email=...` | Waitlist unsubscribe | None | Confirmation page |
+| Route                    | Purpose              | Auth      | Features                                                                                    |
+| ------------------------ | -------------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `/dashboard`             | Role router          | Bearer    | Redirects to role-specific dashboard                                                        |
+| `/dashboard/admin`       | Admin overview       | admin     | Metrics, tabs (overview, users, financials, security, integrations), provider vetting queue |
+| `/dashboard/mother`      | Mother's registries  | mother    | Create/manage registries, view bookings, track donors                                       |
+| `/dashboard/provider`    | Provider profile     | provider  | Manage services, view pending bookings, earnings, vetting status                            |
+| `/dashboard/supporter`   | Browse + donate      | supporter | Search registries, fund items, view history                                                 |
+| `/registry/[slug]`       | Public registry      | None      | Mother's registry, items, donation targets, public profile                                  |
+| `/unsubscribe?email=...` | Waitlist unsubscribe | None      | Confirmation page                                                                           |
 
 ### UI/UX Design System
 
 **Color Palette (Tailwind Custom)**:
+
 - Primary: Teal-700 (#004c54)
 - Accent: Coral-500 (#e97451)
 - Neutral: Cream (off-white/beige tones)
 - Dark mode: Adjustable backgrounds
 
 **Typography**:
+
 - Headlines: Playfair Display (serif, elegant)
 - Body: Inter (sans-serif, readable)
 
 **Components**:
+
 - Rounded cards (border-radius: 2xl = 16px)
 - Consistent button states (hover, disabled, loading)
 - Form inputs with focus rings
@@ -427,7 +453,8 @@ service_price_caps
 ### Latest Commits (May 2026)
 
 1. **Schema Compatibility Hardening** (commit: a3014e3)
-   - Expanded `ensureBaselineSchema()` to auto-create all missing core tables + enums
+   - Expanded `ensureBaselineSchema()` to auto-create all missing core tables +
+     enums
    - Prevents "relation does not exist" crashes from DB schema drift
    - Includes bookings, donations, registry, provider profile tables
    - Added to startup before routes register
@@ -439,7 +466,8 @@ service_price_caps
    - All builds now pass: lint ✓ build ✓ typecheck ✓
 
 3. **Waitlist Duplicate Email Handling** (commit: 3effe40)
-   - API now returns exact message: "You're already on the list! We will keep you posted when we go live"
+   - API now returns exact message: "You're already on the list! We will keep
+     you posted when we go live"
    - Coming-soon page reads API response and displays duplicate message
    - Smooth UX for re-submissions
 
@@ -449,27 +477,28 @@ service_price_caps
    - Admin overview metrics no longer crash on legacy DBs
 
 5. **Dev Email Fallback & Auth Improvements** (commit: 7f70c67)
-   - Email delivery in local/dev now treats fallback as success (localhost flows work)
+   - Email delivery in local/dev now treats fallback as success (localhost flows
+     work)
    - Production remains strict (requires actual delivery)
    - Duplicate email signup shows clear message
 
 ### Implementation Status
 
-| Feature | Status | Notes |
-|---------|--------|-------|
-| **User Registration (Email/Password)** | ✅ Production | Full validation, password reset flow |
-| **OAuth (Google + Apple)** | ✅ Production | Callback handling, user creation |
-| **Waitlist** | ✅ Production | Join, unsubscribe, email confirmation |
-| **Mother Registries** | 🟡 Partial | Can create/edit; public view working; donations/bookings framework in place |
-| **Provider Profiles** | 🟡 Partial | Schema complete; vetting queue in admin; booking acceptance not yet wired |
-| **Admin Dashboard** | 🟡 Partial | Overview metrics ✓; user management ✓; provider vetting queue UI ✓; some tabs mock data |
-| **Donations** | 🟡 Partial | Stripe Checkout integrated (schema); flow to mark completed pending |
-| **Bookings** | 🟡 Partial | CRUD in API; status transitions (pending → confirmed → in_progress → completed); payment not fully wired |
-| **Theme Toggle** | ✅ Production | Light/dark mode persists; hydration-safe |
-| **Mobile Responsive** | ✅ Production | All pages tested on mobile breakpoints |
-| **Email Notifications** | ✅ Production | Welcome, verification, password reset, waitlist; Resend fallback in dev |
-| **TypeScript Coverage** | ✅ Production | Shared types in packages/shared; full type safety across stacks |
-| **Database Migrations** | ✅ Production | Drizzle migrations tracked; baseline schema compatibility layer |
+| Feature                                | Status        | Notes                                                                                                    |
+| -------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
+| **User Registration (Email/Password)** | ✅ Production | Full validation, password reset flow                                                                     |
+| **OAuth (Google + Apple)**             | ✅ Production | Callback handling, user creation                                                                         |
+| **Waitlist**                           | ✅ Production | Join, unsubscribe, email confirmation                                                                    |
+| **Mother Registries**                  | 🟡 Partial    | Can create/edit; public view working; donations/bookings framework in place                              |
+| **Provider Profiles**                  | 🟡 Partial    | Schema complete; vetting queue in admin; booking acceptance not yet wired                                |
+| **Admin Dashboard**                    | 🟡 Partial    | Overview metrics ✓; user management ✓; provider vetting queue UI ✓; some tabs mock data                  |
+| **Donations**                          | 🟡 Partial    | Stripe Checkout integrated (schema); flow to mark completed pending                                      |
+| **Bookings**                           | 🟡 Partial    | CRUD in API; status transitions (pending → confirmed → in_progress → completed); payment not fully wired |
+| **Theme Toggle**                       | ✅ Production | Light/dark mode persists; hydration-safe                                                                 |
+| **Mobile Responsive**                  | ✅ Production | All pages tested on mobile breakpoints                                                                   |
+| **Email Notifications**                | ✅ Production | Welcome, verification, password reset, waitlist; Resend fallback in dev                                  |
+| **TypeScript Coverage**                | ✅ Production | Shared types in packages/shared; full type safety across stacks                                          |
+| **Database Migrations**                | ✅ Production | Drizzle migrations tracked; baseline schema compatibility layer                                          |
 
 ---
 
@@ -509,21 +538,27 @@ NEXT_PUBLIC_API_URL=http://localhost:3001  # or https://api.tribewishlist.com
 
 **File**: `apps/api/src/db/ensure-baseline-schema.ts`
 
-This function **MUST** run at startup (before routes register in `index.ts`). It:
+This function **MUST** run at startup (before routes register in `index.ts`).
+It:
+
 - Creates PostgreSQL enum types if missing
 - Creates all core tables if missing
 - Uses `if not exists` clauses to prevent errors on re-runs
 - Supports production DB rollout without downtime
 
-**Golden Rule**: Every new table must be added to this function. Failure to do so will crash older production databases.
+**Golden Rule**: Every new table must be added to this function. Failure to do
+so will crash older production databases.
 
 ### Email Delivery Fallback
 
 **File**: `apps/api/src/lib/email.ts`
 
-- In **development** (`NODE_ENV !== 'production'`), email fallback returns `delivered: true`
-- In **production**, `delivered: false` triggers 502 error; user is notified to retry
-- Prevents silent failures during development while protecting production integrity
+- In **development** (`NODE_ENV !== 'production'`), email fallback returns
+  `delivered: true`
+- In **production**, `delivered: false` triggers 502 error; user is notified to
+  retry
+- Prevents silent failures during development while protecting production
+  integrity
 
 ### Rate Limiting & CORS
 
@@ -534,7 +569,8 @@ This function **MUST** run at startup (before routes register in `index.ts`). It
 ### Error Handling
 
 - All errors logged to stdout (Fastify/pino)
-- 500 errors return generic "Internal Server Error" message (no stack traces exposed)
+- 500 errors return generic "Internal Server Error" message (no stack traces
+  exposed)
 - 401/403 for unauthorized; 400 for validation failures
 
 ---
@@ -590,6 +626,7 @@ npm run db:migrate --workspace=apps/api
 ### Metrics
 
 Admin dashboard provides:
+
 - GMV (gross merchandise value) in cents
 - Active users by role
 - Waitlist count + conversion rate
@@ -604,20 +641,25 @@ Admin dashboard provides:
 ### Current Gaps
 
 1. **Booking Payment Flow**: Schema exists; Stripe Checkout integration pending
-2. **Provider Earnings Dashboard**: Backend tracking in place; UI not fully built
-3. **Disputes/Refunds**: Admin can manually refund; automated dispute flow not implemented
+2. **Provider Earnings Dashboard**: Backend tracking in place; UI not fully
+   built
+3. **Disputes/Refunds**: Admin can manually refund; automated dispute flow not
+   implemented
 4. **Search/Filtering**: Basic registries available; advanced search not built
 5. **Reviews/Ratings**: Schema placeholder; UI not implemented
 6. **Push Notifications**: Not implemented; email-only for now
-7. **Analytics**: Admin dashboard mock data in some tabs; real data wired for metrics
+7. **Analytics**: Admin dashboard mock data in some tabs; real data wired for
+   metrics
 
 ### Scaling Considerations
 
-- **Database**: Neon handles scaling; monitor connection pool and query performance
+- **Database**: Neon handles scaling; monitor connection pool and query
+  performance
 - **API**: Stateless design; can scale horizontally on Railway
 - **CDN**: Vercel automatically handles static asset caching
 - **Uploads**: Not yet implemented; plan S3 or Vercel blob storage
-- **Real-time Updates**: WebSockets not yet implemented; consider Socket.io or Vercel Functions
+- **Real-time Updates**: WebSockets not yet implemented; consider Socket.io or
+  Vercel Functions
 
 ---
 
@@ -688,4 +730,7 @@ npm run typecheck --workspace=apps/web
 
 ---
 
-**This master brief is the single source of truth for TRIBE's technical state, architecture, and implementation status. Update this document whenever significant changes are made to the codebase, deployment strategy, or business model.**
+**This master brief is the single source of truth for TRIBE's technical state,
+architecture, and implementation status. Update this document whenever
+significant changes are made to the codebase, deployment strategy, or business
+model.**

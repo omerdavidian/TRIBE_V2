@@ -55,6 +55,13 @@ export const betaInvitationStatusEnum = pgEnum('beta_invitation_status', [
   'revoked',
 ])
 
+export const fundingFrequencyEnum = pgEnum('funding_frequency', [
+  'one_time',
+  'daily',
+  'weekly',
+  'monthly',
+])
+
 // ─── Tables ───────────────────────────────────────────────────────────────────
 
 export const users = pgTable('users', {
@@ -176,6 +183,8 @@ export const registryItems = pgTable('registry_items', {
   fundedAmountCents: integer('funded_amount_cents').notNull().default(0),
   isFulfilled: boolean('is_fulfilled').notNull().default(false),
   sortOrder: integer('sort_order').notNull().default(0),
+  customPurpose: text('custom_purpose'),
+  fundingFrequency: fundingFrequencyEnum('funding_frequency').notNull().default('one_time'),
 })
 
 export const donations = pgTable('donations', {
@@ -303,6 +312,22 @@ export const servicePriceCaps = pgTable('service_price_caps', {
     .defaultNow(),
 })
 
+export const providerReviews = pgTable('provider_reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  providerProfileId: uuid('provider_profile_id')
+    .notNull()
+    .references(() => providerProfiles.id, { onDelete: 'cascade' }),
+  motherId: uuid('mother_id')
+    .notNull()
+    .references(() => users.id),
+  rating: integer('rating').notNull(),
+  isRecommended: boolean('is_recommended').notNull().default(false),
+  reviewText: text('review_text'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 export const adminActionLogs = pgTable('admin_action_logs', {
   id: uuid('id').primaryKey().defaultRandom(),
   adminUserId: uuid('admin_user_id')
@@ -341,8 +366,20 @@ export const providerProfilesRelations = relations(
       references: [users.id],
     }),
     services: many(providerServices),
+    reviews: many(providerReviews),
   })
 )
+
+export const providerReviewsRelations = relations(providerReviews, ({ one }) => ({
+  providerProfile: one(providerProfiles, {
+    fields: [providerReviews.providerProfileId],
+    references: [providerProfiles.id],
+  }),
+  mother: one(users, {
+    fields: [providerReviews.motherId],
+    references: [users.id],
+  }),
+}))
 
 export const registriesRelations = relations(registries, ({ one, many }) => ({
   user: one(users, {

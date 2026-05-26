@@ -150,6 +150,45 @@ export async function sendPasswordReset(
   })
 }
 
+export async function sendProviderVerificationAlert(
+  providerName: string,
+  providerEmail: string
+) {
+  const alertTo = env.PLATFORM_ALERT_EMAIL ?? env.RESEND_FROM_EMAIL
+  const subject = `[TRIBE] New Provider Application — ${providerName}`
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
+      <h1 style="color: #004C54; font-size: 22px;">New Provider Application</h1>
+      <p style="color: #555; font-size: 16px; line-height: 1.6;">
+        A new provider has registered and is awaiting verification.
+      </p>
+      <table style="border-collapse: collapse; width: 100%; margin-top: 16px;">
+        <tr>
+          <td style="padding: 10px 12px; background: #f4f6f8; font-weight: 600; color: #333;">Name</td>
+          <td style="padding: 10px 12px; color: #555;">${providerName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 12px; font-weight: 600; color: #333;">Email</td>
+          <td style="padding: 10px 12px; color: #555;">${providerEmail}</td>
+        </tr>
+      </table>
+      <a href="${env.FRONTEND_URL}/dashboard/admin"
+         style="display: inline-block; background: #004C54; color: white; padding: 12px 24px;
+                border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 24px;">
+        Review in Admin Dashboard →
+      </a>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px;">TRIBE · tribewishlist.com</p>
+    </div>
+  `
+  return dispatchEmail({
+    to: alertTo,
+    subject,
+    html,
+    fallbackText: `New provider application: ${providerName} <${providerEmail}>. Review at ${env.FRONTEND_URL}/dashboard/admin`,
+  })
+}
+
 export async function sendWaitlistConfirmation(to: string) {
   const unsubscribeUrl = `${env.API_PUBLIC_URL}/v1/waitlist/unsubscribe?email=${encodeURIComponent(to)}`
   const subject = 'Welcome to the Tribe!'
