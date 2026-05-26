@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import ThemeController from '@/components/theme-controller'
+import NavFooterWrapper from '@/components/nav-footer-wrapper'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -47,7 +48,9 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${playfair.variable}`} suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>
         <ThemeController />
-        {children}
+        <NavFooterWrapper>
+          {children}
+        </NavFooterWrapper>
       </body>
     </html>
   )

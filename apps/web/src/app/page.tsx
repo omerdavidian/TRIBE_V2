@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
+import Image from 'next/image'
 import Link from 'next/link'
-import ThemeToggle from '@/components/theme-toggle'
+import HeroSearch from '@/components/hero-search'
 
 export const metadata: Metadata = {
   title: 'TRIBE, Real Postpartum Support for New Mothers',
@@ -65,90 +66,99 @@ const TESTIMONIALS = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-cream-100 font-sans">
-      {/* ─── Nav ─────────────────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 bg-cream-100/95 backdrop-blur border-b border-cream-200">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-display font-bold text-2xl text-teal-700 tracking-tight">
-            TRIBE
-          </Link>
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-            <Link href="#how-it-works" className="hover:text-coral-500 transition-colors">
-              How it works
-            </Link>
-            <Link href="#services" className="hover:text-coral-500 transition-colors">
-              Services
-            </Link>
-            <Link href="#providers" className="hover:text-coral-500 transition-colors">
-              For providers
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link
-              href="/auth"
-              className="text-sm font-medium text-teal-700 hover:text-coral-600 transition-colors"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/auth?tab=register"
-              className="text-sm font-semibold bg-coral-500 text-white px-4 py-2 rounded-full hover:bg-coral-600 transition-colors"
-            >
-              Get started
-            </Link>
-          </div>
+      {/* ─── Hero — Full-screen immersive with embedded search ─────────────── */}
+      <section className="relative min-h-[calc(100vh-4rem)] flex items-center justify-center overflow-hidden">
+        {/* Full-viewport background image */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="https://lh3.googleusercontent.com/aida/ADBb0uj0uCLtlKMJw0bPliHS31aqOm-CEnfwQIsFUDOC7T7hvuDMIPK3hThJtV820-ogiK4uBsbGf1Wk6248scOH3fkRN0Cl5_vMS8_2I5rg4sJPkQ6MLyg0rMqI2aUaNqxbkH5r_5brDVInk9yIzGNHAKQrDb9EAobf9yotBqJQqWxzAjtB9uKxxOmbuNDARJqyaiEZ3WByEZxQu4SfpBQdkF6AgWChx3dwei0dvCqUWsTPv7K54cQI6NwjF74"
+            alt=""
+            aria-hidden
+            fill
+            className="object-cover object-[center_20%]"
+            priority
+            sizes="100vw"
+          />
+          {/* Layered gradient overlay for legibility */}
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/45 to-black/70"
+          />
+          {/* Subtle radial vignette */}
+          <div
+            aria-hidden
+            className="absolute inset-0"
+            style={{ background: 'radial-gradient(ellipse at center, transparent 40%, rgba(0,0,0,0.35) 100%)' }}
+          />
         </div>
-      </nav>
 
-      {/* ─── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-6 py-24 md:py-32">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 bg-coral-50 text-coral-600 text-sm font-semibold px-4 py-1.5 rounded-full mb-8 border border-coral-100">
-              <span>🌿</span>
-              <span>Postpartum care, finally done right</span>
+        {/* Hero content — centered */}
+        <div className="relative z-10 flex flex-col items-center text-center px-6 py-24 w-full max-w-4xl mx-auto">
+          {/* Category badge */}
+          <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 text-white/90 text-xs font-semibold uppercase tracking-widest px-4 py-2 rounded-full mb-8 backdrop-blur-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#95d0d9]" />
+            Postpartum Care &amp; Support
+          </div>
+
+          {/* Headline */}
+          <h1 className="font-display text-[2.8rem] sm:text-[3.8rem] lg:text-[5rem] font-bold leading-[1.1] tracking-[-0.03em] text-white mb-6">
+            Support the Mother,
+            <br />
+            <em className="not-italic text-[#dfa677]">Not Just</em> the Baby.
+          </h1>
+
+          {/* Body copy */}
+          <p className="text-white/80 text-lg md:text-xl leading-relaxed mb-2 max-w-2xl">
+            Your village can now fund real postpartum care — doulas, meals, mental health,
+            physical recovery — all through a single registry.
+          </p>
+
+          {/* Embedded search bar */}
+          <HeroSearch />
+
+          {/* CTA buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 mt-8">
+            <Link
+              href="/auth?tab=register&role=mother"
+              className="inline-flex items-center justify-center bg-[#00343a] hover:bg-[#004c54] active:bg-[#00272c] text-white font-semibold px-8 py-3.5 rounded-full text-base transition-colors shadow-[0_12px_40px_rgba(0,52,58,0.5)]"
+            >
+              Start Your Registry
+            </Link>
+            <Link
+              href="/auth?tab=register&role=supporter"
+              className="inline-flex items-center justify-center border-2 border-white/40 hover:border-white/70 text-white font-semibold px-8 py-3.5 rounded-full text-base transition-colors backdrop-blur-sm hover:bg-white/10"
+            >
+              Gift Care to a Mother
+            </Link>
+          </div>
+
+          {/* Social proof strip */}
+          <div className="mt-10 flex items-center gap-4">
+            <div className="flex -space-x-2">
+              {['#dfa677', '#95d0d9', '#e1dfdb', '#633b15'].map((c, i) => (
+                <span
+                  key={i}
+                  className="w-9 h-9 rounded-full border-2 border-white/30 inline-block"
+                  style={{ background: c }}
+                  aria-hidden
+                />
+              ))}
             </div>
-            <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-teal-700 leading-tight text-balance mb-6">
-              Your village,{' '}
-              <span className="text-coral-500">organized</span>{' '}
-              to care for you.
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-600 leading-relaxed mb-10 max-w-2xl text-balance">
-              TRIBE is the postpartum care marketplace that connects new mothers 
-              with the services they need, and makes it easy for loved ones to 
-              actually help.
+            <p className="text-white/70 text-sm">
+              <span className="font-semibold text-white">500+</span> mothers supported this year
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                href="/auth?tab=register&role=mother"
-                className="inline-flex items-center justify-center gap-2 bg-teal-700 text-white font-semibold px-8 py-4 rounded-full text-lg hover:bg-teal-800 transition-colors shadow-lg shadow-teal-700/20"
-              >
-                Create your registry
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </Link>
-              <Link
-                href="#how-it-works"
-                className="inline-flex items-center justify-center gap-2 bg-white text-teal-700 font-semibold px-8 py-4 rounded-full text-lg border-2 border-teal-200 hover:border-teal-400 transition-colors"
-              >
-                How it works
-              </Link>
-            </div>
           </div>
         </div>
 
-        {/* Decorative blobs */}
+        {/* Scroll cue */}
         <div
           aria-hidden
-          className="absolute -top-20 -right-20 w-96 h-96 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #E97451, transparent)' }}
-        />
-        <div
-          aria-hidden
-          className="absolute bottom-0 left-1/3 w-64 h-64 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #004C54, transparent)' }}
-        />
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center gap-1 text-white/40 animate-bounce"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </div>
       </section>
 
       {/* ─── Problem ─────────────────────────────────────────────────────────── */}

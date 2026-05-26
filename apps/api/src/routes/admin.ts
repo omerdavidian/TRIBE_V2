@@ -156,9 +156,20 @@ async function getMigrationStats() {
 const adminRoutes: FastifyPluginAsync = async (fastify) => {
   const adminOnly = requireRole('admin')
 
+  /** Extra guard for the most sensitive endpoint:
+   *  requires role=admin AND the specific bootstrap admin email.
+   *  Prevents accidental or elevation-based access via other admin accounts. */
+  async function requireBootstrapAdmin(request: import('fastify').FastifyRequest) {
+    await adminOnly(request)
+    const email = request.user?.email ?? ''
+    if (email.toLowerCase() !== 'omerdavidian@gmail.com') {
+      throw { statusCode: 403, message: 'Forbidden — reserved for the platform owner' }
+    }
+  }
+
   fastify.get(
     '/dashboard/admin/overview',
-    { preHandler: adminOnly },
+    { preHandler: requireBootstrapAdmin },
     async (_request, reply) => {
       const now = new Date()
       const d30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)

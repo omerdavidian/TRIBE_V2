@@ -206,6 +206,43 @@ export async function ensureBaselineSchema() {
     );
   `)
 
+  // Patch: add avatar_url to provider_profiles if it was created without it
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "avatar_url" text;
+  `)
+
+  // Patch: add all other provider_profiles columns that may be missing in older DBs
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "website_url" text;
+  `)
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "stripe_account_id" text;
+  `)
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "stripe_onboarding_completed" boolean default false not null;
+  `)
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "review_note" text;
+  `)
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "reviewed_at" timestamp with time zone;
+  `)
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "updated_at" timestamp with time zone default now() not null;
+  `)
+  // Patch: application_status — critical column missing from older DBs
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "application_status" "public"."application_status" not null default 'pending';
+  `)
+
   await db.execute(sql`
     create table if not exists "provider_services" (
       "id" uuid primary key default gen_random_uuid() not null,
@@ -233,6 +270,31 @@ export async function ensureBaselineSchema() {
     );
   `)
 
+  // Patch: add any registries columns missing from older DBs
+  await db.execute(sql`alter table if exists "registries" add column if not exists "user_id" uuid;`)
+  await db.execute(sql`alter table if exists "registries" add column if not exists "slug" text;`)
+  await db.execute(sql`alter table if exists "registries" add column if not exists "title" text;`)
+  await db.execute(sql`alter table if exists "registries" add column if not exists "description" text;`)
+  await db.execute(sql`alter table if exists "registries" add column if not exists "due_date" timestamp with time zone;`)
+  await db.execute(sql`alter table if exists "registries" add column if not exists "is_published" boolean default false not null;`)
+  await db.execute(sql`alter table if exists "registries" add column if not exists "cover_image_url" text;`)
+  await db.execute(sql`alter table if exists "registries" add column if not exists "target_amount_cents" integer;`)
+  await db.execute(sql`alter table if exists "registries" add column if not exists "created_at" timestamp with time zone default now() not null;`)
+  await db.execute(sql`alter table if exists "registries" add column if not exists "updated_at" timestamp with time zone default now() not null;`)
+  // Patch: if old column name "mother_user_id" exists, copy its values into "user_id"
+  await db.execute(sql`
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'registries' AND column_name = 'mother_user_id'
+      ) THEN
+        UPDATE "registries" SET "user_id" = "mother_user_id" WHERE "user_id" IS NULL;
+        ALTER TABLE "registries" ALTER COLUMN "mother_user_id" DROP NOT NULL;
+      END IF;
+    END $$;
+  `)
+
   await db.execute(sql`
     create table if not exists "registry_items" (
       "id" uuid primary key default gen_random_uuid() not null,
@@ -246,6 +308,37 @@ export async function ensureBaselineSchema() {
       "is_fulfilled" boolean not null default false,
       "sort_order" integer not null default 0
     );
+  `)
+
+  // Patch: registry_items columns
+  await db.execute(sql`alter table if exists "registry_items" add column if not exists "registry_id" uuid;`)
+  await db.execute(sql`alter table if exists "registry_items" add column if not exists "category_id" uuid;`)
+  await db.execute(sql`alter table if exists "registry_items" add column if not exists "provider_profile_id" uuid;`)
+  await db.execute(sql`alter table if exists "registry_items" add column if not exists "title" text;`)
+  await db.execute(sql`alter table if exists "registry_items" add column if not exists "description" text;`)
+  await db.execute(sql`alter table if exists "registry_items" add column if not exists "target_amount_cents" integer;`)
+  await db.execute(sql`alter table if exists "registry_items" add column if not exists "funded_amount_cents" integer default 0 not null;`)
+  await db.execute(sql`alter table if exists "registry_items" add column if not exists "is_fulfilled" boolean default false not null;`)
+  await db.execute(sql`alter table if exists "registry_items" add column if not exists "sort_order" integer default 0 not null;`)
+  // Patch: relax NOT NULL constraints on all legacy columns in registry_items
+  // that are not part of the current schema (to allow inserts without those fields)
+  await db.execute(sql`
+    DO $$
+    DECLARE col text;
+    BEGIN
+      FOR col IN
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'registry_items'
+          AND is_nullable = 'NO'
+          AND column_name NOT IN (
+            'id', 'registry_id', 'category_id', 'provider_profile_id',
+            'title', 'description', 'target_amount_cents', 'funded_amount_cents',
+            'is_fulfilled', 'sort_order', 'created_at', 'updated_at'
+          )
+      LOOP
+        EXECUTE format('ALTER TABLE registry_items ALTER COLUMN %I DROP NOT NULL', col);
+      END LOOP;
+    END $$;
   `)
 
   await db.execute(sql`

@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, isNull, desc } from 'drizzle-orm'
+import { eq, and, ilike, or, desc } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { registries, registryItems } from '../db/schema.js'
+import { registries, registryItems, users } from '../db/schema.js'
 import { requireAuth, requireRole } from '../plugins/auth.js'
 
 const createRegistrySchema = z.object({
@@ -85,6 +85,48 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.send(myRegistries)
     }
   )
+
+  // GET /registries/search — public unauthenticated directory search
+  fastify.get('/registries/search', async (request, reply) => {
+    const { q = '' } = request.query as { q?: string }
+    const term = q.trim()
+
+    const conditions = [eq(registries.isPublished, true)]
+    if (term) {
+      conditions.push(ilike(registries.title, `%${term}%`))
+    }
+
+    const rows = await db.query.registries.findMany({
+      where: and(...conditions),
+      orderBy: [desc(registries.createdAt)],
+      limit: 40,
+      with: {
+        user: {
+          columns: {
+            id: true,
+            fullName: true,
+            avatarUrl: true,
+            email: false,
+            passwordHash: false,
+            googleId: false,
+            appleId: false,
+            emailVerificationToken: false,
+            passwordResetToken: false,
+          },
+        },
+        items: {
+          columns: {
+            id: true,
+            targetAmountCents: true,
+            fundedAmountCents: true,
+            isFulfilled: true,
+          },
+        },
+      },
+    })
+
+    return reply.send(rows)
+  })
 
   // GET /registries/:slug, public view
   fastify.get('/registries/:slug', async (request, reply) => {

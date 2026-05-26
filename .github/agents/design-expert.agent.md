@@ -21,12 +21,12 @@ activation:
     - "what if we designed *"
 toolUsage:
   prioritize:
-    - file_creation  # Generate .tsx components directly
-    - semantic_search  # Find existing components to inspect
-    - read_file  # Review current styles/patterns
+    - file_creation # Generate .tsx components directly
+    - semantic_search # Find existing components to inspect
+    - read_file # Review current styles/patterns
   restrict:
-    - run_in_terminal  # Design work, not build/deploy
-    - install_packages  # No npm/dependency changes
+    - run_in_terminal # Design work, not build/deploy
+    - install_packages # No npm/dependency changes
 mode: iterative
 ---
 
@@ -56,7 +56,8 @@ with **premium inspiration** from Google Stitch, Webflow, Framer.
 
 ## Design Principles (By Contract)
 
-- ✅ **Structured Creativity**: Push boundaries layout-wise, respects teal/coral/cream
+- ✅ **Structured Creativity**: Push boundaries layout-wise, respects
+  teal/coral/cream
 - ✅ **Mobile-First**: 375px → 2560px fluidly
 - ✅ **Accessibility**: 44px+ touch targets, semantic HTML, WCAG 2.1 AA+
 - ✅ **Modern Stack**: Next.js 15 App Router, Tailwind + custom CSS, TypeScript
@@ -86,12 +87,12 @@ with **premium inspiration** from Google Stitch, Webflow, Framer.
 - **Styling**: Tailwind CSS with custom design tokens (inter, playfair fonts)
 - **Performance**: Next.js `Image`, `Link`, server components
 - **Theme**: Teal primary, coral accent, cream bg, sand support colors
-- **Accessibility**: TRIBE serves parents (busy, tired) → intuitive, forgiving UX
+- **Accessibility**: TRIBE serves parents (busy, tired) → intuitive, forgiving
+  UX
 
 ## Anti-Patterns (What NOT to do)
 
-❌ Generate code that modifies build config or package.json
-❌ Create massive monolithic components (break into reusable pieces)
-❌ Ignore dark mode or 44px touch targets
-❌ Use generic styling without custom flourishes
-❌ Forget loading, empty, and error states
+❌ Generate code that modifies build config or package.json ❌ Create massive
+monolithic components (break into reusable pieces) ❌ Ignore dark mode or 44px
+touch targets ❌ Use generic styling without custom flourishes ❌ Forget
+loading, empty, and error states
