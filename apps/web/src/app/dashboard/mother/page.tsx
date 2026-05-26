@@ -9,7 +9,7 @@ import type { User } from '@tribe/shared'
 
 type Section = 'home' | 'registry' | 'bookings' | 'security'
 
-const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
+const NAV_ITEMS: { id: Section | 'services'; label: string; icon: React.ReactNode; href?: string }[] = [
   {
     id: 'home', label: 'Home',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
@@ -17,6 +17,10 @@ const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   {
     id: 'registry', label: 'My Registry',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/></svg>,
+  },
+  {
+    id: 'services', label: 'Services', href: '/dashboard/mother/services',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>,
   },
   {
     id: 'bookings', label: 'Bookings',
@@ -76,16 +80,26 @@ export default function MotherDashboard() {
           <ul className="space-y-1">
             {NAV_ITEMS.map((item) => (
               <li key={item.id}>
-                <button
-                  onClick={() => { setSection(item.id); setSidebarOpen(false) }}
-                  className={[
-                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left',
-                    section === item.id ? 'bg-white/10 text-white' : 'text-[#95d0d9]/70 hover:bg-white/5 hover:text-white',
-                  ].join(' ')}
-                >
-                  <span className="flex-shrink-0 opacity-80">{item.icon}</span>
-                  {item.label}
-                </button>
+                {item.href ? (
+                  <Link
+                    href={item.href}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-[#95d0d9]/70 hover:bg-white/5 hover:text-white"
+                  >
+                    <span className="flex-shrink-0 opacity-80">{item.icon}</span>
+                    {item.label}
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => { setSection(item.id as Section); setSidebarOpen(false) }}
+                    className={[
+                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left',
+                      section === item.id ? 'bg-white/10 text-white' : 'text-[#95d0d9]/70 hover:bg-white/5 hover:text-white',
+                    ].join(' ')}
+                  >
+                    <span className="flex-shrink-0 opacity-80">{item.icon}</span>
+                    {item.label}
+                  </button>
+                )}
               </li>
             ))}
           </ul>

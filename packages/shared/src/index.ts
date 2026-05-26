@@ -21,6 +21,8 @@ export type BookingStatus =
 
 export type DonationStatus = 'pending' | 'completed' | 'refunded' | 'failed'
 
+export type FundingFrequency = 'one_time' | 'daily' | 'weekly' | 'monthly'
+
 // ─── Core entities ────────────────────────────────────────────────────────────
 
 export interface User {
@@ -49,6 +51,9 @@ export interface ProviderProfile {
   websiteUrl: string | null
   stripeOnboardingCompleted: boolean
   applicationStatus: ApplicationStatus
+  averageRating?: number
+  reviewCount?: number
+  recommendCount?: number
   createdAt: string
   updatedAt: string
 }
@@ -97,6 +102,8 @@ export interface RegistryItem {
   fundedAmountCents: number
   isFulfilled: boolean
   sortOrder: number
+  customPurpose: string | null
+  fundingFrequency: FundingFrequency
 }
 
 export interface Donation {
@@ -129,6 +136,16 @@ export interface Booking {
 export interface WaitlistEntry {
   id: string
   email: string
+  createdAt: string
+}
+
+export interface ProviderReview {
+  id: string
+  providerProfileId: string
+  motherId: string
+  rating: number
+  isRecommended: boolean
+  reviewText: string | null
   createdAt: string
 }
 

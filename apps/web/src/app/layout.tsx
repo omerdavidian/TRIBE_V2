@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Inter, Playfair_Display } from 'next/font/google'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import './globals.css'
 import ThemeController from '@/components/theme-controller'
 import NavFooterWrapper from '@/components/nav-footer-wrapper'
@@ -54,6 +55,7 @@ export default function RootLayout({
             {children}
           </NavFooterWrapper>
         </SessionProvider>
+        <SpeedInsights />
       </body>
     </html>
   )

@@ -68,9 +68,17 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     const query = request.query as Record<string, string>
     const limit = Math.min(parseInt(query['limit'] ?? '20', 10), 100)
     const offset = parseInt(query['offset'] ?? '0', 10)
+    const location = query['location']?.trim() ?? ''
+
+    const whereClause = location
+      ? sql`${providerProfiles.applicationStatus} = 'approved' and exists (
+          select 1 from unnest(${providerProfiles.serviceAreas}) as area
+          where area ilike ${'%' + location + '%'}
+        )`
+      : eq(providerProfiles.applicationStatus, 'approved')
 
     const profiles = await db.query.providerProfiles.findMany({
-      where: eq(providerProfiles.applicationStatus, 'approved'),
+      where: () => whereClause,
       limit,
       offset,
       with: {
@@ -94,7 +102,16 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
       },
     })
 
-    return reply.send(profiles)
+    const ratingsMap = await getRatingsMap(profiles.map((p) => p.id))
+
+    return reply.send(
+      profiles.map((p) => ({
+        ...p,
+        averageRating: ratingsMap.get(p.id)?.avgRating ?? 0,
+        reviewCount: ratingsMap.get(p.id)?.reviewCount ?? 0,
+        recommendCount: ratingsMap.get(p.id)?.recommendCount ?? 0,
+      }))
+    )
   })
 
   // GET /catalog/providers/:id
@@ -128,8 +145,66 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Provider not found' })
     }
 
-    return reply.send(profile)
+    const ratingsMap = await getRatingsMap([profile.id])
+    const ratingData = ratingsMap.get(profile.id)
+
+    return reply.send({
+      ...profile,
+      averageRating: ratingData?.avgRating ?? 0,
+      reviewCount: ratingData?.reviewCount ?? 0,
+      recommendCount: ratingData?.recommendCount ?? 0,
+    })
   })
+
+  // POST /catalog/providers/:id/reviews — mothers only
+  fastify.post(
+    '/catalog/providers/:id/reviews',
+    { preHandler: [requireRole('mother')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+
+      const body = createReviewSchema.safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: body.error.flatten().fieldErrors,
+        })
+      }
+
+      const profile = await db.query.providerProfiles.findFirst({
+        where: eq(providerProfiles.id, id),
+      })
+
+      if (!profile || profile.applicationStatus !== 'approved') {
+        return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Provider not found' })
+      }
+
+      const motherId = request.user!.sub
+
+      // Upsert: one review per mother per provider
+      const [review] = await db
+        .insert(providerReviews)
+        .values({
+          providerProfileId: id,
+          motherId,
+          rating: body.data.rating,
+          isRecommended: body.data.isRecommended,
+          reviewText: body.data.reviewText ?? null,
+        })
+        .onConflictDoUpdate({
+          target: [providerReviews.providerProfileId, providerReviews.motherId],
+          set: {
+            rating: body.data.rating,
+            isRecommended: body.data.isRecommended,
+            reviewText: body.data.reviewText ?? null,
+          },
+        })
+        .returning()
+
+      return reply.status(201).send(review)
+    }
+  )
 }
 
 export default catalogRoutes
