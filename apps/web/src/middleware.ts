@@ -1,9 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server'
+import { get } from '@vercel/edge-config'
 
 const DEFAULT_PRODUCTION_HOSTS = ['tribewishlist.com', 'www.tribewishlist.com']
 
 const EXCLUDED_PREFIXES = [
   '/coming-soon',
+  '/maintenance',
   '/_next',
   '/api/waitlist',
   '/images',
@@ -40,9 +42,19 @@ function isExcludedPath(pathname: string): boolean {
   return EXCLUDED_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const host = normalizeHost(request.headers.get('host'))
+
+  // Check for maintenance mode from Edge Config
+  try {
+    const maintenanceMode = await get('maintenanceMode')
+    if (maintenanceMode === true && !pathname.startsWith('/maintenance')) {
+      return NextResponse.redirect(new URL('/maintenance', request.url), 307)
+    }
+  } catch (error) {
+    // Edge Config not available, continue normally
+  }
 
   if (host === 'www.tribewishlist.com' && !isExcludedPath(pathname)) {
     return NextResponse.redirect(new URL('/coming-soon', request.url), 307)
