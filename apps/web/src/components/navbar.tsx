@@ -44,16 +44,19 @@ export default function Navbar() {
           TRIBE
         </Link>
 
-        {/* Center — nav links */}
-        <div className="hidden md:flex items-center gap-8 text-sm font-medium text-[#40484a] dark:text-[#95d0d9]/80">
-          <Link href="/#how-it-works" className="hover:text-coral-500 dark:hover:text-coral-400 transition-colors">
+        {/* Center — nav links (always perfectly centered via grid) */}
+        <div className="hidden md:flex items-center gap-6 text-sm font-medium text-[#40484a] dark:text-[#95d0d9]/80">
+          <Link href="/#how-it-works" className="hover:text-teal-600 dark:hover:text-[#95d0d9] transition-colors">
             How it works
           </Link>
-          <Link href="/search" className="hover:text-coral-500 dark:hover:text-coral-400 transition-colors">
-            Registries
-          </Link>
-          <Link href="/#services" className="hover:text-coral-500 dark:hover:text-coral-400 transition-colors">
+          <Link href="/#services" className="hover:text-teal-600 dark:hover:text-[#95d0d9] transition-colors">
             Services
+          </Link>
+          <Link href="/#testimonials" className="hover:text-teal-600 dark:hover:text-[#95d0d9] transition-colors">
+            Testimonials
+          </Link>
+          <Link href="/search" className="font-semibold text-coral-500 dark:text-coral-400 hover:text-coral-600 dark:hover:text-coral-300 transition-colors">
+            Search Registries
           </Link>
         </div>
 

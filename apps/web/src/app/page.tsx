@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import ThemeToggle from '@/components/theme-toggle'
 
 export const metadata: Metadata = {
   title: 'TRIBE, Real Postpartum Support for New Mothers',
@@ -65,44 +64,6 @@ const TESTIMONIALS = [
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-cream-100 font-sans">
-      {/* ─── Nav ─────────────────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-50 bg-cream-100/95 backdrop-blur border-b border-cream-200">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-display font-bold text-2xl text-teal-700 tracking-tight">
-            TRIBE
-          </Link>
-          <div className="hidden md:flex items-center gap-8 text-sm font-medium text-gray-600">
-            <Link href="#how-it-works" className="hover:text-coral-500 transition-colors">
-              How it works
-            </Link>
-            <Link href="#services" className="hover:text-coral-500 transition-colors">
-              Services
-            </Link>
-            <Link href="#testimonials" className="hover:text-coral-500 transition-colors">
-              Testimonials
-            </Link>
-            <Link href="/coming-soon" className="font-bold text-coral-500 hover:text-coral-600 transition-colors">
-              Search Registries
-            </Link>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link
-              href="/auth"
-              className="text-sm font-medium text-teal-700 hover:text-coral-600 transition-colors"
-            >
-              Log in
-            </Link>
-            <Link
-              href="/auth?tab=register"
-              className="text-sm font-semibold bg-coral-500 text-white px-4 py-2 rounded-full hover:bg-coral-600 transition-colors"
-            >
-              Get started
-            </Link>
-          </div>
-        </div>
-      </nav>
-
       {/* ─── Hero ────────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden">
         <div className="max-w-6xl mx-auto px-6 py-24 md:py-32">

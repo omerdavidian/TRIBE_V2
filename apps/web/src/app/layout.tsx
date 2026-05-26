@@ -25,9 +25,6 @@ export const metadata: Metadata = {
   description:
     'TRIBE connects new mothers with the postpartum care services they need. Create a registry, let loved ones contribute, and book the support that truly helps.',
   metadataBase: new URL('https://tribewishlist.com'),
-  icons: {
-    icon: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🤍</text></svg>",
-  },
   openGraph: {
     type: 'website',
     siteName: 'TRIBE',

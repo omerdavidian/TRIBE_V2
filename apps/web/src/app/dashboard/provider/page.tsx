@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getStoredUser, logout } from '@/lib/auth'
@@ -9,19 +9,34 @@ import type { User } from '@tribe/shared'
 
 type Section = 'home' | 'profile' | 'bookings' | 'earnings' | 'security'
 
-const NAV_ITEMS: { id: Section; label: string; icon: string }[] = [
-  { id: 'home', label: 'Home', icon: '🏠' },
-  { id: 'profile', label: 'Profile', icon: '🌿' },
-  { id: 'bookings', label: 'Bookings', icon: '📅' },
-  { id: 'earnings', label: 'Earnings', icon: '💰' },
-  { id: 'security', label: 'Security', icon: '🔐' },
+const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
+  {
+    id: 'home', label: 'Home',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  },
+  {
+    id: 'profile', label: 'Profile',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>,
+  },
+  {
+    id: 'bookings', label: 'Bookings',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>,
+  },
+  {
+    id: 'earnings', label: 'Earnings',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
+  },
+  {
+    id: 'security', label: 'Security',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  },
 ]
 
 export default function ProviderDashboard() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [section, setSection] = useState<Section>('home')
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => {
     const stored = getStoredUser()
@@ -32,176 +47,151 @@ export default function ProviderDashboard() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-[#f7f4f2] flex items-center justify-center">
+      <div className="h-screen bg-[#f7f4f2] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#00343a] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
 
   const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName || 'Provider'
-  const initials = [user.firstName?.[0], user.lastName?.[0]].filter(Boolean).join('').toUpperCase() || user.email.charAt(0).toUpperCase()
+  const initials = (user.firstName?.[0] ?? user.email.charAt(0)).toUpperCase()
 
   return (
-    <div className="min-h-screen bg-[#f7f4f2] flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-[#e8e1db] px-4 py-3 flex items-center justify-between">
-        <Link href="/" className="font-serif font-bold text-xl text-[#00343a]">TRIBE</Link>
+    <div className="h-screen overflow-hidden bg-[#f7f4f2] font-sans flex">
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+        </div>
+      )}
 
-        <nav className="hidden md:flex items-center gap-1">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setSection(item.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                section === item.id
-                  ? 'bg-[#e8f4f5] text-[#00343a]'
-                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              <span>{item.icon}</span>
-              {item.label}
-            </button>
-          ))}
+      <aside className={[
+        'fixed top-0 left-0 h-screen w-64 bg-[#00343a] text-white flex flex-col z-50 transition-transform duration-200',
+        'lg:translate-x-0 lg:static lg:z-auto lg:flex-shrink-0',
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full',
+      ].join(' ')}>
+        <div className="h-16 flex items-center px-5 border-b border-[#054f57]/60">
+          <Link href="/" className="font-serif font-bold text-xl text-white tracking-tight">TRIBE</Link>
+          <span className="ml-2 text-[#95d0d9]/60 text-xs font-semibold uppercase tracking-widest">Provider</span>
+        </div>
+        <nav className="flex-1 overflow-y-auto py-4 px-3">
+          <p className="text-[#95d0d9]/40 text-[10px] font-semibold uppercase tracking-widest px-3 mb-3">Dashboard</p>
+          <ul className="space-y-1">
+            {NAV_ITEMS.map((item) => (
+              <li key={item.id}>
+                <button
+                  onClick={() => { setSection(item.id); setSidebarOpen(false) }}
+                  className={[
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left',
+                    section === item.id ? 'bg-white/10 text-white' : 'text-[#95d0d9]/70 hover:bg-white/5 hover:text-white',
+                  ].join(' ')}
+                >
+                  <span className="flex-shrink-0 opacity-80">{item.icon}</span>
+                  {item.label}
+                </button>
+              </li>
+            ))}
+          </ul>
         </nav>
+        <div className="p-4 border-t border-[#054f57]/60 space-y-2">
+          <div className="flex items-center gap-2 px-1 mb-3">
+            <div className="w-7 h-7 rounded-full bg-[#29676f] flex items-center justify-center text-xs font-bold text-white flex-shrink-0">{initials}</div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-white truncate">{displayName}</p>
+              <p className="text-[10px] text-[#95d0d9]/60 truncate">{user.email}</p>
+            </div>
+          </div>
+          <button onClick={() => { logout(); router.replace('/') }} className="w-full text-xs text-[#95d0d9]/70 hover:text-white py-2 px-3 rounded-lg hover:bg-white/5 transition-colors text-left">Sign out</button>
+        </div>
+      </aside>
 
-        <div className="relative">
-          <button
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="w-10 h-10 rounded-full bg-[#00343a] text-white text-sm font-bold flex items-center justify-center"
-          >
-            {initials}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <header className="sticky top-0 z-30 bg-[#f7f4f2]/95 backdrop-blur border-b border-[#e0ebe9] h-16 flex items-center px-4 sm:px-6 gap-3">
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg text-[#40484a] hover:bg-[#e8f4f0] transition-colors" aria-label="Open menu">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
-          {menuOpen && (
-            <div className="absolute right-0 top-12 w-52 bg-white rounded-2xl shadow-lg border border-[#e8e1db] py-2 z-50">
-              <div className="px-4 py-2 border-b border-[#e8e1db]">
-                <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
-                <p className="text-xs text-gray-400 truncate">{user.email}</p>
+          <h1 className="flex-1 text-sm font-semibold text-[#00343a]">{NAV_ITEMS.find(t => t.id === section)?.label}</h1>
+        </header>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+
+          {section === 'home' && (
+            <div className="max-w-3xl space-y-6">
+              <div className="bg-gradient-to-br from-[#00343a] to-[#29676f] rounded-3xl p-8 text-white">
+                <p className="text-[#95d0d9] text-sm font-medium mb-1">Provider dashboard</p>
+                <h1 className="font-serif text-3xl font-bold mb-2">Welcome, {user.firstName ?? displayName} 🌿</h1>
+                <p className="text-[#95d0d9] text-sm">Manage your services and bookings</p>
               </div>
-              {NAV_ITEMS.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => { setSection(item.id); setMenuOpen(false) }}
-                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-[#f7f4f2] flex items-center gap-2"
-                >
-                  <span>{item.icon}</span>{item.label}
-                </button>
-              ))}
-              <div className="border-t border-[#e8e1db] mt-2 pt-2">
-                <button
-                  onClick={logout}
-                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                >
-                  Sign out
-                </button>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[
+                  { label: 'Pending bookings', value: '0', bg: 'bg-[#fef3ed]', text: 'text-[#c05928]' },
+                  { label: 'Completed this month', value: '0', bg: 'bg-[#e8f4f5]', text: 'text-[#00343a]' },
+                  { label: 'Earnings (MTD)', value: '$0', bg: 'bg-[#f0f9f0]', text: 'text-[#2d7a2d]' },
+                ].map((s) => (
+                  <div key={s.label} className={`${s.bg} rounded-2xl p-6`}>
+                    <p className={`text-3xl font-bold ${s.text}`}>{s.value}</p>
+                    <p className="text-sm text-gray-600 mt-1">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="bg-white rounded-2xl p-6 border border-[#e8e1db]">
+                <h2 className="font-semibold text-gray-900 mb-4">Quick actions</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { label: 'Manage profile', onClick: () => setSection('profile'), icon: '🌿' },
+                    { label: 'View bookings', onClick: () => setSection('bookings'), icon: '📅' },
+                    { label: 'Check earnings', onClick: () => setSection('earnings'), icon: '💰' },
+                    { label: 'Security settings', onClick: () => setSection('security'), icon: '🔐' },
+                  ].map((a) => (
+                    <button key={a.label} onClick={a.onClick} className="flex items-center gap-3 p-4 rounded-2xl border border-[#e8e1db] hover:bg-[#f7f4f2] transition-colors text-sm font-medium text-gray-700 text-left">
+                      <span className="text-lg">{a.icon}</span>{a.label}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
-        </div>
-      </header>
 
-      {/* Mobile bottom nav */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#e8e1db] flex z-40">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setSection(item.id)}
-            className={`flex-1 flex flex-col items-center gap-0.5 py-3 text-xs font-medium transition-colors ${
-              section === item.id ? 'text-[#00343a]' : 'text-gray-400'
-            }`}
-          >
-            <span className="text-lg leading-none">{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
-      </nav>
-
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 py-8 pb-24 md:pb-8">
-
-        {section === 'home' && (
-          <div className="space-y-6">
-            <div className="bg-gradient-to-br from-[#00343a] to-[#29676f] rounded-3xl p-8 text-white">
-              <p className="text-[#95d0d9] text-sm font-medium mb-1">Provider dashboard</p>
-              <h1 className="font-serif text-3xl font-bold mb-2">Welcome, {user.firstName ?? displayName} 🌿</h1>
-              <p className="text-[#95d0d9] text-sm">Manage your services and bookings</p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {[
-                { label: 'Pending bookings', value: '0', color: 'bg-[#fef3ed]', text: 'text-[#c05928]' },
-                { label: 'Completed this month', value: '0', color: 'bg-[#e8f4f5]', text: 'text-[#00343a]' },
-                { label: 'Earnings (MTD)', value: '$0', color: 'bg-[#f0f9f0]', text: 'text-[#2d7a2d]' },
-              ].map((stat) => (
-                <div key={stat.label} className={`${stat.color} rounded-2xl p-6`}>
-                  <p className={`text-3xl font-bold ${stat.text}`}>{stat.value}</p>
-                  <p className="text-sm text-gray-600 mt-1">{stat.label}</p>
-                </div>
-              ))}
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 border border-[#e8e1db]">
-              <h2 className="font-semibold text-gray-900 mb-4">Quick actions</h2>
-              <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label: 'Manage profile', onClick: () => setSection('profile'), icon: '🌿' },
-                  { label: 'View bookings', onClick: () => setSection('bookings'), icon: '📅' },
-                  { label: 'Check earnings', onClick: () => setSection('earnings'), icon: '💰' },
-                  { label: 'Security settings', onClick: () => setSection('security'), icon: '🔐' },
-                ].map((action) => (
-                  <button
-                    key={action.label}
-                    onClick={action.onClick}
-                    className="flex items-center gap-3 p-4 rounded-2xl border border-[#e8e1db] hover:bg-[#f7f4f2] transition-colors text-sm font-medium text-gray-700 text-left"
-                  >
-                    <span className="text-lg">{action.icon}</span>
-                    {action.label}
-                  </button>
-                ))}
+          {section === 'profile' && (
+            <div className="max-w-3xl space-y-6">
+              <h1 className="font-serif text-2xl font-bold text-[#00343a]">Provider Profile</h1>
+              <div className="bg-white rounded-2xl p-12 border border-[#e8e1db] flex flex-col items-center justify-center text-center">
+                <div className="text-5xl mb-4">🌿</div>
+                <h2 className="font-semibold text-gray-900 mb-2">Profile setup coming soon</h2>
+                <p className="text-sm text-gray-500">Complete your provider profile to start receiving bookings.</p>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {section === 'profile' && (
-          <div className="space-y-6">
-            <h1 className="font-serif text-2xl font-bold text-[#00343a]">Provider Profile</h1>
-            <div className="bg-white rounded-2xl p-8 border border-[#e8e1db] text-center">
-              <div className="text-5xl mb-4">🌿</div>
-              <h2 className="font-semibold text-gray-900 mb-2">Profile setup coming soon</h2>
-              <p className="text-sm text-gray-500">Complete your provider profile to start receiving bookings.</p>
+          {section === 'bookings' && (
+            <div className="max-w-3xl space-y-6">
+              <h1 className="font-serif text-2xl font-bold text-[#00343a]">Bookings</h1>
+              <div className="bg-white rounded-2xl p-12 border border-[#e8e1db] flex flex-col items-center justify-center text-center">
+                <div className="text-5xl mb-4">📅</div>
+                <h2 className="font-semibold text-gray-900 mb-2">No bookings yet</h2>
+                <p className="text-sm text-gray-500">Complete your profile to start receiving booking requests.</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {section === 'bookings' && (
-          <div className="space-y-6">
-            <h1 className="font-serif text-2xl font-bold text-[#00343a]">Bookings</h1>
-            <div className="bg-white rounded-2xl p-12 border border-[#e8e1db] flex flex-col items-center justify-center text-center">
-              <div className="text-5xl mb-4">📅</div>
-              <h2 className="font-semibold text-gray-900 mb-2">No bookings yet</h2>
-              <p className="text-sm text-gray-500">Complete your profile to start receiving booking requests.</p>
+          {section === 'earnings' && (
+            <div className="max-w-3xl space-y-6">
+              <h1 className="font-serif text-2xl font-bold text-[#00343a]">Earnings</h1>
+              <div className="bg-white rounded-2xl p-12 border border-[#e8e1db] flex flex-col items-center justify-center text-center">
+                <div className="text-5xl mb-4">💰</div>
+                <h2 className="font-semibold text-gray-900 mb-2">No earnings yet</h2>
+                <p className="text-sm text-gray-500">Your earnings will appear here once you complete bookings.</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {section === 'earnings' && (
-          <div className="space-y-6">
-            <h1 className="font-serif text-2xl font-bold text-[#00343a]">Earnings</h1>
-            <div className="bg-white rounded-2xl p-12 border border-[#e8e1db] flex flex-col items-center justify-center text-center">
-              <div className="text-5xl mb-4">💰</div>
-              <h2 className="font-semibold text-gray-900 mb-2">No earnings yet</h2>
-              <p className="text-sm text-gray-500">Your earnings will appear here once you complete bookings.</p>
+          {section === 'security' && (
+            <div className="max-w-2xl space-y-6">
+              <h1 className="font-serif text-2xl font-bold text-[#00343a]">Security</h1>
+              <ChangePasswordForm />
             </div>
-          </div>
-        )}
+          )}
 
-        {section === 'security' && (
-          <div className="space-y-6">
-            <h1 className="font-serif text-2xl font-bold text-[#00343a]">Security</h1>
-            <ChangePasswordForm />
-          </div>
-        )}
-
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
