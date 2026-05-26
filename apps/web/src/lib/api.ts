@@ -23,6 +23,15 @@ export async function apiRequest<T>(
   const response = await fetch(url, { ...fetchOptions, headers })
 
   if (!response.ok) {
+    // Global 401 handler — expired/invalid session
+    if (response.status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem('tribe_access_token')
+      localStorage.removeItem('tribe_user')
+      window.location.replace('/auth?reason=session_expired')
+      // Throw to stop caller execution while redirect is in flight
+      throw Object.assign(new Error('Session expired'), { status: 401 })
+    }
+
     const error = await response.json().catch(() => ({
       message: response.statusText,
     }))

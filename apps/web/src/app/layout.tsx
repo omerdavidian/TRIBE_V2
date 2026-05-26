@@ -3,6 +3,7 @@ import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import ThemeController from '@/components/theme-controller'
 import NavFooterWrapper from '@/components/nav-footer-wrapper'
+import SessionProvider from '@/components/session-provider'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -48,9 +49,11 @@ export default function RootLayout({
     <html lang="en" className={`${inter.variable} ${playfair.variable}`} suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>
         <ThemeController />
-        <NavFooterWrapper>
-          {children}
-        </NavFooterWrapper>
+        <SessionProvider>
+          <NavFooterWrapper>
+            {children}
+          </NavFooterWrapper>
+        </SessionProvider>
       </body>
     </html>
   )
