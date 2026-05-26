@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, Suspense, useEffect } from 'react'
+import { useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { login, register, getStoredUser } from '@/lib/auth'
+import { login, register } from '@/lib/auth'
 import type { UserRole } from '@tribe/shared'
 
 type Tab = 'login' | 'register'
@@ -26,17 +26,9 @@ function AuthContent() {
   const [role, setRole] = useState<UserRole>(initialRole)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
   const [loading, setLoading] = useState(false)
-
-  // Redirect already-authenticated users away from the auth page
-  useEffect(() => {
-    const user = getStoredUser()
-    if (user) {
-      const next = searchParams.get('next') ?? '/dashboard'
-      router.replace(next)
-    }
-  }, [router, searchParams])
   const [error, setError] = useState<string | null>(null)
 
   async function handleSubmit(e: React.FormEvent) {
@@ -48,7 +40,7 @@ function AuthContent() {
       if (tab === 'login') {
         await login({ email, password })
       } else {
-        await register({ email, password, fullName, role })
+        await register({ email, password, firstName, lastName, role })
       }
       router.push('/dashboard')
     } catch (err: unknown) {
@@ -76,17 +68,6 @@ function AuthContent() {
           </Link>
           <p className="text-gray-500 text-sm mt-2">Postpartum care marketplace</p>
         </div>
-
-        {/* Session-expired banner */}
-        {searchParams.get('reason') === 'session_expired' && (
-          <div className="mb-4 flex items-start gap-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-4 py-3 text-sm" role="alert">
-            <svg className="flex-shrink-0 mt-0.5" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            <span>Your session has expired due to inactivity. Please log in again.</span>
-          </div>
-        )}
 
         <div className="bg-white rounded-3xl shadow-sm border border-cream-200 overflow-hidden">
           {/* Tab switcher */}
@@ -162,21 +143,37 @@ function AuthContent() {
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {tab === 'register' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Full name
-                  </label>
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="Your name"
-                    required
-                    minLength={1}
-                    className="w-full border border-cream-200 rounded-2xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      First name
+                    </label>
+                    <input
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="First name"
+                      required
+                      minLength={1}
+                      className="w-full border border-cream-200 rounded-2xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Last name
+                    </label>
+                    <input
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Last name"
+                      required
+                      minLength={1}
+                      className="w-full border border-cream-200 rounded-2xl px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
+                    />
+                  </div>
                 </div>
-              )}
+            )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">

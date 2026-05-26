@@ -27,6 +27,9 @@ export interface User {
   id: string
   email: string
   role: UserRole
+  firstName: string | null
+  lastName: string | null
+  /** @deprecated Use firstName + lastName instead */
   fullName: string | null
   avatarUrl: string | null
   authProvider: AuthProvider
@@ -149,7 +152,8 @@ export interface PaginatedResponse<T> {
 export interface RegisterBody {
   email: string
   password: string
-  fullName: string
+  firstName: string
+  lastName: string
   role: UserRole
 }
 

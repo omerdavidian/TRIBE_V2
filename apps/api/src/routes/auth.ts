@@ -18,7 +18,8 @@ import type { UserRole } from '@tribe/shared'
 const registerSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8, 'Password must be at least 8 characters'),
-  fullName: z.string().min(1).max(100),
+  firstName: z.string().min(1).max(50),
+  lastName: z.string().min(1).max(50),
   role: z.enum(['mother', 'supporter', 'provider', 'business']),
 })
 
@@ -66,6 +67,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     email: users.email,
     passwordHash: users.passwordHash,
     role: users.role,
+    firstName: users.firstName,
+    lastName: users.lastName,
     fullName: users.fullName,
     avatarUrl: users.avatarUrl,
     authProvider: users.authProvider,
@@ -89,7 +92,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       })
     }
 
-    const { email, password, fullName, role } = body.data
+    const { email, password, firstName, lastName, role } = body.data
 
     const [existing] = await db
       .select(authSelect)
@@ -113,7 +116,9 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       .values({
         email: email.toLowerCase(),
         passwordHash,
-        fullName,
+        firstName,
+        lastName,
+        fullName: `${firstName} ${lastName}`,
         role: role as UserRole,
         authProvider: 'email',
         emailVerificationToken: verificationToken,
@@ -130,7 +135,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // Fire-and-forget emails
-    sendWelcomeEmail(user.email, user.fullName ?? 'there').catch(console.error)
+    sendWelcomeEmail(user.email, user.firstName ?? user.fullName ?? 'there').catch(console.error)
     sendEmailVerification(user.email, verificationToken).catch(console.error)
 
     const accessToken = await signJwt({
@@ -145,6 +150,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         id: user.id,
         email: user.email,
         role: user.role,
+        firstName: user.firstName,
+        lastName: user.lastName,
         fullName: user.fullName,
         avatarUrl: user.avatarUrl,
         authProvider: user.authProvider,
@@ -210,6 +217,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
           id: user.id,
           email: user.email,
           role: user.role,
+          firstName: user.firstName,
+          lastName: user.lastName,
           fullName: user.fullName,
           avatarUrl: user.avatarUrl,
           authProvider: user.authProvider,
@@ -245,6 +254,8 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       id: user.id,
       email: user.email,
       role: user.role,
+      firstName: user.firstName,
+      lastName: user.lastName,
       fullName: user.fullName,
       avatarUrl: user.avatarUrl,
       authProvider: user.authProvider,
@@ -346,6 +357,59 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       .where(eq(users.id, user.id))
 
     return reply.send({ message: 'Password reset successfully' })
+  })
+
+  // POST /auth/change-password — requires authentication
+  fastify.post('/auth/change-password', { preHandler: requireAuth }, async (request, reply) => {
+    const changePasswordSchema = z.object({
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(8, 'New password must be at least 8 characters'),
+    })
+
+    const body = changePasswordSchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: body.error.flatten().fieldErrors,
+      })
+    }
+
+    const [user] = await db
+      .select({ id: users.id, passwordHash: users.passwordHash, authProvider: users.authProvider })
+      .from(users)
+      .where(eq(users.id, request.user!.sub))
+      .limit(1)
+
+    if (!user) {
+      return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'User not found' })
+    }
+
+    if (user.authProvider !== 'email' || !user.passwordHash) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Password change is only available for email accounts',
+      })
+    }
+
+    const valid = await verifyPassword(body.data.currentPassword, user.passwordHash)
+    if (!valid) {
+      return reply.status(401).send({
+        statusCode: 401,
+        error: 'Unauthorized',
+        message: 'Current password is incorrect',
+      })
+    }
+
+    const newPasswordHash = await hashPassword(body.data.newPassword)
+
+    await db
+      .update(users)
+      .set({ passwordHash: newPasswordHash, updatedAt: new Date() })
+      .where(eq(users.id, user.id))
+
+    return reply.send({ message: 'Password changed successfully' })
   })
 }
 

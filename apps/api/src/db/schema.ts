@@ -66,6 +66,8 @@ export const users = pgTable('users', {
   suspendedAt: timestamp('suspended_at', { withTimezone: true }),
   suspendedReason: text('suspended_reason'),
   fullName: text('full_name'),
+  firstName: text('first_name'),
+  lastName: text('last_name'),
   avatarUrl: text('avatar_url'),
   authProvider: authProviderEnum('auth_provider').notNull().default('email'),
   googleId: text('google_id').unique(),
