@@ -27,7 +27,7 @@ export default async function ExampleDashboard() {
         {newDashboardEnabled ? (
           <div className="space-y-4">
             <p className="text-teal-700 dark:text-cream-100">
-              ✨ You're using the new dashboard design!
+              ✨ {`You're using the new dashboard design!`}
             </p>
             <div className="rounded bg-white p-4 dark:bg-teal-700">
               <h3 className="font-semibold text-teal-900 dark:text-cream-50">

@@ -35,7 +35,7 @@ export async function isFeatureEnabled(featureName: string): Promise<boolean> {
 /**
  * Get a configuration value from Edge Config
  */
-export async function getConfig<T = string>(key: string, defaultValue?: T): Promise<T> {
+export async function getConfig<T = string>(key: string, defaultValue?: T): Promise<T | undefined> {
   try {
     const value = await get(key)
     return (value as T) || defaultValue

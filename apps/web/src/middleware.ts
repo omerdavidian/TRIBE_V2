@@ -52,7 +52,7 @@ export async function middleware(request: NextRequest) {
     if (maintenanceMode === true && !pathname.startsWith('/maintenance')) {
       return NextResponse.redirect(new URL('/maintenance', request.url), 307)
     }
-  } catch (error) {
+  } catch (_error) {
     // Edge Config not available, continue normally
   }
 

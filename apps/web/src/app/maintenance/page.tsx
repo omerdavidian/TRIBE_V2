@@ -25,7 +25,7 @@ export default function MaintenancePage() {
         </h1>
 
         <p className="mb-6 text-lg text-teal-700 dark:text-cream-100">
-          We're making TRIBE better. We'll be back soon!
+          {`We're making TRIBE better. We'll be back soon!`}
         </p>
 
         <div className="mb-8 rounded-lg bg-white p-4 dark:bg-teal-800">

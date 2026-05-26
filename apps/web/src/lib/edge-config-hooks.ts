@@ -12,7 +12,7 @@ interface UseEdgeConfigOptions<T> {
  * React hook to fetch data from Vercel Edge Config
  * Note: Only works on client side for dynamic data fetching
  */
-export function useEdgeConfig<T = any>(
+export function useEdgeConfig<T = unknown>(
   key: string,
   options?: UseEdgeConfigOptions<T>
 ): {
