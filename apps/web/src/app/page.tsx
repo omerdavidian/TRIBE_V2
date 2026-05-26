@@ -1,5 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import HeroSection from '@/components/hero-section'
+import TestimonialCarousel from '@/components/testimonial-carousel'
 
 export const metadata: Metadata = {
   title: 'TRIBE, Real Postpartum Support for New Mothers',
@@ -40,80 +42,13 @@ const HOW_IT_WORKS = [
   },
 ]
 
-const TESTIMONIALS = [
-  {
-    quote:
-      "After our daughter was born, I was drowning. TRIBE let my family actually help, they funded my lactation visits and postpartum doula hours. It changed everything.",
-    name: 'Sarah M.',
-    role: 'Mother of 2',
-  },
-  {
-    quote:
-      "My best friend used TRIBE and I finally felt like I was giving her something meaningful. She needed real support, not another set of onesies.",
-    name: 'Jen K.',
-    role: 'Supporter',
-  },
-  {
-    quote:
-      "TRIBE has connected me with more families in my first month than I reached in a year of marketing alone. These are clients who are ready and funded.",
-    name: 'Amara N.',
-    role: 'Postpartum Doula',
-  },
-]
-
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-cream-100 font-sans">
       {/* ─── Hero ────────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden">
-        <div className="max-w-6xl mx-auto px-6 py-24 md:py-32">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 bg-coral-50 text-coral-600 text-sm font-semibold px-4 py-1.5 rounded-full mb-8 border border-coral-100">
-              <span>🌿</span>
-              <span>Postpartum care, finally done right</span>
-            </div>
-            <h1 className="font-display text-5xl md:text-6xl lg:text-7xl font-bold text-teal-700 leading-tight text-balance mb-6">
-              Your village,{' '}
-              <span className="text-coral-500">organized</span>{' '}
-              to care for you.
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-600 leading-relaxed mb-10 max-w-2xl text-balance">
-              TRIBE is the postpartum care marketplace that connects new mothers 
-              with the services they need, and makes it easy for loved ones to 
-              actually help.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link
-                href="/auth?tab=register&role=mother"
-                className="inline-flex items-center justify-center gap-2 bg-teal-700 text-white font-semibold px-8 py-4 rounded-full text-lg hover:bg-teal-800 transition-colors shadow-lg shadow-teal-700/20"
-              >
-                Create your registry
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                </svg>
-              </Link>
-              <Link
-                href="#how-it-works"
-                className="inline-flex items-center justify-center gap-2 bg-white text-teal-700 font-semibold px-8 py-4 rounded-full text-lg border-2 border-teal-200 hover:border-teal-400 transition-colors"
-              >
-                How it works
-              </Link>
-            </div>
-          </div>
-        </div>
+      <HeroSection />
 
-        {/* Decorative blobs */}
-        <div
-          aria-hidden
-          className="absolute -top-20 -right-20 w-96 h-96 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #E97451, transparent)' }}
-        />
-        <div
-          aria-hidden
-          className="absolute bottom-0 left-1/3 w-64 h-64 rounded-full opacity-10"
-          style={{ background: 'radial-gradient(circle, #004C54, transparent)' }}
-        />
-      </section>
+
 
       {/* ─── Problem ─────────────────────────────────────────────────────────── */}
       <section className="bg-teal-700 text-white">
@@ -261,27 +196,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Testimonials ────────────────────────────────────────────────────── */}
-      <section id="testimonials" className="py-24 bg-white">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-teal-700 mb-4">
-              What our community says
-            </h2>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map((t) => (
-              <div key={t.name} className="bg-cream-100 rounded-3xl p-8">
-                <div className="text-coral-400 text-4xl font-serif mb-4">&ldquo;</div>
-                <p className="text-gray-700 leading-relaxed mb-6 italic">{t.quote}</p>
-                <div>
-                  <div className="font-semibold text-teal-700">{t.name}</div>
-                  <div className="text-sm text-gray-400">{t.role}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <TestimonialCarousel />
 
       {/* ─── CTA / Waitlist ──────────────────────────────────────────────────── */}
       <section className="py-24 bg-coral-500">
