@@ -256,3 +256,70 @@ export async function sendProviderApplicationReceived(
     fallbackText: `Application received for ${businessName}`,
   })
 }
+
+export async function sendProviderApprovalEmail(to: string, name: string) {
+  const subject = 'Your TRIBE provider application has been approved!'
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
+      <h1 style="color: #004C54; font-size: 24px;">Welcome to the TRIBE provider network!</h1>
+      <p style="color: #555; font-size: 16px; line-height: 1.6;">
+        Hi ${name}, we're thrilled to let you know that your provider application has been <strong>approved</strong>.
+        Your profile is now live and visible to mothers seeking postpartum care support.
+      </p>
+      <a href="${env.FRONTEND_URL}/dashboard/provider"
+         style="display: inline-block; background: #E97451; color: white; padding: 14px 28px;
+                border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 16px;">
+        Go to Provider Dashboard &rarr;
+      </a>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px;">TRIBE &middot; tribewishlist.com</p>
+    </div>
+  `
+  return dispatchEmail({ to, subject, html, fallbackText: `Your TRIBE provider application has been approved. Visit ${env.FRONTEND_URL}/dashboard/provider` })
+}
+
+export async function sendProviderRejectionEmail(to: string, name: string, note?: string) {
+  const subject = 'Update on your TRIBE provider application'
+  const noteHtml = note
+    ? `<div style="background: #f4f6f8; border-left: 4px solid #E97451; padding: 16px; margin: 16px 0; border-radius: 4px;"><p style="color: #555; margin: 0; font-size: 15px;">${note}</p></div>`
+    : ''
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
+      <h1 style="color: #004C54; font-size: 24px;">Provider Application Update</h1>
+      <p style="color: #555; font-size: 16px; line-height: 1.6;">
+        Hi ${name}, thank you for applying to join the TRIBE provider network.
+        After reviewing your application, we are unable to approve it at this time.
+      </p>
+      ${noteHtml}
+      <p style="color: #555; font-size: 15px; line-height: 1.6; margin-top: 16px;">
+        If you believe this was in error or have additional information to share, please contact us.
+      </p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px;">TRIBE &middot; tribewishlist.com</p>
+    </div>
+  `
+  return dispatchEmail({ to, subject, html, fallbackText: `Your TRIBE provider application has been declined.${note ? ` Reason: ${note}` : ''}` })
+}
+
+export async function sendProviderInfoRequestEmail(to: string, name: string, message: string) {
+  const subject = 'Additional information required — TRIBE provider application'
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
+      <h1 style="color: #004C54; font-size: 24px;">We need a bit more information</h1>
+      <p style="color: #555; font-size: 16px; line-height: 1.6;">
+        Hi ${name}, our team is reviewing your TRIBE provider application and needs some additional details.
+      </p>
+      <div style="background: #f4f6f8; border-left: 4px solid #004C54; padding: 16px; margin: 20px 0; border-radius: 4px;">
+        <p style="color: #333; margin: 0; font-size: 15px; line-height: 1.6;">${message}</p>
+      </div>
+      <p style="color: #555; font-size: 15px; line-height: 1.6;">
+        Please reply to this email or contact us at
+        <a href="mailto:support@tribewishlist.com" style="color: #E97451;">support@tribewishlist.com</a>
+        with the requested information.
+      </p>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px;">TRIBE &middot; tribewishlist.com</p>
+    </div>
+  `
+  return dispatchEmail({ to, subject, html, fallbackText: `Your TRIBE provider application requires additional information: ${message}` })
+}

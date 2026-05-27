@@ -9,7 +9,7 @@ export type UserRole =
 
 export type AuthProvider = 'email' | 'google' | 'apple'
 
-export type ApplicationStatus = 'pending' | 'approved' | 'rejected'
+export type ApplicationStatus = 'pending' | 'approved' | 'rejected' | 'info_requested'
 
 export type BookingStatus =
   | 'pending'

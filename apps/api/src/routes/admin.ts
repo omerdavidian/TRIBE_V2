@@ -30,7 +30,7 @@ import {
 } from '../db/schema.js'
 import { requireRole } from '../plugins/auth.js'
 import { hashPassword } from '../lib/password.js'
-import { sendPasswordReset } from '../lib/email.js'
+import { sendPasswordReset, sendProviderApprovalEmail, sendProviderRejectionEmail, sendProviderInfoRequestEmail } from '../lib/email.js'
 import { env } from '../lib/env.js'
 
 const userRoleSchema = z.enum([
@@ -81,8 +81,9 @@ const allocateSchema = z.object({
 })
 
 const vettingSchema = z.object({
-  status: z.enum(['pending', 'approved', 'rejected']),
+  status: z.enum(['pending', 'approved', 'rejected', 'info_requested']),
   note: z.string().max(500).optional(),
+  infoMessage: z.string().max(2000).optional(),
 })
 
 const rescueSchema = z.object({
@@ -101,10 +102,13 @@ const featureFlagSchema = z.object({
 const createProviderSchema = z.object({
   email: z.string().email(),
   fullName: z.string().min(1).max(120),
+  firstName: z.string().min(1).max(60).optional(),
+  lastName: z.string().min(1).max(60).optional(),
   password: z.string().min(8).optional(),
   businessName: z.string().min(1).max(200).optional(),
   bio: z.string().max(2000).optional(),
   serviceAreas: z.array(z.string()).default([]),
+  categoryIds: z.array(z.string().uuid()).default([]),
 })
 
 const enterprisePartnerSchema = z.object({
@@ -795,9 +799,14 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(rows)
   })
 
-  fastify.get('/dashboard/admin/providers/vetting', { preHandler: adminOnly }, async (_request, reply) => {
+  fastify.get('/dashboard/admin/providers/vetting', { preHandler: adminOnly }, async (request, reply) => {
+    const q = request.query as { status?: string }
+    const statusVal = q.status
+    const whereClause = statusVal === 'all'
+      ? undefined
+      : eq(providerProfiles.applicationStatus, (statusVal ?? 'pending') as 'pending' | 'approved' | 'rejected' | 'info_requested')
     const rows = await db.query.providerProfiles.findMany({
-      where: eq(providerProfiles.applicationStatus, 'pending'),
+      where: whereClause,
       orderBy: [desc(providerProfiles.createdAt)],
       with: {
         user: {
@@ -805,8 +814,17 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             id: true,
             email: true,
             fullName: true,
+            firstName: true,
+            lastName: true,
             role: true,
             createdAt: true,
+          },
+        },
+        services: {
+          with: {
+            category: {
+              columns: { id: true, name: true, slug: true },
+            },
           },
         },
       },
@@ -835,6 +853,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       .values({
         email: body.data.email.toLowerCase(),
         fullName: body.data.fullName,
+        firstName: body.data.firstName ?? null,
+        lastName: body.data.lastName ?? null,
         role: 'provider',
         passwordHash,
       })
@@ -864,6 +884,15 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       details: JSON.stringify({ email: newUser.email, businessName: body.data.businessName }),
     })
 
+    if (profile && body.data.categoryIds.length > 0) {
+      await db.insert(providerServices).values(
+        body.data.categoryIds.map((catId) => ({
+          providerProfileId: profile.id,
+          categoryId: catId,
+        }))
+      ).onConflictDoNothing()
+    }
+
     return reply.status(201).send({
       user: newUser,
       providerProfile: profile,
@@ -882,7 +911,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       .update(providerProfiles)
       .set({
         applicationStatus: body.data.status,
-        reviewNote: body.data.note,
+        reviewNote: body.data.note ?? null,
+        infoRequestMessage: body.data.infoMessage ?? null,
         reviewedAt: new Date(),
         updatedAt: new Date(),
       })
@@ -891,6 +921,20 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (!updated) {
       return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Provider profile not found' })
+    }
+
+    // Fire status-specific lifecycle emails
+    const providerUser = await db.query.users.findFirst({ where: eq(users.id, updated.userId) })
+    if (providerUser) {
+      const name = providerUser.fullName ?? providerUser.email
+      if (body.data.status === 'approved') {
+        sendProviderApprovalEmail(providerUser.email, name).catch(console.error)
+      } else if (body.data.status === 'rejected') {
+        sendProviderRejectionEmail(providerUser.email, name, body.data.note).catch(console.error)
+      } else if (body.data.status === 'info_requested') {
+        const msg = body.data.infoMessage ?? body.data.note ?? 'Please provide additional information.'
+        sendProviderInfoRequestEmail(providerUser.email, name, msg).catch(console.error)
+      }
     }
 
     await logAdminAction({

@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { getStoredUser, logout } from '@/lib/auth'
 import ChangePasswordForm from '@/components/change-password-form'
@@ -34,6 +34,7 @@ const NAV_ITEMS: { id: Section | 'services'; label: string; icon: React.ReactNod
 
 export default function MotherDashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [user, setUser] = useState<User | null>(null)
   const [section, setSection] = useState<Section>('home')
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -43,7 +44,14 @@ export default function MotherDashboard() {
     if (!stored) { router.replace('/auth'); return }
     if (stored.role !== 'mother') { router.replace('/dashboard'); return }
     setUser(stored)
-  }, [router])
+
+    const sectionParam = searchParams.get('section')
+    if (sectionParam === 'home' || sectionParam === 'registry' || sectionParam === 'bookings' || sectionParam === 'security') {
+      setSection(sectionParam)
+    } else {
+      setSection('home')
+    }
+  }, [router, searchParams])
 
   if (!user) {
     return (

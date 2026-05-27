@@ -455,4 +455,19 @@ export async function ensureBaselineSchema() {
     create unique index if not exists "provider_reviews_unique_mother_provider"
       on "provider_reviews" ("provider_profile_id", "mother_id");
   `)
+
+  // ── application_status enum: add info_requested value ──────────────────────
+  await db.execute(sql`
+    do $$ begin
+      alter type "public"."application_status" add value if not exists 'info_requested';
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  // ── provider_profiles: add info_request_message column ────────────────────
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "info_request_message" text;
+  `)
 }

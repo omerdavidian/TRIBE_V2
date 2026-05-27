@@ -29,6 +29,7 @@ export const applicationStatusEnum = pgEnum('application_status', [
   'pending',
   'approved',
   'rejected',
+  'info_requested',
 ])
 
 export const bookingStatusEnum = pgEnum('booking_status', [
@@ -116,6 +117,7 @@ export const providerProfiles = pgTable('provider_profiles', {
     .notNull()
     .default('pending'),
   reviewNote: text('review_note'),
+  infoRequestMessage: text('info_request_message'),
   reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()

@@ -29,9 +29,32 @@ type OverviewMetrics = {
 
 type VettingRow = {
   id: string
-  applicationStatus: 'pending' | 'approved' | 'rejected'
+  applicationStatus: 'pending' | 'approved' | 'rejected' | 'info_requested'
   businessName: string | null
   user: { id: string; fullName: string | null; email: string }
+}
+
+type VendorRow = {
+  id: string
+  applicationStatus: 'pending' | 'approved' | 'rejected' | 'info_requested'
+  businessName: string | null
+  bio: string | null
+  serviceAreas: string[]
+  reviewNote: string | null
+  infoRequestMessage: string | null
+  createdAt: string
+  user: {
+    id: string
+    email: string
+    fullName: string | null
+    firstName: string | null
+    lastName: string | null
+    createdAt: string
+  }
+  services: Array<{
+    id: string
+    category: { id: string; name: string; slug: string }
+  }>
 }
 
 // --- Helpers ------------------------------------------------------------------
@@ -49,7 +72,7 @@ function Sk({ className = '' }: { className?: string }) {
 
 // --- Sidebar navigation definition -------------------------------------------
 
-type TabId = 'overview' | 'users' | 'financials' | 'security' | 'integrations'
+type TabId = 'overview' | 'users' | 'vendors' | 'financials' | 'security' | 'integrations'
 
 const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   {
@@ -97,6 +120,16 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/>
         <path d="M15.54 8.46a5 5 0 010 7.07M8.46 8.46a5 5 0 000 7.07"/>
+      </svg>
+    ),
+  },
+  {
+    id: 'vendors',
+    label: 'Vendors',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/>
+        <path d="M16 10a4 4 0 01-8 0"/>
       </svg>
     ),
   },
@@ -467,6 +500,390 @@ function TabIntegrations() {
   )
 }
 
+// --- Vendor helpers -----------------------------------------------------------
+
+function VendorStatusBadge({ status }: { status: 'pending' | 'approved' | 'rejected' | 'info_requested' }) {
+  const cfg = {
+    pending: 'bg-amber-100 text-amber-700',
+    approved: 'bg-[#e8f4f0] text-[#29676f]',
+    rejected: 'bg-red-50 text-red-600',
+    info_requested: 'bg-blue-50 text-blue-600',
+  }
+  const label = { pending: 'Pending', approved: 'Approved', rejected: 'Denied', info_requested: 'Info Requested' }
+  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg[status]}`}>{label[status]}</span>
+}
+
+// --- Vendor Detail Drawer -----------------------------------------------------
+
+function VendorDetailDrawer({
+  vendor, token, onClose, onUpdated,
+}: {
+  vendor: VendorRow
+  token: string
+  onClose: () => void
+  onUpdated: () => void
+}) {
+  const [actionMode, setActionMode] = useState<'approve' | 'deny' | 'info' | null>(null)
+  const [note, setNote] = useState('')
+  const [infoMessage, setInfoMessage] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  const ownerName = [vendor.user.firstName, vendor.user.lastName].filter(Boolean).join(' ') || vendor.user.fullName || vendor.user.email
+
+  async function submitAction(status: 'approved' | 'rejected' | 'info_requested') {
+    setSaving(true); setErr('')
+    try {
+      await apiRequest(`/dashboard/admin/providers/${vendor.id}/vetting`, {
+        method: 'POST', token,
+        body: JSON.stringify({ status, note: note || undefined, infoMessage: status === 'info_requested' ? infoMessage : undefined }),
+      })
+      onUpdated(); onClose()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to update')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative ml-auto w-full max-w-lg bg-white dark:bg-[#001f23] h-full overflow-y-auto shadow-2xl flex flex-col">
+        <div className="sticky top-0 bg-white dark:bg-[#001f23] border-b border-[#e0ebe9] dark:border-[#054f57]/40 px-6 py-4 flex items-center justify-between z-10">
+          <div>
+            <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">{vendor.businessName ?? ownerName}</h2>
+            <p className="text-xs text-[#70797a] mt-0.5">Provider Application</p>
+          </div>
+          <button onClick={onClose} className="text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7] p-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="flex-1 p-6 space-y-5">
+          <div className="flex items-center gap-3">
+            <VendorStatusBadge status={vendor.applicationStatus} />
+            <span className="text-xs text-[#70797a]">Applied {new Date(vendor.createdAt).toLocaleDateString()}</span>
+          </div>
+          <div className="bg-[#f7f4f2] dark:bg-[#00272c]/60 rounded-xl p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Account Details</p>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div><p className="text-[#70797a] text-xs">Owner</p><p className="font-medium text-[#00343a] dark:text-[#e0f5f7]">{ownerName}</p></div>
+              <div><p className="text-[#70797a] text-xs">Email</p><p className="font-medium text-[#00343a] dark:text-[#e0f5f7] break-all">{vendor.user.email}</p></div>
+            </div>
+          </div>
+          {(vendor.businessName || vendor.bio || vendor.serviceAreas.length > 0) && (
+            <div className="bg-[#f7f4f2] dark:bg-[#00272c]/60 rounded-xl p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Business Profile</p>
+              {vendor.businessName && <div><p className="text-[#70797a] text-xs">Business Name</p><p className="text-sm font-medium text-[#00343a] dark:text-[#e0f5f7]">{vendor.businessName}</p></div>}
+              {vendor.bio && <div><p className="text-[#70797a] text-xs mb-1">Bio</p><p className="text-sm text-[#40484a] dark:text-[#95d0d9] leading-relaxed">{vendor.bio}</p></div>}
+              {vendor.serviceAreas.length > 0 && (
+                <div>
+                  <p className="text-[#70797a] text-xs mb-1">Service Areas</p>
+                  <div className="flex flex-wrap gap-1">
+                    {vendor.serviceAreas.map(a => <span key={a} className="text-xs bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#29676f] px-2 py-0.5 rounded-full">{a}</span>)}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {vendor.services.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-2">Service Categories</p>
+              <div className="flex flex-wrap gap-1.5">
+                {vendor.services.map(s => <span key={s.id} className="text-xs bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/40 text-[#40484a] dark:text-[#95d0d9] px-2.5 py-1 rounded-full">{s.category.name}</span>)}
+              </div>
+            </div>
+          )}
+          {vendor.infoRequestMessage && (
+            <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-700/30 rounded-xl p-4">
+              <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">Info Previously Requested</p>
+              <p className="text-sm text-blue-600 dark:text-blue-300">{vendor.infoRequestMessage}</p>
+            </div>
+          )}
+          {vendor.reviewNote && (
+            <div className="bg-[#f7f4f2] dark:bg-[#00272c]/60 rounded-xl p-3">
+              <p className="text-xs font-semibold text-[#70797a] mb-1">Review Note</p>
+              <p className="text-sm text-[#40484a] dark:text-[#95d0d9]">{vendor.reviewNote}</p>
+            </div>
+          )}
+        </div>
+        <div className="sticky bottom-0 bg-white dark:bg-[#001f23] border-t border-[#e0ebe9] dark:border-[#054f57]/40 p-5 space-y-3">
+          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl">{err}</p>}
+          {actionMode === null && (
+            <div className="flex gap-2">
+              <button onClick={() => setActionMode('approve')} className="flex-1 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] transition-colors">Approve</button>
+              <button onClick={() => setActionMode('deny')} className="flex-1 py-2.5 border-2 border-red-200 text-red-600 text-sm font-semibold rounded-xl hover:bg-red-50 transition-colors">Deny</button>
+              <button onClick={() => setActionMode('info')} className="flex-1 py-2.5 border-2 border-blue-200 text-blue-600 text-sm font-semibold rounded-xl hover:bg-blue-50 transition-colors">Request Info</button>
+            </div>
+          )}
+          {actionMode === 'approve' && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Approve this provider?</p>
+              <textarea rows={2} value={note} onChange={e => setNote(e.target.value)} placeholder="Optional internal note…" className="w-full text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl px-3 py-2 bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none" />
+              <div className="flex gap-2">
+                <button disabled={saving} onClick={() => submitAction('approved')} className="flex-1 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">{saving ? 'Saving…' : 'Confirm Approval'}</button>
+                <button onClick={() => { setActionMode(null); setNote('') }} className="px-4 text-sm text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7]">Cancel</button>
+              </div>
+            </div>
+          )}
+          {actionMode === 'deny' && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Deny this application?</p>
+              <textarea rows={2} value={note} onChange={e => setNote(e.target.value)} placeholder="Reason for denial (sent to provider)…" className="w-full text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl px-3 py-2 bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none" />
+              <div className="flex gap-2">
+                <button disabled={saving} onClick={() => submitAction('rejected')} className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 disabled:opacity-60 transition-colors">{saving ? 'Saving…' : 'Confirm Denial'}</button>
+                <button onClick={() => { setActionMode(null); setNote('') }} className="px-4 text-sm text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7]">Cancel</button>
+              </div>
+            </div>
+          )}
+          {actionMode === 'info' && (
+            <div className="space-y-3">
+              <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Request more information</p>
+              <textarea rows={3} value={infoMessage} onChange={e => setInfoMessage(e.target.value)} placeholder="Describe what additional documents or details are required…" className="w-full text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl px-3 py-2 bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none" />
+              <div className="flex gap-2">
+                <button disabled={saving || !infoMessage.trim()} onClick={() => submitAction('info_requested')} className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 transition-colors">{saving ? 'Sending…' : 'Send Request'}</button>
+                <button onClick={() => { setActionMode(null); setInfoMessage('') }} className="px-4 text-sm text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7]">Cancel</button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// --- Create Vendor Modal ------------------------------------------------------
+
+type CategoryOption = { id: string; name: string; slug: string }
+
+function CreateVendorModal({ token, onClose, onCreated }: { token: string; onClose: () => void; onCreated: () => void }) {
+  const [categories, setCategories] = useState<CategoryOption[]>([])
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', businessName: '', bio: '', serviceAreas: '' })
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set())
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  const [createdPw, setCreatedPw] = useState('')
+
+  useEffect(() => {
+    apiRequest<CategoryOption[]>('/catalog/categories', { token }).then(setCategories).catch(() => { /* non-fatal */ })
+  }, [token])
+
+  function toggleCat(id: string) {
+    setSelectedCats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+  }
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setSaving(true); setErr('')
+    try {
+      const res = await apiRequest<{ temporaryPassword?: string }>('/dashboard/admin/providers', {
+        method: 'POST', token,
+        body: JSON.stringify({
+          fullName: `${form.firstName} ${form.lastName}`.trim(),
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+          password: form.password || undefined,
+          businessName: form.businessName || undefined,
+          bio: form.bio || undefined,
+          serviceAreas: form.serviceAreas ? form.serviceAreas.split(',').map(s => s.trim()).filter(Boolean) : [],
+          categoryIds: [...selectedCats],
+        }),
+      })
+      if (res.temporaryPassword) { setCreatedPw(res.temporaryPassword) }
+      else { onCreated(); onClose() }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to create vendor')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-end">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-xl bg-white dark:bg-[#001f23] h-full overflow-y-auto shadow-2xl flex flex-col">
+        <div className="sticky top-0 bg-white dark:bg-[#001f23] border-b border-[#e0ebe9] dark:border-[#054f57]/40 px-6 py-4 flex items-center justify-between z-10">
+          <div>
+            <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">Create Vendor Account</h2>
+            <p className="text-xs text-[#70797a] mt-0.5">Manual onboarding — skips vetting, auto-approved</p>
+          </div>
+          <button onClick={onClose} className="text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7] p-1">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        {createdPw ? (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">
+            <div className="text-4xl">✅</div>
+            <h3 className="font-semibold text-[#00343a] dark:text-[#e0f5f7] text-lg">Vendor Created</h3>
+            <p className="text-sm text-[#70797a]">Temporary password — share securely with the vendor:</p>
+            <div className="bg-[#f7f4f2] dark:bg-[#00272c] rounded-xl px-6 py-3 font-mono text-sm text-[#00343a] dark:text-[#e0f5f7] tracking-widest border border-[#e0ebe9] dark:border-[#054f57]/40">{createdPw}</div>
+            <button onClick={() => { onCreated(); onClose() }} className="mt-2 px-6 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] transition-colors">Done</button>
+          </div>
+        ) : (
+          <form onSubmit={submit} className="flex-1 p-6 space-y-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Account Level</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">First Name *</label>
+                  <input required value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Last Name *</label>
+                  <input required value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Contact Email *</label>
+                  <input required type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Password <span className="font-normal text-[#70797a]">(auto-gen if blank)</span></label>
+                  <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} minLength={8} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Business Profile</p>
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Registered Business Name</label>
+                  <input value={form.businessName} onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Detailed Biography</label>
+                  <textarea rows={3} value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Service Areas <span className="font-normal text-[#70797a]">(comma-separated)</span></label>
+                  <input value={form.serviceAreas} onChange={e => setForm(f => ({ ...f, serviceAreas: e.target.value }))} placeholder="New York, NY, Brooklyn, Bronx…" className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
+                </div>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Services Configuration</p>
+              {categories.length === 0 ? (
+                <p className="text-xs text-[#70797a] italic">Loading service categories…</p>
+              ) : (
+                <div className="grid grid-cols-2 gap-2">
+                  {categories.map(cat => (
+                    <label key={cat.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer text-sm transition-colors ${selectedCats.has(cat.id) ? 'border-[#29676f] bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#00343a] dark:text-[#e0f5f7]' : 'border-[#b0ccc8] dark:border-[#054f57] text-[#40484a] dark:text-[#95d0d9] hover:border-[#29676f]'}`}>
+                      <input type="checkbox" className="hidden" checked={selectedCats.has(cat.id)} onChange={() => toggleCat(cat.id)} />
+                      <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center ${selectedCats.has(cat.id) ? 'bg-[#29676f]' : 'border-2 border-[#b0ccc8] dark:border-[#054f57]'}`}>
+                        {selectedCats.has(cat.id) && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                      </span>
+                      {cat.name}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+            {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl">{err}</p>}
+            <button type="submit" disabled={saving} className="w-full py-3 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">{saving ? 'Creating Vendor…' : 'Create Vendor Account'}</button>
+          </form>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// --- Tab: Vendors Directory ---------------------------------------------------
+
+const VENDOR_STATUS_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'approved', label: 'Approved' },
+  { key: 'rejected', label: 'Denied' },
+  { key: 'info_requested', label: 'Info Requested' },
+] as const
+
+type VendorStatusFilter = 'all' | 'pending' | 'approved' | 'rejected' | 'info_requested'
+
+function TabVendors({ token }: { token: string }) {
+  const [statusFilter, setStatusFilter] = useState<VendorStatusFilter>('pending')
+  const [vendors, setVendors] = useState<VendorRow[]>([])
+  const [loadingVendors, setLoadingVendors] = useState(true)
+  const [selectedVendor, setSelectedVendor] = useState<VendorRow | null>(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+
+  const fetchVendors = useCallback(async (filter: VendorStatusFilter) => {
+    setLoadingVendors(true)
+    try {
+      const qs = filter === 'all' ? '?status=all' : `?status=${filter}`
+      const data = await apiRequest<VendorRow[]>(`/dashboard/admin/providers/vetting${qs}`, { token })
+      setVendors(data)
+    } catch { /* non-fatal */ } finally { setLoadingVendors(false) }
+  }, [token])
+
+  useEffect(() => { void fetchVendors(statusFilter) }, [fetchVendors, statusFilter])
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="font-display text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7] mb-1">Vendor Management</h2>
+          <p className="text-sm text-[#70797a]">Manage provider applications, vetting workflows, and manual onboarding.</p>
+        </div>
+        <button onClick={() => setShowCreateModal(true)} className="flex-shrink-0 flex items-center gap-2 bg-[#00343a] text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#004c54] transition-colors">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Create Vendor Manually
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {VENDOR_STATUS_FILTERS.map(f => (
+          <button key={f.key} onClick={() => setStatusFilter(f.key)}
+            className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${statusFilter === f.key ? 'bg-[#00343a] text-white' : 'bg-white dark:bg-[#001f23] border border-[#b0ccc8] dark:border-[#054f57] text-[#40484a] dark:text-[#95d0d9] hover:border-[#29676f]'}`}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+      <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e0ebe9] dark:border-[#054f57]/60 overflow-hidden">
+        {loadingVendors ? (
+          <div className="p-6 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Sk key={i} className="h-12" />)}</div>
+        ) : vendors.length === 0 ? (
+          <div className="px-6 py-14 text-center"><div className="text-3xl mb-2">🔍</div><p className="text-sm text-[#70797a]">No vendors found for this status.</p></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[700px]">
+              <thead>
+                <tr className="bg-[#f7f4f2] dark:bg-[#00272c]/60 text-left">
+                  {['Business Name', 'Owner', 'Contact Email', 'Service Categories', 'Applied', 'Status', ''].map(h => (
+                    <th key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-[#70797a] whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30">
+                {vendors.map(v => {
+                  const ownerName = [v.user.firstName, v.user.lastName].filter(Boolean).join(' ') || v.user.fullName || '—'
+                  return (
+                    <tr key={v.id} onClick={() => setSelectedVendor(v)} className="hover:bg-[#f7f4f2]/50 dark:hover:bg-[#00272c]/30 cursor-pointer transition-colors">
+                      <td className="px-4 py-3 font-medium text-[#00343a] dark:text-[#e0f5f7] max-w-[150px] truncate">{v.businessName ?? <span className="text-[#70797a] italic">Unnamed</span>}</td>
+                      <td className="px-4 py-3 text-[#40484a] dark:text-[#95d0d9] max-w-[120px] truncate">{ownerName}</td>
+                      <td className="px-4 py-3 text-[#70797a] max-w-[180px] truncate">{v.user.email}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {v.services.slice(0, 2).map(s => <span key={s.id} className="text-[10px] bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#29676f] px-1.5 py-0.5 rounded-full whitespace-nowrap">{s.category.name}</span>)}
+                          {v.services.length > 2 && <span className="text-[10px] text-[#70797a]">+{v.services.length - 2}</span>}
+                          {v.services.length === 0 && <span className="text-[10px] text-[#70797a]">—</span>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-[#70797a] whitespace-nowrap text-xs">{new Date(v.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>
+                      <td className="px-4 py-3"><VendorStatusBadge status={v.applicationStatus} /></td>
+                      <td className="px-4 py-3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-[#b0ccc8]"><polyline points="9 18 15 12 9 6"/></svg></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+      {selectedVendor && (
+        <VendorDetailDrawer vendor={selectedVendor} token={token} onClose={() => setSelectedVendor(null)} onUpdated={() => { setSelectedVendor(null); void fetchVendors(statusFilter) }} />
+      )}
+      {showCreateModal && (
+        <CreateVendorModal token={token} onClose={() => setShowCreateModal(false)} onCreated={() => void fetchVendors(statusFilter)} />
+      )}
+    </div>
+  )
+}
+
 // --- Main page ----------------------------------------------------------------
 
 function AdminDashboardContent() {
@@ -502,7 +919,7 @@ function AdminDashboardContent() {
     void fetchData()
   }, [fetchData, router])
 
-  async function handleVetting(profileId: string, status: 'approved' | 'rejected' | 'pending') {
+  async function handleVetting(profileId: string, status: 'approved' | 'rejected' | 'pending' | 'info_requested') {
     const t = getToken(); if (!t) return
     try {
       await apiRequest(`/dashboard/admin/providers/${profileId}/vetting`, { method: 'POST', token: t, body: JSON.stringify({ status, note: `Set to ${status} via admin dashboard` }) })
@@ -561,7 +978,7 @@ function AdminDashboardContent() {
                     activeTab === tab.id ? 'bg-white/10 text-white' : 'text-[#95d0d9]/70 hover:bg-white/5 hover:text-white'].join(' ')}>
                   <span className="flex-shrink-0 opacity-80">{tab.icon}</span>
                   {tab.label}
-                  {tab.id === 'users' && vetting.length > 0 && (
+                  {(tab.id === 'users' || tab.id === 'vendors') && vetting.length > 0 && (
                     <span className="ml-auto bg-amber-400 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full">{vetting.length}</span>
                   )}
                 </button>
@@ -602,6 +1019,7 @@ function AdminDashboardContent() {
           {activeTab === 'financials' && <TabFinancials overview={overview} />}
           {activeTab === 'security' && <TabSecurity />}
           {activeTab === 'integrations' && <TabIntegrations />}
+          {activeTab === 'vendors' && <TabVendors token={getToken() ?? ''} />}
         </main>
       </div>
     </div>
