@@ -98,12 +98,6 @@ export default function ComingSoonPage() {
           </p>
         </div>
 
-        <p className="text-teal-400 text-sm mt-8">
-          Already have an account?{' '}
-          <Link href="/auth" className="text-white hover:text-coral-300 underline transition-colors">
-            Log in
-          </Link>
-        </p>
       </div>
     </div>
   )
