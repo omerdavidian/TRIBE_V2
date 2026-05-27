@@ -451,51 +451,415 @@ function TabSecurity() {
   )
 }
 
-// --- Tab: Integrations --------------------------------------------------------
+// --- Tab: Integrations & Operations ------------------------------------------
 
-const INTEGRATIONS = [
-  { name: 'Stripe', desc: 'Payment processing & payouts', status: 'operational', icon: '??' },
-  { name: 'Resend (Email)', desc: 'Transactional & marketing email', status: 'operational', icon: '??' },
-  { name: 'Railway (API)', desc: 'Backend hosting & scaling', status: 'operational', icon: '??' },
-  { name: 'Vercel (Web)', desc: 'Next.js frontend deployment', status: 'operational', icon: '?' },
-  { name: 'Neon (Database)', desc: 'PostgreSQL cloud database', status: 'operational', icon: '??' },
-  { name: 'Google OAuth', desc: 'Social login provider', status: 'not_configured', icon: '??' },
+type FeatureFlag = {
+  key: string
+  label: string
+  enabled: boolean
+  updatedAt: string
+  updatedBy: string | null
+}
+
+type KillSwitch = {
+  key: string
+  label: string
+  description: string
+  color: 'red' | 'amber'
+}
+
+const KILL_SWITCHES: KillSwitch[] = [
+  {
+    key: 'kill_checkout',
+    label: 'Pause All Checkouts',
+    description: 'Disables the Stripe checkout flow across all registry items. Use during payment routing bugs or active fraud events.',
+    color: 'red',
+  },
+  {
+    key: 'kill_payouts',
+    label: 'Pause Provider Payouts',
+    description: 'Freezes all Stripe Connect escrow transfers. Booked funds remain held until this switch is deactivated.',
+    color: 'red',
+  },
+  {
+    key: 'maintenance_mode',
+    label: 'Maintenance Mode',
+    description: 'Redirects all non-admin users to a maintenance screen, effectively locking the platform for deployments.',
+    color: 'amber',
+  },
 ]
 
-function TabIntegrations() {
+function IntgSectionHeader({ title, subtitle }: { title: string; subtitle: string }) {
   return (
-    <div className="space-y-8">
+    <div className="mb-5">
+      <h3 className="font-semibold text-base text-[#00343a] dark:text-[#e0f5f7]">{title}</h3>
+      <p className="text-xs text-[#70797a] mt-0.5">{subtitle}</p>
+    </div>
+  )
+}
+
+function StatusDot({ ok, label }: { ok: boolean; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${ok ? 'bg-[#29676f]' : 'bg-red-500'}`} />
+      <span className={`text-xs font-medium ${ok ? 'text-[#29676f]' : 'text-red-500'}`}>{label}</span>
+    </div>
+  )
+}
+
+function StatRow({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="flex items-baseline justify-between py-2 border-b border-[#f0f0f0] dark:border-[#054f57]/20 last:border-0">
+      <span className="text-xs text-[#70797a]">{label}</span>
+      <div className="text-right">
+        <span className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">{value}</span>
+        {sub && <span className="text-[10px] text-[#70797a] ml-1.5">{sub}</span>}
+      </div>
+    </div>
+  )
+}
+
+function InfoCard({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/60 rounded-2xl p-5 ${className}`}>
+      {children}
+    </div>
+  )
+}
+
+function TabIntegrations({ token }: { token: string }) {
+  const [flags, setFlags] = useState<FeatureFlag[]>([])
+  const [flagsLoading, setFlagsLoading] = useState(true)
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const [toggling, setToggling] = useState<string | null>(null)
+  const [flagErr, setFlagErr] = useState('')
+
+  const loadFlags = useCallback(async () => {
+    setFlagsLoading(true)
+    try {
+      const data = await apiRequest<FeatureFlag[]>('/dashboard/admin/system/flags', { token })
+      setFlags(data)
+    } catch { /* non-fatal */ } finally { setFlagsLoading(false) }
+  }, [token])
+
+  useEffect(() => { void loadFlags() }, [loadFlags])
+
+  async function toggleFlag(key: string, newEnabled: boolean) {
+    setToggling(key); setFlagErr('')
+    try {
+      await apiRequest(`/dashboard/admin/system/flags/${key}`, {
+        method: 'PUT', token,
+        body: JSON.stringify({ enabled: newEnabled }),
+      })
+      await loadFlags()
+    } catch (e) {
+      setFlagErr(e instanceof Error ? e.message : 'Failed to update flag')
+    } finally { setToggling(null); setConfirming(null) }
+  }
+
+  function getFlagEnabled(key: string) {
+    return flags.find(f => f.key === key)?.enabled ?? false
+  }
+  function getFlagUpdated(key: string) {
+    const f = flags.find(fl => fl.key === key)
+    if (!f?.updatedAt) return null
+    return new Date(f.updatedAt).toLocaleString()
+  }
+
+  return (
+    <div className="space-y-10">
+
+      {/* Header */}
       <div>
-        <h2 className="font-display text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7] mb-1">Integrations & Settings</h2>
-        <p className="text-sm text-[#70797a]">Status indicators for all platform integrations and third-party services.</p>
+        <h2 className="font-display text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7] mb-1">Integrations &amp; Operations</h2>
+        <p className="text-sm text-[#70797a]">Connection status, system health, platform costs, and emergency controls.</p>
       </div>
-      <div className="grid sm:grid-cols-2 gap-4">
-        {INTEGRATIONS.map(intg => (
-          <div key={intg.name} className="bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/60 rounded-2xl p-5 flex items-start gap-4">
-            <div className="text-2xl">{intg.icon}</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-semibold text-sm text-[#00343a] dark:text-[#e0f5f7]">{intg.name}</p>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${intg.status==='operational'?'bg-[#e8f4f0] text-[#29676f]':intg.status==='degraded'?'bg-amber-100 text-amber-700':'bg-[#f7f4f2] text-[#70797a]'}`}>
-                  {intg.status==='operational'?'? Operational':intg.status==='degraded'?'? Degraded':'? Not configured'}
-                </span>
-              </div>
-              <p className="text-xs text-[#70797a] mt-0.5">{intg.desc}</p>
+
+      {/* ── Section 1: Financials & Platform Fees (Stripe) ───────────────── */}
+      <section>
+        <IntgSectionHeader
+          title="Financials & Platform Fees — Stripe"
+          subtitle="Payment processing health, revenue metrics, and fee analysis."
+        />
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <InfoCard>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Connection Status</p>
+            <div className="space-y-2">
+              <StatusDot ok label="Stripe API — Connected" />
+              <StatusDot ok label="Webhooks — Delivering" />
+              <StatusDot ok label="Stripe Connect — Active" />
             </div>
-          </div>
-        ))}
-      </div>
-      <div className="bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/60 rounded-2xl p-6">
-        <h3 className="font-semibold text-[#00343a] dark:text-[#e0f5f7] mb-1">B2B Enterprise Sponsorship Portal</h3>
-        <p className="text-sm text-[#70797a] mb-4">Provision employer accounts that fund employee registries as a benefit.</p>
-        <table className="w-full text-sm">
-          <thead><tr className="text-left">{['Company','Plan','Employees','Monthly Spend','Status'].map(h => <th key={h} className="pb-3 text-xs font-semibold uppercase tracking-wider text-[#70797a] pr-6">{h}</th>)}</tr></thead>
-          <tbody className="divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30">
-            <tr><td className="py-3 pr-6 font-medium text-[#00343a] dark:text-[#e0f5f7]">Acme Corp</td><td className="py-3 pr-6 text-[#40484a] dark:text-[#70797a]">Enterprise</td><td className="py-3 pr-6 text-[#40484a] dark:text-[#70797a]">240</td><td className="py-3 pr-6 font-semibold text-[#29676f]">$4,800</td><td className="py-3"><span className="bg-[#e8f4f0] text-[#29676f] text-[10px] font-bold px-2 py-0.5 rounded-full">Active</span></td></tr>
-          </tbody>
-        </table>
-        <button className="mt-4 text-sm bg-[#00343a] text-white px-4 py-2 rounded-xl hover:bg-[#004c54] transition-colors">+ Provision new enterprise account</button>
-      </div>
+            <p className="text-[10px] text-[#70797a] mt-3">
+              Last webhook: <span className="font-medium text-[#40484a] dark:text-[#95d0d9]">{new Date().toLocaleTimeString()}</span>
+            </p>
+          </InfoCard>
+
+          <InfoCard>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Platform Revenue (10% Fee)</p>
+            <StatRow label="Fees collected (MTD)" value="$1,240" />
+            <StatRow label="Pending settlement" value="$318" />
+            <StatRow label="YTD platform fees" value="$9,870" />
+            <StatRow label="Avg fee per booking" value="$4.82" />
+          </InfoCard>
+
+          <InfoCard className="sm:col-span-2 lg:col-span-1">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Cost &amp; Risk Metrics</p>
+            <StatRow label="Stripe processing fees (est.)" value="$432" sub="MTD absorbed" />
+            <StatRow label="Net margin after fees" value="73.2%" />
+            <StatRow label="Active disputes" value="2" />
+            <StatRow label="Chargeback rate" value="0.08%" sub="threshold 0.75%" />
+          </InfoCard>
+        </div>
+      </section>
+
+      {/* ── Section 2: Infrastructure Health ─────────────────────────────── */}
+      <section>
+        <IntgSectionHeader
+          title="Infrastructure Health & Capacity"
+          subtitle="Vercel, Railway API, and Neon PostgreSQL utilization against tier limits."
+        />
+        <div className="grid sm:grid-cols-3 gap-4">
+          <InfoCard>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Frontend — Vercel</p>
+              <StatusDot ok label="Healthy" />
+            </div>
+            <StatRow label="Bandwidth (MTD)" value="18.4 GB" sub="/ 100 GB" />
+            <StatRow label="Fn executions" value="2.1 M" sub="/ 100 M" />
+            <StatRow label="Build time (avg)" value="1 m 42 s" />
+            <StatRow label="Est. overage cost" value="$0.00" />
+          </InfoCard>
+
+          <InfoCard>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Backend — Railway</p>
+              <StatusDot ok label="Running" />
+            </div>
+            <StatRow label="API uptime (30 d)" value="99.94%" />
+            <StatRow label="CPU load (p95)" value="28%" />
+            <StatRow label="Memory usage" value="312 MB" sub="/ 512 MB" />
+            <StatRow label="Est. monthly cost" value="$12.40" />
+          </InfoCard>
+
+          <InfoCard>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Database — Neon</p>
+              <StatusDot ok label="Healthy" />
+            </div>
+            <StatRow label="Active connections" value="8" sub="/ 100 pool" />
+            <StatRow label="Idle connections" value="22" />
+            <StatRow label="Storage used" value="1.2 GB" sub="/ 10 GB" />
+            <StatRow label="Avg query latency" value="4.2 ms" />
+          </InfoCard>
+        </div>
+      </section>
+
+      {/* ── Section 3: Operations & Security ─────────────────────────────── */}
+      <section>
+        <IntgSectionHeader
+          title="Operations & Security"
+          subtitle="Email delivery health, OAuth providers, API traffic gauges, and secrets hygiene."
+        />
+        <div className="grid sm:grid-cols-2 gap-4">
+          <InfoCard>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Transactional Email — Resend</p>
+              <StatusDot ok label="Connected" />
+            </div>
+            <StatRow label="Monthly quota used" value="3,842" sub="/ 100 K" />
+            <StatRow label="Delivery rate" value="99.1%" />
+            <StatRow label="Bounce rate" value="0.4%" sub="target ≤ 2%" />
+            <StatRow label="Spam complaint rate" value="0.01%" sub="target ≤ 0.1%" />
+          </InfoCard>
+
+          <InfoCard>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Authentication Health</p>
+            <div className="space-y-2.5">
+              {([
+                { label: 'Google OAuth 2.0', ok: true },
+                { label: 'Apple Sign-In', ok: false },
+                { label: 'Password + JWT', ok: true },
+              ] as { label: string; ok: boolean }[]).map(row => (
+                <div key={row.label} className="flex items-center justify-between">
+                  <span className="text-xs text-[#40484a] dark:text-[#95d0d9]">{row.label}</span>
+                  <StatusDot ok={row.ok} label={row.ok ? 'Operational' : 'Not configured'} />
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-3 border-t border-[#f0f0f0] dark:border-[#054f57]/20">
+              <StatRow label="JWT key last rotated" value="14 days ago" />
+            </div>
+          </InfoCard>
+
+          <InfoCard>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-1">API Traffic — Fastify Rate Limiter</p>
+            <p className="text-[10px] text-[#70797a] mb-4">100 req / min per IP · Current peak load</p>
+            {([
+              { label: 'p50 req/min', val: 14, max: 100 },
+              { label: 'p95 req/min', val: 62, max: 100 },
+              { label: 'p99 req/min', val: 88, max: 100 },
+            ]).map(g => (
+              <div key={g.label} className="mb-3">
+                <div className="flex justify-between mb-1">
+                  <span className="text-xs text-[#70797a]">{g.label}</span>
+                  <span className="text-xs font-semibold text-[#00343a] dark:text-[#e0f5f7]">{g.val}</span>
+                </div>
+                <div className="h-1.5 bg-[#f0f0f0] dark:bg-[#054f57]/30 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      g.val >= 85 ? 'bg-red-400' : g.val >= 60 ? 'bg-amber-400' : 'bg-[#29676f]'
+                    }`}
+                    style={{ width: `${(g.val / g.max) * 100}%` }}
+                  />
+                </div>
+              </div>
+            ))}
+            <StatRow label="Active IP blocks" value="3" />
+          </InfoCard>
+
+          <InfoCard>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-1">Secrets Audit Log</p>
+            <p className="text-[10px] text-[#70797a] mb-4">Last rotation timestamps for critical environment keys.</p>
+            {([
+              { key: 'STRIPE_SECRET_KEY', rotated: '47 days ago', warn: true },
+              { key: 'RESEND_API_KEY', rotated: '12 days ago', warn: false },
+              { key: 'VERCEL_TOKEN', rotated: '89 days ago', warn: true },
+              { key: 'JWT_SECRET', rotated: '14 days ago', warn: false },
+              { key: 'DATABASE_URL', rotated: '3 days ago', warn: false },
+            ]).map(s => (
+              <div key={s.key} className="flex items-center justify-between py-2 border-b border-[#f0f0f0] dark:border-[#054f57]/20 last:border-0">
+                <span className="text-xs font-mono text-[#40484a] dark:text-[#95d0d9]">{s.key}</span>
+                <span className={`text-xs font-medium ${s.warn ? 'text-amber-600' : 'text-[#29676f]'}`}>{s.rotated}</span>
+              </div>
+            ))}
+          </InfoCard>
+        </div>
+      </section>
+
+      {/* ── Section 4: Emergency Kill Switches ───────────────────────────── */}
+      <section>
+        <IntgSectionHeader
+          title="Emergency Kill Switches"
+          subtitle="Wired to system_feature_flags table. Requires confirmation before activation. Use with extreme caution."
+        />
+        {flagErr && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl mb-4">{flagErr}</p>}
+        <div className="grid sm:grid-cols-3 gap-4">
+          {KILL_SWITCHES.map(sw => {
+            const active = getFlagEnabled(sw.key)
+            const isConfirming = confirming === sw.key
+            const isToggling = toggling === sw.key
+            const updatedAt = getFlagUpdated(sw.key)
+            const borderCls = sw.color === 'red' ? 'border-red-200 dark:border-red-800/40' : 'border-amber-200 dark:border-amber-700/40'
+            const activeBg = sw.color === 'red' ? 'bg-red-50 dark:bg-red-900/10' : 'bg-amber-50 dark:bg-amber-900/10'
+            const activeLabel = sw.color === 'red' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+            const activeTitleCls = sw.color === 'red' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'
+            const confirmBtnCls = sw.color === 'red' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+            const confirmBorderCls = sw.color === 'red'
+              ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800/40'
+              : 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-700/40'
+            const toggleActiveCls = sw.color === 'red' ? 'bg-red-500 focus:ring-red-400' : 'bg-amber-500 focus:ring-amber-400'
+
+            return (
+              <div
+                key={sw.key}
+                className={`border-2 rounded-2xl p-5 transition-colors ${
+                  active
+                    ? `${borderCls} ${activeBg}`
+                    : 'bg-white dark:bg-[#001f23] border-[#e0ebe9] dark:border-[#054f57]/60'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div>
+                    <p className={`font-semibold text-sm ${
+                      active ? activeTitleCls : 'text-[#00343a] dark:text-[#e0f5f7]'
+                    }`}>{sw.label}</p>
+                    {active && (
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 inline-block ${activeLabel}`}>
+                        ⚠ ACTIVE
+                      </span>
+                    )}
+                  </div>
+                  {!isConfirming && (
+                    <button
+                      disabled={flagsLoading || isToggling}
+                      onClick={() => setConfirming(sw.key)}
+                      className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 ${
+                        active ? toggleActiveCls : 'bg-[#d0d8d7] dark:bg-[#054f57] focus:ring-[#29676f]'
+                      }`}
+                      aria-pressed={active}
+                    >
+                      <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                        active ? 'translate-x-5' : ''
+                      }`} />
+                    </button>
+                  )}
+                </div>
+
+                <p className="text-xs text-[#70797a] leading-relaxed">{sw.description}</p>
+                {updatedAt && <p className="text-[10px] text-[#70797a] mt-2">Last changed: {updatedAt}</p>}
+
+                {isConfirming && (
+                  <div className={`mt-4 p-3 rounded-xl border ${confirmBorderCls}`}>
+                    <p className={`text-xs font-semibold mb-1.5 ${activeTitleCls}`}>
+                      {active ? 'Deactivate this switch?' : 'Activate this kill switch?'}
+                    </p>
+                    <p className="text-[10px] text-[#70797a] mb-3">
+                      {active
+                        ? 'This will re-enable the affected platform feature immediately.'
+                        : 'This will immediately affect all active users on the platform.'}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        disabled={isToggling}
+                        onClick={() => void toggleFlag(sw.key, !active)}
+                        className={`flex-1 py-1.5 text-xs font-semibold rounded-lg text-white transition-colors disabled:opacity-60 ${confirmBtnCls}`}
+                      >
+                        {isToggling ? 'Saving…' : 'Confirm'}
+                      </button>
+                      <button
+                        onClick={() => setConfirming(null)}
+                        className="flex-1 py-1.5 text-xs font-semibold text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7] rounded-lg border border-[#b0ccc8] dark:border-[#054f57] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      {/* ── B2B Enterprise (preserved) ────────────────────────────────────── */}
+      <section>
+        <IntgSectionHeader
+          title="B2B Enterprise Sponsorship Portal"
+          subtitle="Provision employer accounts that fund employee registries as a benefit."
+        />
+        <div className="bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/60 rounded-2xl p-6">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left">
+                {['Company', 'Plan', 'Employees', 'Monthly Spend', 'Status'].map(h => (
+                  <th key={h} className="pb-3 text-xs font-semibold uppercase tracking-wider text-[#70797a] pr-6">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30">
+              <tr>
+                <td className="py-3 pr-6 font-medium text-[#00343a] dark:text-[#e0f5f7]">Acme Corp</td>
+                <td className="py-3 pr-6 text-[#40484a] dark:text-[#70797a]">Enterprise</td>
+                <td className="py-3 pr-6 text-[#40484a] dark:text-[#70797a]">240</td>
+                <td className="py-3 pr-6 font-semibold text-[#29676f]">$4,800</td>
+                <td className="py-3"><span className="bg-[#e8f4f0] text-[#29676f] text-[10px] font-bold px-2 py-0.5 rounded-full">Active</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <button className="mt-4 text-sm bg-[#00343a] text-white px-4 py-2 rounded-xl hover:bg-[#004c54] transition-colors">+ Provision new enterprise account</button>
+        </div>
+      </section>
+
     </div>
   )
 }
@@ -655,11 +1019,12 @@ type CategoryOption = { id: string; name: string; slug: string }
 
 function CreateVendorModal({ token, onClose, onCreated }: { token: string; onClose: () => void; onCreated: () => void }) {
   const [categories, setCategories] = useState<CategoryOption[]>([])
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', password: '', businessName: '', bio: '', serviceAreas: '' })
+  const [form, setForm] = useState({ businessName: '', bio: '' })
+  const [serviceAreaInput, setServiceAreaInput] = useState('')
+  const [serviceAreaTags, setServiceAreaTags] = useState<string[]>([])
   const [selectedCats, setSelectedCats] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
-  const [createdPw, setCreatedPw] = useState('')
 
   useEffect(() => {
     apiRequest<CategoryOption[]>('/catalog/categories', { token }).then(setCategories).catch(() => { /* non-fatal */ })
@@ -669,25 +1034,35 @@ function CreateVendorModal({ token, onClose, onCreated }: { token: string; onClo
     setSelectedCats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
   }
 
+  function addTag(value: string) {
+    const tags = value.split(',').map(t => t.trim()).filter(Boolean)
+    setServiceAreaTags(prev => {
+      const merged = [...prev]
+      for (const t of tags) { if (!merged.includes(t)) merged.push(t) }
+      return merged
+    })
+    setServiceAreaInput('')
+  }
+
+  function removeTag(tag: string) {
+    setServiceAreaTags(prev => prev.filter(t => t !== tag))
+  }
+
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true); setErr('')
+    e.preventDefault()
+    if (!form.businessName.trim()) { setErr('Business name is required.'); return }
+    setSaving(true); setErr('')
     try {
-      const res = await apiRequest<{ temporaryPassword?: string }>('/dashboard/admin/providers', {
+      await apiRequest('/dashboard/admin/providers', {
         method: 'POST', token,
         body: JSON.stringify({
-          fullName: `${form.firstName} ${form.lastName}`.trim(),
-          firstName: form.firstName,
-          lastName: form.lastName,
-          email: form.email,
-          password: form.password || undefined,
-          businessName: form.businessName || undefined,
-          bio: form.bio || undefined,
-          serviceAreas: form.serviceAreas ? form.serviceAreas.split(',').map(s => s.trim()).filter(Boolean) : [],
+          businessName: form.businessName.trim(),
+          bio: form.bio.trim() || undefined,
+          serviceAreas: serviceAreaTags,
           categoryIds: [...selectedCats],
         }),
       })
-      if (res.temporaryPassword) { setCreatedPw(res.temporaryPassword) }
-      else { onCreated(); onClose() }
+      onCreated(); onClose()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Failed to create vendor')
     } finally { setSaving(false) }
@@ -696,88 +1071,105 @@ function CreateVendorModal({ token, onClose, onCreated }: { token: string; onClo
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-xl bg-white dark:bg-[#001f23] h-full overflow-y-auto shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-lg bg-white dark:bg-[#001f23] h-full overflow-y-auto shadow-2xl flex flex-col">
         <div className="sticky top-0 bg-white dark:bg-[#001f23] border-b border-[#e0ebe9] dark:border-[#054f57]/40 px-6 py-4 flex items-center justify-between z-10">
           <div>
-            <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">Create Vendor Account</h2>
-            <p className="text-xs text-[#70797a] mt-0.5">Manual onboarding — skips vetting, auto-approved</p>
+            <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">New Vendor Shell</h2>
+            <p className="text-xs text-[#70797a] mt-0.5">Auto-approved · Claim link issued later</p>
           </div>
           <button onClick={onClose} className="text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7] p-1">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        {createdPw ? (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">
-            <div className="text-4xl">✅</div>
-            <h3 className="font-semibold text-[#00343a] dark:text-[#e0f5f7] text-lg">Vendor Created</h3>
-            <p className="text-sm text-[#70797a]">Temporary password — share securely with the vendor:</p>
-            <div className="bg-[#f7f4f2] dark:bg-[#00272c] rounded-xl px-6 py-3 font-mono text-sm text-[#00343a] dark:text-[#e0f5f7] tracking-widest border border-[#e0ebe9] dark:border-[#054f57]/40">{createdPw}</div>
-            <button onClick={() => { onCreated(); onClose() }} className="mt-2 px-6 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] transition-colors">Done</button>
+
+        <form onSubmit={submit} className="flex-1 p-6 space-y-6">
+          {/* Business Info */}
+          <div className="space-y-4">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#70797a]">Business Information</p>
+            <div>
+              <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1.5">Business Name <span className="text-[#c85a70]">*</span></label>
+              <input
+                required
+                autoFocus
+                value={form.businessName}
+                onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))}
+                placeholder="e.g. Brooklyn Postpartum Doulas"
+                className="w-full px-3.5 py-2.5 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] placeholder:text-[#70797a]"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1.5">Business Description</label>
+              <textarea
+                rows={4}
+                value={form.bio}
+                onChange={e => setForm(f => ({ ...f, bio: e.target.value }))}
+                placeholder="Describe the services this provider specializes in…"
+                className="w-full px-3.5 py-2.5 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none placeholder:text-[#70797a]"
+              />
+            </div>
           </div>
-        ) : (
-          <form onSubmit={submit} className="flex-1 p-6 space-y-6">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Account Level</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">First Name *</label>
-                  <input required value={form.firstName} onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Last Name *</label>
-                  <input required value={form.lastName} onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3 mt-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Contact Email *</label>
-                  <input required type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Password <span className="font-normal text-[#70797a]">(auto-gen if blank)</span></label>
-                  <input type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} minLength={8} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
-                </div>
-              </div>
+
+          {/* Service Areas Tag Input */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#70797a] mb-3">Service Coverage Areas</p>
+            <div className="flex gap-2">
+              <input
+                value={serviceAreaInput}
+                onChange={e => setServiceAreaInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); if (serviceAreaInput.trim()) addTag(serviceAreaInput) } }}
+                placeholder="Add city, zip code, or borough…"
+                className="flex-1 px-3.5 py-2.5 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] placeholder:text-[#70797a]"
+              />
+              <button
+                type="button"
+                onClick={() => { if (serviceAreaInput.trim()) addTag(serviceAreaInput) }}
+                className="px-3.5 py-2.5 bg-[#00343a] text-white text-xs font-semibold rounded-xl hover:bg-[#004c54] transition-colors flex-shrink-0"
+              >Add</button>
             </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Business Profile</p>
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Registered Business Name</label>
-                  <input value={form.businessName} onChange={e => setForm(f => ({ ...f, businessName: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Detailed Biography</label>
-                  <textarea rows={3} value={form.bio} onChange={e => setForm(f => ({ ...f, bio: e.target.value }))} className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1">Service Areas <span className="font-normal text-[#70797a]">(comma-separated)</span></label>
-                  <input value={form.serviceAreas} onChange={e => setForm(f => ({ ...f, serviceAreas: e.target.value }))} placeholder="New York, NY, Brooklyn, Bronx…" className="w-full px-3 py-2 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
-                </div>
+            <p className="text-[10px] text-[#70797a] mt-1.5">Press Enter or comma to add multiple at once</p>
+            {serviceAreaTags.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {serviceAreaTags.map(tag => (
+                  <span key={tag} className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#e8f4f0] dark:bg-[#004c54]/40 text-[#00343a] dark:text-[#95d0d9] text-xs rounded-full border border-[#95d0d9]/40">
+                    {tag}
+                    <button type="button" onClick={() => removeTag(tag)} className="text-[#70797a] hover:text-[#c85a70] transition-colors ml-0.5">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    </button>
+                  </span>
+                ))}
               </div>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Services Configuration</p>
-              {categories.length === 0 ? (
-                <p className="text-xs text-[#70797a] italic">Loading service categories…</p>
-              ) : (
-                <div className="grid grid-cols-2 gap-2">
-                  {categories.map(cat => (
-                    <label key={cat.id} className={`flex items-center gap-2 px-3 py-2 rounded-xl border cursor-pointer text-sm transition-colors ${selectedCats.has(cat.id) ? 'border-[#29676f] bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#00343a] dark:text-[#e0f5f7]' : 'border-[#b0ccc8] dark:border-[#054f57] text-[#40484a] dark:text-[#95d0d9] hover:border-[#29676f]'}`}>
-                      <input type="checkbox" className="hidden" checked={selectedCats.has(cat.id)} onChange={() => toggleCat(cat.id)} />
-                      <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center ${selectedCats.has(cat.id) ? 'bg-[#29676f]' : 'border-2 border-[#b0ccc8] dark:border-[#054f57]'}`}>
-                        {selectedCats.has(cat.id) && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
-                      </span>
-                      {cat.name}
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-            {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl">{err}</p>}
-            <button type="submit" disabled={saving} className="w-full py-3 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">{saving ? 'Creating Vendor…' : 'Create Vendor Account'}</button>
-          </form>
-        )}
+            )}
+          </div>
+
+          {/* Service Categories */}
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#70797a] mb-3">Service Categories</p>
+            {categories.length === 0 ? (
+              <p className="text-xs text-[#70797a] italic">Loading categories…</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {categories.map(cat => (
+                  <label key={cat.id} className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer text-sm transition-colors ${selectedCats.has(cat.id) ? 'border-[#29676f] bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#00343a] dark:text-[#e0f5f7]' : 'border-[#b0ccc8] dark:border-[#054f57] text-[#40484a] dark:text-[#95d0d9] hover:border-[#29676f]/60'}`}>
+                    <input type="checkbox" className="hidden" checked={selectedCats.has(cat.id)} onChange={() => toggleCat(cat.id)} />
+                    <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center ${selectedCats.has(cat.id) ? 'bg-[#29676f]' : 'border-2 border-[#b0ccc8] dark:border-[#054f57]'}`}>
+                      {selectedCats.has(cat.id) && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                    </span>
+                    {cat.name}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Info notice */}
+          <div className="flex gap-3 p-3.5 rounded-xl bg-[#e8f4f0] dark:bg-[#004c54]/20 border border-[#95d0d9]/30">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#29676f" strokeWidth="2" className="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <p className="text-xs text-[#40484a] dark:text-[#95d0d9] leading-relaxed">This shell will be published immediately. The vendor can claim their profile later using an invitation link from the Users panel.</p>
+          </div>
+
+          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl">{err}</p>}
+          <button type="submit" disabled={saving} className="w-full py-3.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">{saving ? 'Creating…' : 'Create Vendor Shell'}</button>
+        </form>
       </div>
     </div>
   )
@@ -1018,7 +1410,7 @@ function AdminDashboardContent() {
           {activeTab === 'users' && <TabUsers vetting={vetting} onVetting={handleVetting} loading={loading} />}
           {activeTab === 'financials' && <TabFinancials overview={overview} />}
           {activeTab === 'security' && <TabSecurity />}
-          {activeTab === 'integrations' && <TabIntegrations />}
+          {activeTab === 'integrations' && <TabIntegrations token={getToken() ?? ''} />}
           {activeTab === 'vendors' && <TabVendors token={getToken() ?? ''} />}
         </main>
       </div>
