@@ -365,7 +365,7 @@ export default function MotherServicesPage() {
 
   if (!user) {
     return (
-      <div className="h-screen bg-[#f7f4f2] flex items-center justify-center">
+      <div className="h-[calc(100vh-64px)] bg-[#f7f4f2] dark:bg-[#00141a] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#00343a] border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -375,7 +375,7 @@ export default function MotherServicesPage() {
   const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName || 'there'
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f7f4f2] font-sans flex">
+    <div className="h-[calc(100vh-64px)] overflow-hidden bg-[#f7f4f2] dark:bg-[#00141a] font-sans flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
@@ -385,7 +385,7 @@ export default function MotherServicesPage() {
 
       {/* ── Sidebar ───────────────────────────────────────────────────────── */}
       <aside className={[
-        'fixed top-0 left-0 h-screen w-64 bg-[#00343a] text-white flex flex-col z-50 transition-transform duration-200',
+        'fixed top-16 left-0 h-[calc(100vh-64px)] w-64 bg-[#00343a] text-white flex flex-col z-50 transition-transform duration-200',
         'lg:translate-x-0 lg:static lg:z-auto lg:flex-shrink-0',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       ].join(' ')}>

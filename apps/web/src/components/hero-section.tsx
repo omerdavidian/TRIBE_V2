@@ -23,17 +23,11 @@ export default function HeroSection() {
       ].join(' ')}
     >
       {/* ── Content half ────────────────────────────────────────────────── */}
-      <div
-        className={[
-          'relative z-10 flex flex-col justify-center',
-          'w-full md:w-1/2',
-          'px-8 py-16 md:pl-12 md:pr-12 lg:pl-16 lg:pr-16',
-          'order-1 md:order-none',
-        ].join(' ')}
-      >
-        {/* Badge */}
-        <motion.div
-          {...fadeUp(0)}
+      <div className="relative z-10 flex items-center w-full md:w-1/2 order-1 md:order-none">
+        <div className="w-full max-w-xl px-8 py-16 md:px-12 lg:px-8 md:ml-auto">
+          {/* Badge */}
+          <motion.div
+            {...fadeUp(0)}
           className="inline-flex items-center gap-2 self-start bg-[#c85a70]/10 dark:bg-[#c85a70]/20 text-[#8e3349] dark:text-[#f4a4b5] text-sm font-semibold px-4 py-1.5 rounded-full mb-7 border border-[#c85a70]/20"
         >
           <span aria-hidden>🌿</span>
@@ -101,44 +95,43 @@ export default function HeroSection() {
           </Link>
         </motion.div>
 
-        {/* Trust micro-copy */}
-        <motion.p
-          {...fadeUp(0.4)}
-          className="mt-8 text-xs text-[#8fa8a6] dark:text-[#4a6d70] flex items-center gap-1.5"
+        {/* Scroll cue */}
+        <motion.button
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1.2, duration: 0.6 }}
+          onClick={() => {
+            document.getElementById('problem')?.scrollIntoView({ behavior: 'smooth' })
+          }}
+          className={[
+            'mt-12 mx-auto hidden md:flex flex-col items-center gap-2',
+            'group cursor-pointer select-none',
+          ].join(' ')}
+          aria-label="Scroll to services"
         >
-          <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden>
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-          </svg>
-          Trusted by 2,000+ families · Vetted providers · Secure payments
-        </motion.p>
+          {/* Mouse icon */}
+          <div className={[
+            'w-6 h-10 rounded-full border-2',
+            'border-[#8fa8a6]/50 dark:border-[#4a6d70]/60',
+            'group-hover:border-[#1F4A45] dark:group-hover:border-[#95d0d9]',
+            'flex items-start justify-center pt-1.5',
+            'transition-colors duration-300',
+            'relative overflow-hidden',
+          ].join(' ')}>
+            <motion.div
+              animate={{ y: [0, 14, 0], opacity: [1, 0, 1] }}
+              transition={{ repeat: Infinity, duration: 1.6, ease: 'easeInOut' }}
+              className="w-1 h-2 rounded-full bg-[#8fa8a6] dark:bg-[#4a6d70] group-hover:bg-[#1F4A45] dark:group-hover:bg-[#95d0d9] transition-colors duration-300"
+            />
+          </div>
+        </motion.button>
       </div>
-
-      {/* Scroll cue */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.2, duration: 0.6 }}
-        className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center gap-1.5"
-        aria-hidden
-      >
-        <span className="text-[10px] tracking-widest uppercase text-[#8fa8a6] dark:text-[#4a6d70] font-medium">
-          Scroll
-        </span>
-        <motion.div
-          animate={{ y: [0, 6, 0] }}
-          transition={{ repeat: Infinity, duration: 1.4, ease: 'easeInOut' }}
-          className="w-4 h-4 text-[#8fa8a6] dark:text-[#4a6d70]"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </motion.div>
-      </motion.div>
+      </div>
 
       {/* ── Image half ──────────────────────────────────────────────────── */}
       <div className="relative w-full md:w-1/2 h-72 md:h-full flex-shrink-0 order-2 md:order-none">
         <Image
-          src="/images/mother-baby.jpg"
+          src="/images/hero-image.webp"
           alt="A mother holding her newborn baby, feeling supported and calm"
           fill
           priority
@@ -165,7 +158,7 @@ export default function HeroSection() {
           className="absolute inset-0 pointer-events-none hidden dark:block"
           style={{
             background: [
-              'linear-gradient(to right, #0d1f22 0%, transparent 45%)',
+              'linear-gradient(to right, #0d1f22 0%, #0d1f22 5%, rgba(13,31,34,0.88) 10%, rgba(13,31,34,0.35) 20%, transparent 30%)',
               'linear-gradient(to bottom, #0d1f22 0%, transparent 50%)',
             ].join(', '),
           }}

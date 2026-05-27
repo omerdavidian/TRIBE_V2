@@ -2,21 +2,11 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import HeroSection from '@/components/hero-section'
 import TestimonialCarousel from '@/components/testimonial-carousel'
+import ServiceGrid from '@/components/service-grid'
 
 export const metadata: Metadata = {
   title: 'TRIBE, Real Postpartum Support for New Mothers',
 }
-
-const SERVICES = [
-  { icon: '🤱', name: 'Lactation Support', description: 'Expert consultants to help with breastfeeding' },
-  { icon: '💆', name: 'Postpartum Doula', description: 'In-home support for recovery and newborn care' },
-  { icon: '🧠', name: 'Mental Health', description: 'Therapists specializing in perinatal mood disorders' },
-  { icon: '🍲', name: 'Meal Delivery', description: 'Nourishing meals for recovery and milk supply' },
-  { icon: '🏠', name: 'Overnight Support', description: 'Night nurses so you can actually sleep' },
-  { icon: '💪', name: 'Pelvic Floor PT', description: 'Physical therapists for postpartum recovery' },
-  { icon: '🧹', name: 'Home Care', description: 'Cleaning so you can focus on baby' },
-  { icon: '🌿', name: 'Herbal & Wellness', description: 'Traditional postpartum herbs and remedies' },
-]
 
 const HOW_IT_WORKS = [
   {
@@ -51,7 +41,7 @@ export default function LandingPage() {
 
 
       {/* ─── Problem ─────────────────────────────────────────────────────────── */}
-      <section className="bg-teal-700 text-white">
+      <section id="problem" className="bg-teal-700 text-white">
         <div className="max-w-6xl mx-auto px-6 py-20 md:py-24">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
@@ -118,32 +108,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── Services ────────────────────────────────────────────────────────── */}
-      <section id="services" className="py-24 bg-white">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="font-display text-4xl md:text-5xl font-bold text-teal-700 mb-4">
-              Every type of care, in one place
-            </h2>
-            <p className="text-xl text-gray-500 max-w-xl mx-auto">
-              Find vetted local providers across every postpartum service category.
-            </p>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {SERVICES.map((service) => (
-              <div
-                key={service.name}
-                className="bg-cream-100 rounded-2xl p-6 hover:bg-teal-50 hover:border-teal-200 border border-transparent transition-all cursor-pointer group"
-              >
-                <div className="text-3xl mb-3">{service.icon}</div>
-                <h3 className="font-semibold text-teal-700 text-sm mb-1 group-hover:text-teal-800">
-                  {service.name}
-                </h3>
-                <p className="text-gray-400 text-xs leading-relaxed">{service.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <ServiceGrid />
 
       {/* ─── For providers ───────────────────────────────────────────────────── */}
       <section id="providers" className="py-24 bg-cream-100">
@@ -224,50 +189,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ─── Footer ──────────────────────────────────────────────────────────── */}
-      <footer className="bg-teal-700 text-teal-100 py-12">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
-            <div className="col-span-2 md:col-span-1">
-              <div className="font-display font-bold text-2xl text-white mb-3">TRIBE</div>
-              <p className="text-teal-300 text-sm leading-relaxed">
-                Postpartum care, finally organized.
-              </p>
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-white uppercase tracking-widest mb-4">Platform</div>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/auth?tab=register&role=mother" className="hover:text-white transition-colors">Create registry</Link></li>
-                <li><Link href="/auth?tab=register&role=supporter" className="hover:text-white transition-colors">Give support</Link></li>
-                <li><Link href="/auth?tab=register&role=provider" className="hover:text-white transition-colors">Join as provider</Link></li>
-              </ul>
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-white uppercase tracking-widest mb-4">Company</div>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/about" className="hover:text-white transition-colors">About</Link></li>
-                <li><Link href="/blog" className="hover:text-white transition-colors">Blog</Link></li>
-                <li><a href="mailto:info@tribewishlist.com" className="hover:text-white transition-colors">Contact</a></li>
-              </ul>
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-white uppercase tracking-widest mb-4">Legal</div>
-              <ul className="space-y-2 text-sm">
-                <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy</Link></li>
-                <li><Link href="/terms" className="hover:text-white transition-colors">Terms</Link></li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-teal-600 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-teal-400 text-sm">
-              © {new Date().getFullYear()} TRIBE. All rights reserved.
-            </p>
-            <p className="text-teal-400 text-sm">
-              Built with love for every new mother. 🌿
-            </p>
-          </div>
-        </div>
-      </footer>
     </div>
   )
 }

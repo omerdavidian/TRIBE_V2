@@ -513,14 +513,14 @@ function AdminDashboardContent() {
   const storedUser = getStoredUser()
 
   if (loading && !overview) return (
-    <div className="min-h-screen bg-[#f7f4f2] dark:bg-[#00141a] flex font-sans">
+    <div className="min-h-[calc(100vh-64px)] bg-[#f7f4f2] dark:bg-[#00141a] flex font-sans">
       <div className="w-64 flex-shrink-0 bg-[#00343a] hidden lg:block" />
       <div className="flex-1 p-8 space-y-6"><Sk className="h-8 w-48" /><div className="grid grid-cols-2 lg:grid-cols-4 gap-4">{Array.from({length:8}).map((_,i)=><Sk key={i} className="h-28"/>)}</div><Sk className="h-64" /></div>
     </div>
   )
 
   if (error && !overview) return (
-    <div className="min-h-screen bg-[#f7f4f2] dark:bg-[#00141a] flex items-center justify-center p-8 font-sans">
+    <div className="min-h-[calc(100vh-64px)] bg-[#f7f4f2] dark:bg-[#00141a] flex items-center justify-center p-8 font-sans">
       <div className="max-w-md w-full bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/60 rounded-2xl p-8">
         <div className="text-4xl mb-4">??</div>
         <h1 className="font-display text-xl font-bold text-[#00343a] dark:text-[#e0f5f7] mb-2">Dashboard failed to load</h1>
@@ -534,7 +534,7 @@ function AdminDashboardContent() {
   )
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f7f4f2] dark:bg-[#00141a] font-sans flex">
+    <div className="h-[calc(100vh-64px)] overflow-hidden bg-[#f7f4f2] dark:bg-[#00141a] font-sans flex">
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -543,7 +543,7 @@ function AdminDashboardContent() {
 
       {/* --- Sidebar ---------------------------------------------------------- */}
       <aside className={[
-        'fixed top-0 left-0 h-screen w-64 bg-[#00343a] text-white flex flex-col z-50 transition-transform duration-200',
+        'fixed top-16 left-0 h-[calc(100vh-64px)] w-64 bg-[#00343a] text-white flex flex-col z-50 transition-transform duration-200',
         'lg:translate-x-0 lg:static lg:z-auto lg:flex-shrink-0',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       ].join(' ')}>

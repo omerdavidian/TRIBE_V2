@@ -47,7 +47,7 @@ export default function ProviderDashboard() {
 
   if (!user) {
     return (
-      <div className="h-screen bg-[#f7f4f2] flex items-center justify-center">
+      <div className="h-[calc(100vh-64px)] bg-[#f7f4f2] dark:bg-[#00141a] flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-[#00343a] border-t-transparent rounded-full animate-spin" />
       </div>
     )
@@ -57,7 +57,7 @@ export default function ProviderDashboard() {
   const initials = (user.firstName?.[0] ?? user.email.charAt(0)).toUpperCase()
 
   return (
-    <div className="h-screen overflow-hidden bg-[#f7f4f2] font-sans flex">
+    <div className="h-[calc(100vh-64px)] overflow-hidden bg-[#f7f4f2] dark:bg-[#00141a] font-sans flex">
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
@@ -65,7 +65,7 @@ export default function ProviderDashboard() {
       )}
 
       <aside className={[
-        'fixed top-0 left-0 h-screen w-64 bg-[#00343a] text-white flex flex-col z-50 transition-transform duration-200',
+        'fixed top-16 left-0 h-[calc(100vh-64px)] w-64 bg-[#00343a] text-white flex flex-col z-50 transition-transform duration-200',
         'lg:translate-x-0 lg:static lg:z-auto lg:flex-shrink-0',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full',
       ].join(' ')}>
@@ -105,11 +105,11 @@ export default function ProviderDashboard() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="sticky top-0 z-30 bg-[#f7f4f2]/95 backdrop-blur border-b border-[#e0ebe9] h-16 flex items-center px-4 sm:px-6 gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg text-[#40484a] hover:bg-[#e8f4f0] transition-colors" aria-label="Open menu">
+        <header className="sticky top-0 z-30 bg-[#f7f4f2]/95 dark:bg-[#00141a]/95 backdrop-blur border-b border-[#e0ebe9] dark:border-[#054f57]/40 h-16 flex items-center px-4 sm:px-6 gap-3">
+          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg text-[#40484a] dark:text-[#95d0d9] hover:bg-[#e8f4f0] dark:hover:bg-[#004c54]/20 transition-colors" aria-label="Open menu">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
           </button>
-          <h1 className="flex-1 text-sm font-semibold text-[#00343a]">{NAV_ITEMS.find(t => t.id === section)?.label}</h1>
+          <h1 className="flex-1 text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">{NAV_ITEMS.find(t => t.id === section)?.label}</h1>
         </header>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 
@@ -126,14 +126,14 @@ export default function ProviderDashboard() {
                   { label: 'Completed this month', value: '0', bg: 'bg-[#e8f4f5]', text: 'text-[#00343a]' },
                   { label: 'Earnings (MTD)', value: '$0', bg: 'bg-[#f0f9f0]', text: 'text-[#2d7a2d]' },
                 ].map((s) => (
-                  <div key={s.label} className={`${s.bg} rounded-2xl p-6`}>
+                  <div key={s.label} className={`${s.bg} dark:bg-[#001f23] rounded-2xl p-6`}>
                     <p className={`text-3xl font-bold ${s.text}`}>{s.value}</p>
-                    <p className="text-sm text-gray-600 mt-1">{s.label}</p>
+                    <p className="text-sm text-gray-600 dark:text-[#70797a] mt-1">{s.label}</p>
                   </div>
                 ))}
               </div>
-              <div className="bg-white rounded-2xl p-6 border border-[#e8e1db]">
-                <h2 className="font-semibold text-gray-900 mb-4">Quick actions</h2>
+              <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#054f57]/60">
+                <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-4">Quick actions</h2>
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: 'Manage profile', onClick: () => setSection('profile'), icon: '🌿' },
@@ -141,7 +141,7 @@ export default function ProviderDashboard() {
                     { label: 'Check earnings', onClick: () => setSection('earnings'), icon: '💰' },
                     { label: 'Security settings', onClick: () => setSection('security'), icon: '🔐' },
                   ].map((a) => (
-                    <button key={a.label} onClick={a.onClick} className="flex items-center gap-3 p-4 rounded-2xl border border-[#e8e1db] hover:bg-[#f7f4f2] transition-colors text-sm font-medium text-gray-700 text-left">
+                    <button key={a.label} onClick={a.onClick} className="flex items-center gap-3 p-4 rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-sm font-medium text-gray-700 dark:text-[#95d0d9] text-left">
                       <span className="text-lg">{a.icon}</span>{a.label}
                     </button>
                   ))}
@@ -152,40 +152,40 @@ export default function ProviderDashboard() {
 
           {section === 'profile' && (
             <div className="max-w-3xl space-y-6">
-              <h1 className="font-serif text-2xl font-bold text-[#00343a]">Provider Profile</h1>
-              <div className="bg-white rounded-2xl p-12 border border-[#e8e1db] flex flex-col items-center justify-center text-center">
+              <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Provider Profile</h1>
+              <div className="bg-white dark:bg-[#001f23] rounded-2xl p-12 border border-[#e8e1db] dark:border-[#054f57]/60 flex flex-col items-center justify-center text-center">
                 <div className="text-5xl mb-4">🌿</div>
-                <h2 className="font-semibold text-gray-900 mb-2">Profile setup coming soon</h2>
-                <p className="text-sm text-gray-500">Complete your provider profile to start receiving bookings.</p>
+                <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-2">Profile setup coming soon</h2>
+                <p className="text-sm text-gray-500 dark:text-[#70797a]">Complete your provider profile to start receiving bookings.</p>
               </div>
             </div>
           )}
 
           {section === 'bookings' && (
             <div className="max-w-3xl space-y-6">
-              <h1 className="font-serif text-2xl font-bold text-[#00343a]">Bookings</h1>
-              <div className="bg-white rounded-2xl p-12 border border-[#e8e1db] flex flex-col items-center justify-center text-center">
+              <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Bookings</h1>
+              <div className="bg-white dark:bg-[#001f23] rounded-2xl p-12 border border-[#e8e1db] dark:border-[#054f57]/60 flex flex-col items-center justify-center text-center">
                 <div className="text-5xl mb-4">📅</div>
-                <h2 className="font-semibold text-gray-900 mb-2">No bookings yet</h2>
-                <p className="text-sm text-gray-500">Complete your profile to start receiving booking requests.</p>
+                <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-2">No bookings yet</h2>
+                <p className="text-sm text-gray-500 dark:text-[#70797a]">Complete your profile to start receiving booking requests.</p>
               </div>
             </div>
           )}
 
           {section === 'earnings' && (
             <div className="max-w-3xl space-y-6">
-              <h1 className="font-serif text-2xl font-bold text-[#00343a]">Earnings</h1>
-              <div className="bg-white rounded-2xl p-12 border border-[#e8e1db] flex flex-col items-center justify-center text-center">
+              <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Earnings</h1>
+              <div className="bg-white dark:bg-[#001f23] rounded-2xl p-12 border border-[#e8e1db] dark:border-[#054f57]/60 flex flex-col items-center justify-center text-center">
                 <div className="text-5xl mb-4">💰</div>
-                <h2 className="font-semibold text-gray-900 mb-2">No earnings yet</h2>
-                <p className="text-sm text-gray-500">Your earnings will appear here once you complete bookings.</p>
+                <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-2">No earnings yet</h2>
+                <p className="text-sm text-gray-500 dark:text-[#70797a]">Your earnings will appear here once you complete bookings.</p>
               </div>
             </div>
           )}
 
           {section === 'security' && (
             <div className="max-w-2xl space-y-6">
-              <h1 className="font-serif text-2xl font-bold text-[#00343a]">Security</h1>
+              <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Security</h1>
               <ChangePasswordForm />
             </div>
           )}

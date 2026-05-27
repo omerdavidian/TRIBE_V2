@@ -129,7 +129,7 @@ export default function TestimonialCarousel() {
         {/* Left fade */}
         <div
           aria-hidden
-          className="pointer-events-none absolute left-0 top-0 h-full w-24 z-10"
+          className="pointer-events-none absolute left-0 top-0 h-full w-24 z-10 dark:hidden"
           style={{
             background: 'linear-gradient(to right, #f6f3ed, transparent)',
           }}
@@ -145,7 +145,7 @@ export default function TestimonialCarousel() {
         {/* Right fade */}
         <div
           aria-hidden
-          className="pointer-events-none absolute right-0 top-0 h-full w-24 z-10"
+          className="pointer-events-none absolute right-0 top-0 h-full w-24 z-10 dark:hidden"
           style={{
             background: 'linear-gradient(to left, #f6f3ed, transparent)',
           }}
