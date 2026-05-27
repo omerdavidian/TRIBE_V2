@@ -14,11 +14,19 @@ export function getToken(): string | null {
 export function setAuth(token: string, user: User): void {
   localStorage.setItem(TOKEN_KEY, token)
   localStorage.setItem(USER_KEY, JSON.stringify(user))
+  // Notify listeners of auth change
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('authChanged'))
+  }
 }
 
 export function clearAuth(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(USER_KEY)
+  // Notify listeners of auth change
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('authChanged'))
+  }
 }
 
 export function getStoredUser(): User | null {

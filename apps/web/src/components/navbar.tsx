@@ -23,6 +23,23 @@ export default function Navbar() {
   useEffect(() => {
     setMounted(true)
     setUser(getStoredUser())
+
+    // Listen for storage changes (login/logout from other tabs)
+    function handleStorageChange() {
+      setUser(getStoredUser())
+    }
+
+    // Listen for custom auth change event (login/logout in current tab)
+    function handleAuthChange() {
+      setUser(getStoredUser())
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    window.addEventListener('authChanged', handleAuthChange)
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('authChanged', handleAuthChange)
+    }
   }, [])
 
   function handleLogout() {
