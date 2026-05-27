@@ -1,6 +1,6 @@
 # TRIBE - PROJECT MASTER BRIEF
 
-**Last Updated:** May 26, 2026  
+**Last Updated:** May 27, 2026  
 **Project**: TRIBE - Postpartum Care Marketplace  
 **URL**: https://tribewishlist.com  
 **Repository**: https://github.com/omerdavidian/TRIBE_V2
@@ -18,6 +18,15 @@ platform fees.
 
 **Mission**: Give new mothers the gift that actually matters—real postpartum
 support through a community-powered marketplace.
+
+**Go-to-Market Rollout (Current Plan):**
+
+- **Phase 1 (Proof of Concept): Los Angeles (LA) only**
+- Launch with a curated set of select partner businesses/providers to validate
+  quality, fulfillment reliability, and support operations before broad public
+  release
+- Operate as a controlled rollout in LA first, then expand city-by-city after
+  KPI validation (fulfillment rate, dispute rate, retention)
 
 ---
 
@@ -65,13 +74,13 @@ support through a community-powered marketplace.
 
 ### User Roles & Core Workflows
 
-| Role                 | Capabilities                                                                  | Key Workflows                                                         |
-| -------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| **Mother**           | Create registries, accept bookings, fund through donations                    | Create registry → Add items → Accept bookings → Rate providers        |
-| **Supporter**        | Browse registries, fund items, track contributions                            | Search registries → Fund items → Receive confirmation                 |
-| **Provider**         | Offer services, manage profile, accept bookings, receive payments             | Create profile → Await vetting → Accept bookings → Invoice completion |
-| **Business/Sponsor** | Allocate care budgets, track usage, build employer brand                      | Set budget → Allocate to mothers → View reports                       |
-| **Admin**            | Oversee platform health, vet providers, manage disputes, system configuration | Monitor metrics → Approve providers → Manage flags → Configure system |
+| Role                 | Capabilities                                                                    | Key Workflows                                                               |
+| -------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **Mother**           | Create registries, accept bookings, fund through donations                      | Create registry → Add items → Accept bookings → Rate providers              |
+| **Supporter**        | Browse registries, fund items, track contributions                              | Search registries → Fund items → Receive confirmation                       |
+| **Provider**         | Offer services, manage profile/hours/pricing, accept bookings, receive payments | Create profile → Await vetting → Configure services/hours → Accept bookings |
+| **Business/Sponsor** | Allocate care budgets, track usage, build employer brand                        | Set budget → Allocate to mothers → View reports                             |
+| **Admin**            | Oversee platform health, vet providers, manage disputes, system configuration   | Monitor metrics → Approve providers → Manage flags → Configure system       |
 
 ---
 
@@ -117,7 +126,8 @@ TRIBE-V2/                       # Monorepo root
 │   │   │       ├── waitlist.ts # POST /waitlist/join; GET /waitlist/unsubscribe
 │   │   │       ├── catalog.ts  # GET /catalog/categories, /providers
 │   │   │       ├── registry.ts # POST/PATCH /registries, /registries/:id/items
-│   │   │       └── admin.ts    # /dashboard/admin/* endpoints
+│   │   │       ├── provider.ts # /provider/profile, /provider/services, /provider/hours
+│   │   │       └── admin.ts    # /dashboard/admin/* endpoints (users, vetting, flags, ledger)
 │   │   ├── package.json
 │   │   ├── tsconfig.json
 │   │   └── drizzle.config.ts
@@ -131,9 +141,9 @@ TRIBE-V2/                       # Monorepo root
 │       │   │   │   └── callback/     # OAuth callback handler
 │       │   │   ├── dashboard/
 │       │   │   │   ├── page.tsx      # Role-based redirect router
-│       │   │   │   ├── admin/        # Admin overview + tabs (users, financials, security, integrations)
+│       │   │   │   ├── admin/        # Admin command center (overview, users, vendors, integrations)
 │       │   │   │   ├── mother/       # Registry creation + management
-│       │   │   │   ├── provider/     # Profile + service offerings
+│       │   │   │   ├── provider/     # Business profile, services/pricing, operating hours
 │       │   │   │   └── supporter/    # Browse registries + donations
 │       │   │   ├── registry/
 │       │   │   │   └── [slug]/       # Public registry view
@@ -206,9 +216,11 @@ provider_profiles
   ├─ id (UUID PK)
   ├─ user_id (FK → users, unique, cascade on delete)
   ├─ business_name, bio, service_areas (array)
+  ├─ phone, website_url, google_review_url
+  ├─ instagram_url, facebook_url, attributes (array)
   ├─ stripe_account_id
-  ├─ application_status (enum: pending, approved, rejected)
-  ├─ review_note, reviewed_at
+  ├─ application_status (enum: pending, approved, rejected, info_requested)
+  ├─ review_note, info_request_message, reviewed_at
   ├─ created_at, updated_at
 
 provider_services
@@ -216,7 +228,23 @@ provider_services
   ├─ provider_profile_id (FK, cascade on delete)
   ├─ category_id (FK → service_categories)
   ├─ price_min_cents, price_max_cents (nullable)
+  ├─ billing_frequency (enum: flat, hourly, daily, weekly)
   ├─ description
+
+provider_operating_hours
+  ├─ id (UUID PK)
+  ├─ provider_profile_id (FK, cascade on delete)
+  ├─ day_of_week (int; 0..6)
+  ├─ is_closed (boolean)
+  ├─ open_time, close_time (HH:MM)
+
+provider_reviews
+  ├─ id (UUID PK)
+  ├─ provider_profile_id (FK → provider_profiles)
+  ├─ mother_id (FK → users)
+  ├─ booking_id (FK → bookings, nullable)
+  ├─ rating (1-5), comment, would_recommend
+  ├─ created_at, updated_at
 
 registries
   ├─ id (UUID PK)
@@ -282,7 +310,7 @@ beta_invitations
 
 system_feature_flags
   ├─ id (UUID PK)
-  ├─ key (text, unique): maintenance_mode, pause_payouts, pause_new_bookings
+  ├─ key (text, unique): maintenance_mode, kill_checkout, kill_payouts, ...
   ├─ label, enabled
   ├─ updated_by (FK), updated_at
 
@@ -371,24 +399,39 @@ service_price_caps
 
 ### Admin Routes
 
-| Method | Path                                                       | Auth           | Description                                 |
-| ------ | ---------------------------------------------------------- | -------------- | ------------------------------------------- |
-| GET    | `/dashboard/admin/overview`                                | Bearer (admin) | Platform metrics (GMV, users, retention)    |
-| GET    | `/dashboard/admin/health`                                  | Bearer (admin) | API/DB health (latency, error rate)         |
-| GET    | `/dashboard/admin/system/flags`                            | Bearer (admin) | List feature flags                          |
-| PUT    | `/dashboard/admin/system/flags/:key`                       | Bearer (admin) | Update feature flag                         |
-| GET    | `/dashboard/admin/users?page=1&pageSize=50&q=...&role=...` | Bearer (admin) | List users with search/filter               |
-| POST   | `/dashboard/admin/users`                                   | Bearer (admin) | Create user manually                        |
-| PATCH  | `/dashboard/admin/users/:id`                               | Bearer (admin) | Update user (role, fullName, isActive)      |
-| POST   | `/dashboard/admin/users/:id/reset-password-trigger`        | Bearer (admin) | Send reset email                            |
-| GET    | `/dashboard/admin/providers/vetting`                       | Bearer (admin) | List pending provider applications          |
-| POST   | `/dashboard/admin/providers/:id/vetting`                   | Bearer (admin) | Approve/reject provider                     |
-| GET    | `/dashboard/admin/beta/invitations`                        | Bearer (admin) | List beta invitations                       |
-| POST   | `/dashboard/admin/beta/invitations/bulk`                   | Bearer (admin) | Bulk send invitations                       |
-| GET    | `/dashboard/admin/ledger/overview`                         | Bearer (admin) | Financial overview (escrow, refunded, etc.) |
-| POST   | `/dashboard/admin/ledger/refunds`                          | Bearer (admin) | Refund donation or cancel booking           |
-| GET    | `/dashboard/admin/bookings/dead-air?minutes=180`           | Bearer (admin) | List stale pending bookings                 |
-| GET    | `/dashboard/admin/enterprise/partners`                     | Bearer (admin) | List enterprise sponsors                    |
+| Method | Path                                                       | Auth           | Description                                   |
+| ------ | ---------------------------------------------------------- | -------------- | --------------------------------------------- |
+| GET    | `/dashboard/admin/overview`                                | Bearer (admin) | Platform metrics (GMV, users, retention)      |
+| GET    | `/dashboard/admin/health`                                  | Bearer (admin) | API/DB health (latency, error rate)           |
+| GET    | `/dashboard/admin/system/flags`                            | Bearer (admin) | List feature flags                            |
+| PUT    | `/dashboard/admin/system/flags/:key`                       | Bearer (admin) | Update feature flag                           |
+| GET    | `/dashboard/admin/users?page=1&pageSize=50&q=...&role=...` | Bearer (admin) | List users with search/filter                 |
+| POST   | `/dashboard/admin/users`                                   | Bearer (admin) | Create user manually                          |
+| PATCH  | `/dashboard/admin/users/:id`                               | Bearer (admin) | Update user (role, fullName, isActive)        |
+| POST   | `/dashboard/admin/users/:id/reset-password-trigger`        | Bearer (admin) | Send reset email                              |
+| GET    | `/dashboard/admin/providers/vetting?status=...`            | Bearer (admin) | List provider applications by status          |
+| POST   | `/dashboard/admin/providers`                               | Bearer (admin) | Manual provider onboarding (approved flow)    |
+| POST   | `/dashboard/admin/providers/:id/vetting`                   | Bearer (admin) | Approve/reject/request info + lifecycle email |
+| GET    | `/dashboard/admin/beta/invitations`                        | Bearer (admin) | List beta invitations                         |
+| POST   | `/dashboard/admin/beta/invitations/bulk`                   | Bearer (admin) | Bulk send invitations                         |
+| POST   | `/dashboard/admin/beta/invitations/:id/mark`               | Bearer (admin) | Update invitation status                      |
+| GET    | `/dashboard/admin/ledger/overview`                         | Bearer (admin) | Financial overview (escrow, refunded, etc.)   |
+| POST   | `/dashboard/admin/ledger/refunds`                          | Bearer (admin) | Refund donation or cancel booking             |
+| POST   | `/dashboard/admin/ledger/pass-it-forward/allocate`         | Bearer (admin) | Allocate sponsored funds to a mother          |
+| GET    | `/dashboard/admin/ledger/pass-it-forward/allocations`      | Bearer (admin) | List pass-it-forward allocations              |
+| GET    | `/dashboard/admin/bookings/dead-air?minutes=180`           | Bearer (admin) | List stale pending bookings                   |
+| GET    | `/dashboard/admin/enterprise/partners`                     | Bearer (admin) | List enterprise sponsors                      |
+
+### Provider Routes
+
+| Method | Path                   | Auth              | Description                                       |
+| ------ | ---------------------- | ----------------- | ------------------------------------------------- |
+| GET    | `/provider/profile`    | Bearer (provider) | Get full provider profile (services + hours)      |
+| PUT    | `/provider/profile`    | Bearer (provider) | Update business profile fields and links          |
+| GET    | `/provider/categories` | Bearer (provider) | List active categories for provider setup         |
+| PUT    | `/provider/services`   | Bearer (provider) | Replace provider service catalog + pricing config |
+| GET    | `/provider/hours`      | Bearer (provider) | Get weekly operating hours                        |
+| PUT    | `/provider/hours`      | Bearer (provider) | Replace weekly operating hours schedule           |
 
 ---
 
@@ -414,15 +457,15 @@ service_price_caps
 
 ### Dashboard Pages (Authenticated)
 
-| Route                    | Purpose              | Auth      | Features                                                                                    |
-| ------------------------ | -------------------- | --------- | ------------------------------------------------------------------------------------------- |
-| `/dashboard`             | Role router          | Bearer    | Redirects to role-specific dashboard                                                        |
-| `/dashboard/admin`       | Admin overview       | admin     | Metrics, tabs (overview, users, financials, security, integrations), provider vetting queue |
-| `/dashboard/mother`      | Mother's registries  | mother    | Create/manage registries, view bookings, track donors                                       |
-| `/dashboard/provider`    | Provider profile     | provider  | Manage services, view pending bookings, earnings, vetting status                            |
-| `/dashboard/supporter`   | Browse + donate      | supporter | Search registries, fund items, view history                                                 |
-| `/registry/[slug]`       | Public registry      | None      | Mother's registry, items, donation targets, public profile                                  |
-| `/unsubscribe?email=...` | Waitlist unsubscribe | None      | Confirmation page                                                                           |
+| Route                    | Purpose                     | Auth      | Features                                                                                                    |
+| ------------------------ | --------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
+| `/dashboard`             | Role router                 | Bearer    | Redirects to role-specific dashboard                                                                        |
+| `/dashboard/admin`       | Admin command center        | admin     | Metrics, users/trust, vendor lifecycle management, integrations & operations, emergency kill switches       |
+| `/dashboard/mother`      | Mother's registries         | mother    | Create/manage registries, view bookings, track donors                                                       |
+| `/dashboard/provider`    | Provider business dashboard | provider  | Business profile editor, links/socials, services/pricing matrix, weekly operating hours, profile completion |
+| `/dashboard/supporter`   | Browse + donate             | supporter | Search registries, fund items, view history                                                                 |
+| `/registry/[slug]`       | Public registry             | None      | Mother's registry, items, donation targets, public profile                                                  |
+| `/unsubscribe?email=...` | Waitlist unsubscribe        | None      | Confirmation page                                                                                           |
 
 ### UI/UX Design System
 
@@ -452,31 +495,56 @@ service_price_caps
 
 ### Latest Commits (May 2026)
 
-1. **Schema Compatibility Hardening** (commit: a3014e3)
+1. **Provider Business Dashboard + Provider API**
+   - Added provider-scoped API routes: `/provider/profile`,
+     `/provider/services`, `/provider/hours`, `/provider/categories`
+   - Expanded provider schema with business contact/social fields and
+     `provider_operating_hours`
+   - Added `billing_frequency` for provider services
+   - Rebuilt provider dashboard UX around business profile, services/pricing,
+     and hours matrix
+
+2. **Admin Vendor Lifecycle Management**
+   - Added Admin Vendors tab with state-filtered directory and high-density
+     vetting UI (pending/approved/rejected/info_requested)
+   - Added manual vendor generation flow with account + business + category
+     mapping
+   - Added provider lifecycle email notifications (approved/rejected/info
+     requested)
+   - Added `info_requested` application state and
+     `provider_profiles.info_request_message`
+
+3. **Admin Integrations & Operations Command Center**
+   - Replaced integrations tab with command center modules for Stripe,
+     infrastructure health, operations/security, and emergency controls
+   - Wired emergency kill switches to `system_feature_flags`
+     (`GET/PUT /dashboard/admin/system/flags`)
+
+4. **Schema Compatibility Hardening** (commit: a3014e3)
    - Expanded `ensureBaselineSchema()` to auto-create all missing core tables +
      enums
    - Prevents "relation does not exist" crashes from DB schema drift
    - Includes bookings, donations, registry, provider profile tables
    - Added to startup before routes register
 
-2. **Production Lint/Build Stabilization** (commit: a3014e3)
+5. **Production Lint/Build Stabilization** (commit: a3014e3)
    - Fixed web lint violations (unescaped JSX entities)
    - Added ESLint config for Next.js
    - Unified API lint script (tsc --noEmit)
    - All builds now pass: lint ✓ build ✓ typecheck ✓
 
-3. **Waitlist Duplicate Email Handling** (commit: 3effe40)
+6. **Waitlist Duplicate Email Handling** (commit: 3effe40)
    - API now returns exact message: "You're already on the list! We will keep
      you posted when we go live"
    - Coming-soon page reads API response and displays duplicate message
    - Smooth UX for re-submissions
 
-4. **Admin Dashboard Fix** (commit: 3effe40)
+7. **Admin Dashboard Fix** (commit: 3effe40)
    - Donations table now created by baseline schema
    - Bookings table now created by baseline schema
    - Admin overview metrics no longer crash on legacy DBs
 
-5. **Dev Email Fallback & Auth Improvements** (commit: 7f70c67)
+8. **Dev Email Fallback & Auth Improvements** (commit: 7f70c67)
    - Email delivery in local/dev now treats fallback as success (localhost flows
      work)
    - Production remains strict (requires actual delivery)
@@ -484,21 +552,21 @@ service_price_caps
 
 ### Implementation Status
 
-| Feature                                | Status        | Notes                                                                                                    |
-| -------------------------------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
-| **User Registration (Email/Password)** | ✅ Production | Full validation, password reset flow                                                                     |
-| **OAuth (Google + Apple)**             | ✅ Production | Callback handling, user creation                                                                         |
-| **Waitlist**                           | ✅ Production | Join, unsubscribe, email confirmation                                                                    |
-| **Mother Registries**                  | 🟡 Partial    | Can create/edit; public view working; donations/bookings framework in place                              |
-| **Provider Profiles**                  | 🟡 Partial    | Schema complete; vetting queue in admin; booking acceptance not yet wired                                |
-| **Admin Dashboard**                    | 🟡 Partial    | Overview metrics ✓; user management ✓; provider vetting queue UI ✓; some tabs mock data                  |
-| **Donations**                          | 🟡 Partial    | Stripe Checkout integrated (schema); flow to mark completed pending                                      |
-| **Bookings**                           | 🟡 Partial    | CRUD in API; status transitions (pending → confirmed → in_progress → completed); payment not fully wired |
-| **Theme Toggle**                       | ✅ Production | Light/dark mode persists; hydration-safe                                                                 |
-| **Mobile Responsive**                  | ✅ Production | All pages tested on mobile breakpoints                                                                   |
-| **Email Notifications**                | ✅ Production | Welcome, verification, password reset, waitlist; Resend fallback in dev                                  |
-| **TypeScript Coverage**                | ✅ Production | Shared types in packages/shared; full type safety across stacks                                          |
-| **Database Migrations**                | ✅ Production | Drizzle migrations tracked; baseline schema compatibility layer                                          |
+| Feature                                | Status           | Notes                                                                                                                |
+| -------------------------------------- | ---------------- | -------------------------------------------------------------------------------------------------------------------- |
+| **User Registration (Email/Password)** | ✅ Production    | Full validation, password reset flow                                                                                 |
+| **OAuth (Google + Apple)**             | ✅ Production    | Callback handling, user creation                                                                                     |
+| **Waitlist**                           | ✅ Production    | Join, unsubscribe, email confirmation                                                                                |
+| **Mother Registries**                  | 🟡 Partial       | Can create/edit; public view working; donations/bookings framework in place                                          |
+| **Provider Profiles**                  | 🟢 Advanced Beta | Full business profile editing, service catalog + billing frequency, operating hours API/UI, vetting lifecycle states |
+| **Admin Dashboard**                    | 🟢 Advanced Beta | Overview, user management, vendor lifecycle ops, integrations/operations command center, feature-flag kill switches  |
+| **Donations**                          | 🟡 Partial       | Stripe Checkout integrated (schema); flow to mark completed pending                                                  |
+| **Bookings**                           | 🟡 Partial       | CRUD in API; status transitions (pending → confirmed → in_progress → completed); payment not fully wired             |
+| **Theme Toggle**                       | ✅ Production    | Light/dark mode persists; hydration-safe                                                                             |
+| **Mobile Responsive**                  | ✅ Production    | All pages tested on mobile breakpoints                                                                               |
+| **Email Notifications**                | ✅ Production    | Welcome, verification, password reset, waitlist; Resend fallback in dev                                              |
+| **TypeScript Coverage**                | ✅ Production    | Shared types in packages/shared; full type safety across stacks                                                      |
+| **Database Migrations**                | ✅ Production    | Drizzle migrations tracked; baseline schema compatibility layer                                                      |
 
 ---
 
@@ -632,6 +700,10 @@ Admin dashboard provides:
 - Waitlist count + conversion rate
 - Retention rates (30d, 90d)
 - Provider vetting queue count
+- Vendor lifecycle state distribution (pending/approved/rejected/info requested)
+- Integrations & operations health panels (Stripe, Vercel, Railway, Neon,
+  Resend, OAuth)
+- Emergency kill-switch state via `system_feature_flags`
 - Schema migration count
 
 ---
@@ -646,12 +718,18 @@ Admin dashboard provides:
 3. **Disputes/Refunds**: Admin can manually refund; automated dispute flow not
    implemented
 4. **Search/Filtering**: Basic registries available; advanced search not built
-5. **Reviews/Ratings**: Schema placeholder; UI not implemented
+5. **Reviews/Ratings**: Core schema and provider-facing foundations are in
+   place; mother/supporter UX and moderation workflows are still expanding
 6. **Push Notifications**: Not implemented; email-only for now
-7. **Analytics**: Admin dashboard mock data in some tabs; real data wired for
-   metrics
+7. **Analytics**: Integrations/operations cards still include staged/mock
+   telemetry in some modules until external dashboards are fully wired
+8. **Geographic Footprint**: Current operations are LA-only pilot; expansion
+   playbooks for additional cities are in planning
 
 ### Scaling Considerations
+
+- **Launch geography**: Start in Los Angeles with select businesses/providers;
+  expand city-by-city after pilot KPI validation
 
 - **Database**: Neon handles scaling; monitor connection pool and query
   performance

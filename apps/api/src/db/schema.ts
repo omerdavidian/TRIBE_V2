@@ -404,6 +404,17 @@ export const providerOperatingHoursRelations = relations(providerOperatingHours,
   }),
 }))
 
+export const providerServicesRelations = relations(providerServices, ({ one }) => ({
+  providerProfile: one(providerProfiles, {
+    fields: [providerServices.providerProfileId],
+    references: [providerProfiles.id],
+  }),
+  category: one(serviceCategories, {
+    fields: [providerServices.categoryId],
+    references: [serviceCategories.id],
+  }),
+}))
+
 export const providerReviewsRelations = relations(providerReviews, ({ one }) => ({
   providerProfile: one(providerProfiles, {
     fields: [providerReviews.providerProfileId],
