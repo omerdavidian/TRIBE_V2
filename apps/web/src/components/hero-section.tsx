@@ -22,54 +22,13 @@ export default function HeroSection() {
         'bg-[#f6f3ed] dark:bg-[#0d1f22]',
       ].join(' ')}
     >
-      {/* ── Image half ──────────────────────────────────────────────────── */}
-      <div className="relative w-full md:w-1/2 h-72 md:h-full flex-shrink-0 order-1 md:order-none">
-        {/*
-          Placeholder image — swap src for a real mother+baby photo.
-          Using a warm lifestyle photo from Unsplash (royalty-free).
-        */}
-        <Image
-          src="https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=900&q=80"
-          alt="A mother holding her newborn baby, feeling supported and calm"
-          fill
-          priority
-          className="object-cover object-center"
-          sizes="(max-width: 768px) 100vw, 50vw"
-        />
-
-        {/* Gradient mask — fades image INTO the content side */}
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
-          style={{
-            background: [
-              /* horizontal fade (into right/content side on desktop) */
-              'linear-gradient(to right, transparent 45%, #f6f3ed 100%)',
-              /* bottom fade for mobile (stacked layout) */
-              'linear-gradient(to bottom, transparent 50%, #f6f3ed 100%)',
-            ].join(', '),
-          }}
-        />
-        {/* Dark-mode overlay version */}
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none hidden dark:block"
-          style={{
-            background: [
-              'linear-gradient(to right, transparent 45%, #0d1f22 100%)',
-              'linear-gradient(to bottom, transparent 50%, #0d1f22 100%)',
-            ].join(', '),
-          }}
-        />
-      </div>
-
       {/* ── Content half ────────────────────────────────────────────────── */}
       <div
         className={[
           'relative z-10 flex flex-col justify-center',
           'w-full md:w-1/2',
-          'px-8 py-16 md:pl-12 md:pr-16 lg:pl-16 lg:pr-24',
-          'order-2 md:order-none',
+          'px-8 py-16 md:pl-12 md:pr-12 lg:pl-16 lg:pr-16',
+          'order-1 md:order-none',
         ].join(' ')}
       >
         {/* Badge */}
@@ -175,6 +134,44 @@ export default function HeroSection() {
           </svg>
         </motion.div>
       </motion.div>
+
+      {/* ── Image half ──────────────────────────────────────────────────── */}
+      <div className="relative w-full md:w-1/2 h-72 md:h-full flex-shrink-0 order-2 md:order-none">
+        <Image
+          src="/images/mother-baby.jpg"
+          alt="A mother holding her newborn baby, feeling supported and calm"
+          fill
+          priority
+          className="object-cover object-center"
+          sizes="(max-width: 768px) 100vw, 50vw"
+        />
+
+        {/* Gradient mask — fades image INTO the content side (now left) */}
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: [
+              /* horizontal fade (into left/content side on desktop) */
+              'linear-gradient(to right, #f6f3ed 0%, transparent 45%)',
+              /* bottom fade for mobile (stacked layout) */
+              'linear-gradient(to bottom, #f6f3ed 0%, transparent 50%)',
+            ].join(', '),
+          }}
+        />
+        {/* Dark-mode overlay version */}
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none hidden dark:block"
+          style={{
+            background: [
+              'linear-gradient(to right, #0d1f22 0%, transparent 45%)',
+              'linear-gradient(to bottom, #0d1f22 0%, transparent 50%)',
+            ].join(', '),
+          }}
+        />
+      </div>
     </section>
   )
 }
+
