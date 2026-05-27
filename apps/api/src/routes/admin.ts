@@ -100,12 +100,12 @@ const featureFlagSchema = z.object({
 })
 
 const createProviderSchema = z.object({
-  email: z.string().email(),
-  fullName: z.string().min(1).max(120),
+  email: z.string().email().optional(), // auto-generated placeholder if omitted
+  fullName: z.string().min(1).max(120).optional(),
   firstName: z.string().min(1).max(60).optional(),
   lastName: z.string().min(1).max(60).optional(),
   password: z.string().min(8).optional(),
-  businessName: z.string().min(1).max(200).optional(),
+  businessName: z.string().min(1).max(200),
   bio: z.string().max(2000).optional(),
   serviceAreas: z.array(z.string()).default([]),
   categoryIds: z.array(z.string().uuid()).default([]),
@@ -840,7 +840,12 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: body.error.flatten().fieldErrors })
     }
 
-    const existing = await db.query.users.findFirst({ where: eq(users.email, body.data.email.toLowerCase()) })
+    // Auto-generate a placeholder email if none supplied (shell vendor mode)
+    const { randomUUID } = await import('crypto')
+    const vendorEmail = body.data.email ?? `vendor-${randomUUID()}@tribe.internal`
+    const emailLower = vendorEmail.toLowerCase()
+
+    const existing = await db.query.users.findFirst({ where: eq(users.email, emailLower) })
     if (existing) {
       return reply.status(409).send({ statusCode: 409, error: 'Conflict', message: 'A user with this email already exists' })
     }
@@ -851,8 +856,8 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     const [newUser] = await db
       .insert(users)
       .values({
-        email: body.data.email.toLowerCase(),
-        fullName: body.data.fullName,
+        email: emailLower,
+        fullName: body.data.fullName ?? body.data.businessName ?? null,
         firstName: body.data.firstName ?? null,
         lastName: body.data.lastName ?? null,
         role: 'provider',
@@ -868,7 +873,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       .insert(providerProfiles)
       .values({
         userId: newUser.id,
-        businessName: body.data.businessName ?? null,
+        businessName: body.data.businessName,
         bio: body.data.bio ?? null,
         serviceAreas: body.data.serviceAreas,
         applicationStatus: 'approved',
@@ -893,10 +898,12 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       ).onConflictDoNothing()
     }
 
+    // Only send back a temporaryPassword if a real email was provided (for actual logins)
+    const isShellVendor = !body.data.email
     return reply.status(201).send({
       user: newUser,
       providerProfile: profile,
-      temporaryPassword: body.data.password ? undefined : password,
+      temporaryPassword: isShellVendor ? undefined : (body.data.password ? undefined : password),
     })
   })
 

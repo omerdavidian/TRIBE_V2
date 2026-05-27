@@ -63,6 +63,13 @@ export const fundingFrequencyEnum = pgEnum('funding_frequency', [
   'monthly',
 ])
 
+export const billingFrequencyEnum = pgEnum('billing_frequency', [
+  'flat',
+  'hourly',
+  'daily',
+  'weekly',
+])
+
 // ─── Tables ───────────────────────────────────────────────────────────────────
 
 export const users = pgTable('users', {
@@ -109,6 +116,11 @@ export const providerProfiles = pgTable('provider_profiles', {
   serviceAreas: text('service_areas').array().notNull().default([]),
   avatarUrl: text('avatar_url'),
   websiteUrl: text('website_url'),
+  phone: text('phone'),
+  googleReviewUrl: text('google_review_url'),
+  instagramUrl: text('instagram_url'),
+  facebookUrl: text('facebook_url'),
+  attributes: text('attributes').array().notNull().default([]),
   stripeAccountId: text('stripe_account_id'),
   stripeOnboardingCompleted: boolean('stripe_onboarding_completed')
     .notNull()
@@ -147,7 +159,19 @@ export const providerServices = pgTable('provider_services', {
     .references(() => serviceCategories.id),
   priceMinCents: integer('price_min_cents'),
   priceMaxCents: integer('price_max_cents'),
+  billingFrequency: billingFrequencyEnum('billing_frequency').notNull().default('flat'),
   description: text('description'),
+})
+
+export const providerOperatingHours = pgTable('provider_operating_hours', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  providerProfileId: uuid('provider_profile_id')
+    .notNull()
+    .references(() => providerProfiles.id, { onDelete: 'cascade' }),
+  dayOfWeek: integer('day_of_week').notNull(), // 0=Monday … 6=Sunday
+  isClosed: boolean('is_closed').notNull().default(false),
+  openTime: text('open_time'),  // 'HH:MM' 24-hour
+  closeTime: text('close_time'), // 'HH:MM' 24-hour
 })
 
 export const registries = pgTable('registries', {
@@ -369,8 +393,16 @@ export const providerProfilesRelations = relations(
     }),
     services: many(providerServices),
     reviews: many(providerReviews),
+    operatingHours: many(providerOperatingHours),
   })
 )
+
+export const providerOperatingHoursRelations = relations(providerOperatingHours, ({ one }) => ({
+  providerProfile: one(providerProfiles, {
+    fields: [providerOperatingHours.providerProfileId],
+    references: [providerProfiles.id],
+  }),
+}))
 
 export const providerReviewsRelations = relations(providerReviews, ({ one }) => ({
   providerProfile: one(providerProfiles, {

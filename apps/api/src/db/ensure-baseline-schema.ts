@@ -470,4 +470,73 @@ export async function ensureBaselineSchema() {
     alter table if exists "provider_profiles"
       add column if not exists "info_request_message" text;
   `)
+
+  // ── provider_profiles: new columns for rich business profile ────────────────
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "phone" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "google_review_url" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "instagram_url" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "facebook_url" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "attributes" text[] not null default '{}';
+  `)
+
+  // ── billing_frequency enum ──────────────────────────────────────────────────
+  await db.execute(sql`
+    do $$ begin
+      create type "public"."billing_frequency" as enum ('flat', 'hourly', 'daily', 'weekly');
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  await db.execute(sql`
+    do $$ begin
+      alter type "public"."billing_frequency" add value if not exists 'flat';
+      alter type "public"."billing_frequency" add value if not exists 'hourly';
+      alter type "public"."billing_frequency" add value if not exists 'daily';
+      alter type "public"."billing_frequency" add value if not exists 'weekly';
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  // ── provider_services: add billing_frequency column ────────────────────────
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "billing_frequency" "public"."billing_frequency" not null default 'flat';
+  `)
+
+  // ── provider_operating_hours table ─────────────────────────────────────────
+  await db.execute(sql`
+    create table if not exists "provider_operating_hours" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "provider_profile_id" uuid not null references "provider_profiles"("id") on delete cascade,
+      "day_of_week" integer not null check ("day_of_week" between 0 and 6),
+      "is_closed" boolean not null default false,
+      "open_time" text,
+      "close_time" text
+    );
+  `)
+
+  await db.execute(sql`
+    create unique index if not exists "provider_operating_hours_unique_day"
+      on "provider_operating_hours" ("provider_profile_id", "day_of_week");
+  `)
 }

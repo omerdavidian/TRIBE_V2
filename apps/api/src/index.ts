@@ -18,6 +18,7 @@ import waitlistRoutes from './routes/waitlist.js'
 import catalogRoutes from './routes/catalog.js'
 import registryRoutes from './routes/registry.js'
 import adminRoutes from './routes/admin.js'
+import providerRoutes from './routes/provider.js'
 import { registerWebhookRoutes } from './routes/webhooks.js'
 import { ensureBaselineSchema } from './db/ensure-baseline-schema.js'
 
@@ -102,6 +103,7 @@ async function bootstrap() {
       await app.register(catalogRoutes)
       await app.register(registryRoutes)
       await app.register(adminRoutes)
+      await app.register(providerRoutes)
       await registerWebhookRoutes(app)
     },
     { prefix: '/v1' }
