@@ -65,12 +65,12 @@ export default async function donationRoutes(fastify: FastifyInstance) {
     }
 
     // ── Determine supporter identity ────────────────────────────────────────
-    const supporterId = request.user?.id ?? null
+    const supporterId = request.user?.sub ?? null
     // Guests are always anonymous; logged-in users may opt in to anonymity
     const isAnonymous = !supporterId || body.isAnonymous
 
     // ── Insert pending donation row ─────────────────────────────────────────
-    const [pendingDonation] = await db
+    const pendingDonations = await db
       .insert(donations)
       .values({
         supporterId,
@@ -81,6 +81,13 @@ export default async function donationRoutes(fastify: FastifyInstance) {
         status: 'pending',
       })
       .returning({ id: donations.id })
+
+    const pendingDonation = pendingDonations[0]
+    if (!pendingDonation) {
+      return reply
+        .status(500)
+        .send({ statusCode: 500, error: 'Internal Server Error', message: 'Failed to create donation record' })
+    }
 
     // ── Create Stripe Checkout Session ──────────────────────────────────────
     const stripe = new Stripe(env.STRIPE_SECRET_KEY, {

@@ -580,7 +580,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       .setSubject(request.user!.sub)
       .setIssuedAt()
       .setExpirationTime(Math.floor(Date.now() / 1000) + 15 * 60)
-      .sign(new TextEncoder().encode(env.WT_SECRET))
+      .sign(new TextEncoder().encode(env.JWT_SECRET))
 
     return reply.send({
       token,
