@@ -164,11 +164,9 @@ function CareItemCard({
 
 function RegistryBlock({
   registry,
-  userName,
   onFund,
 }: {
   registry: RegistryPublic
-  userName: string
   onFund: (item: RegistryItemPublic, registryId: string, registryTitle: string) => void
 }) {
   const { totalTarget, totalFunded, percent } = registryStats(registry)
@@ -405,7 +403,6 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
                     <RegistryBlock
                       key={registry.id}
                       registry={registry}
-                      userName={name}
                       onFund={handleFund}
                     />
                   ))}

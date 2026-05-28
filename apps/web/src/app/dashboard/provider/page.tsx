@@ -106,7 +106,15 @@ function SectionProfile({ profile, token }: { profile: ProviderProfile; token: s
   const [err, setErr] = useState('')
 
   function toggleAttr(attr: string) {
-    setAttributes(prev => { const n = new Set(prev); n.has(attr) ? n.delete(attr) : n.add(attr); return n })
+    setAttributes((prev) => {
+      const n = new Set(prev)
+      if (n.has(attr)) {
+        n.delete(attr)
+      } else {
+        n.add(attr)
+      }
+      return n
+    })
   }
 
   async function save() {

@@ -1031,7 +1031,15 @@ function CreateVendorModal({ token, onClose, onCreated }: { token: string; onClo
   }, [token])
 
   function toggleCat(id: string) {
-    setSelectedCats(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })
+    setSelectedCats((prev) => {
+      const n = new Set(prev)
+      if (n.has(id)) {
+        n.delete(id)
+      } else {
+        n.add(id)
+      }
+      return n
+    })
   }
 
   function addTag(value: string) {

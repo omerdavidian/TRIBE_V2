@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, Suspense, useRef } from 'react'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { getStoredUser, getToken, logout } from '@/lib/auth'
@@ -586,7 +587,7 @@ function CreateRegistryWizard({ existingRegistry, onSuccess, onCancel }: WizardP
             <div className="space-y-5">
               <div>
                 <h2 className="font-serif text-xl font-bold text-[#00343a] mb-1">Build your care fund</h2>
-                <p className="text-sm text-[#70797a]">Select the services you'd like supported. Your village will fund them together.</p>
+                <p className="text-sm text-[#70797a]">Select the services you would like supported. Your village will fund them together.</p>
               </div>
               <div className="grid grid-cols-1 gap-2">
                 {POSTPARTUM_SERVICES.map((svc) => {
@@ -743,8 +744,8 @@ function RegistryListPanel({
               <div className="flex items-start gap-4 p-4">
                 {/* Thumbnail */}
                 {registry.coverImageUrl ? (
-                  <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#e0ebe9]">
-                    <img src={registry.coverImageUrl} alt={registry.title} className="w-full h-full object-cover" />
+                  <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 bg-[#e0ebe9] relative">
+                    <Image src={registry.coverImageUrl} alt={registry.title} fill className="object-cover" />
                   </div>
                 ) : (
                   <div className="w-16 h-16 rounded-xl flex-shrink-0 bg-gradient-to-br from-[#c8dbd7] to-[#7aada6] flex items-center justify-center">
@@ -824,14 +825,12 @@ function RegistryManagementPanel({
   onEdit,
   onPublish,
   onPreview,
-  onRegistryUpdated,
 }: {
   registry: RegistryWithItems
   onBack: () => void
   onEdit: () => void
   onPublish: (updated: RegistryWithItems) => void
   onPreview: () => void
-  onRegistryUpdated: (updated: RegistryWithItems) => void
 }) {
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
@@ -913,8 +912,8 @@ function RegistryManagementPanel({
 
       {/* Cover image */}
       {registry.coverImageUrl && (
-        <div className="rounded-2xl overflow-hidden h-48 bg-[#e0ebe9]">
-          <img src={registry.coverImageUrl} alt={registry.title} className="w-full h-full object-cover" />
+        <div className="rounded-2xl overflow-hidden h-48 bg-[#e0ebe9] relative">
+          <Image src={registry.coverImageUrl} alt={registry.title} fill className="object-cover" />
         </div>
       )}
 
@@ -1275,7 +1274,6 @@ function MotherDashboardContent() {
                       const reg = registries.find(r => r.id === activeRegistryId)
                       if (reg) setPreviewSlug(reg.slug)
                     }}
-                    onRegistryUpdated={(updated) => setRegistries(prev => prev.map(r => r.id === updated.id ? updated : r))}
                   />
                 ) : (
                   <RegistryListPanel
