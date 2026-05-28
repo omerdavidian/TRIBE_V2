@@ -84,7 +84,7 @@ export default function ThemeToggle() {
           : 'bg-[#ddf0ec] border border-[#b0ccc8]',
       ].join(' ')}
     >
-      {/* Static ghost icon — left (sun) */}
+      {/* Static ghost icon, left (sun) */}
       <span className={[
         'absolute left-[8px] top-1/2 -translate-y-1/2 transition-opacity duration-200',
         isDark ? 'opacity-25' : 'opacity-0',
@@ -92,7 +92,7 @@ export default function ThemeToggle() {
         <SunIcon active={false} />
       </span>
 
-      {/* Static ghost icon — right (moon) */}
+      {/* Static ghost icon, right (moon) */}
       <span className={[
         'absolute right-[8px] top-1/2 -translate-y-1/2 transition-opacity duration-200',
         isDark ? 'opacity-0' : 'opacity-25',
@@ -100,7 +100,7 @@ export default function ThemeToggle() {
         <MoonIcon active={false} />
       </span>
 
-      {/* Sliding thumb — contains the active icon */}
+      {/* Sliding thumb, contains the active icon */}
       <motion.span
         layout
         transition={{ type: 'spring', stiffness: 500, damping: 38 }}

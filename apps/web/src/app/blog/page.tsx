@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Blog — TRIBE',
+  title: 'Blog, TRIBE',
   description: 'Stories, guides, and research on postpartum care, mother wellness, and building your village.',
 }
 
@@ -13,7 +13,7 @@ const POSTS = [
     categoryColor: 'bg-[#e8f4f0] text-[#004c54] dark:bg-[#004c54]/30 dark:text-[#95d0d9]',
     title: 'What Does a Postpartum Doula Actually Do?',
     excerpt:
-      'A postpartum doula is not the same as a birth doula. Here\'s what to expect during those first weeks at home — and why it matters more than you think.',
+      'A postpartum doula is not the same as a birth doula. Here\'s what to expect during those first weeks at home, and why it matters more than you think.',
     date: 'May 18, 2026',
     readTime: '5 min read',
     authorInitials: 'TR',
@@ -49,7 +49,7 @@ const POSTS = [
     categoryColor: 'bg-[#e8f4f0] text-[#004c54] dark:bg-[#004c54]/30 dark:text-[#95d0d9]',
     title: 'Lactation Consultant vs. Lactation Nurse: What\'s the Difference?',
     excerpt:
-      'IBCLCs, CLCs, breastfeeding counselors — the credentials are confusing. Here\'s a plain-English breakdown of who to see and when.',
+      'IBCLCs, CLCs, breastfeeding counselors, the credentials are confusing. Here\'s a plain-English breakdown of who to see and when.',
     date: 'April 15, 2026',
     readTime: '6 min read',
     authorInitials: 'TR',
@@ -61,7 +61,7 @@ const POSTS = [
     categoryColor: 'bg-[#fdf3ec] text-[#633b15] dark:bg-[#3b2010]/30 dark:text-[#dfa677]',
     title: 'Postpartum Depression: Signs, Support, and When to Seek Help',
     excerpt:
-      'Up to 1 in 5 mothers experience PPD. Knowing the signs — and having care funded before baby arrives — can make all the difference.',
+      'Up to 1 in 5 mothers experience PPD. Knowing the signs, and having care funded before baby arrives, can make all the difference.',
     date: 'April 3, 2026',
     readTime: '7 min read',
     authorInitials: 'TR',
@@ -73,7 +73,7 @@ const POSTS = [
     categoryColor: 'bg-cream-100 text-[#40484a] dark:bg-[#001f23] dark:text-[#bfc8ca]',
     title: 'Pelvic Floor Recovery After Birth: Why Every Mom Needs a PT',
     excerpt:
-      'Pelvic floor physical therapy after birth isn\'t just for incontinence. It\'s essential healing — and most insurance won\'t cover it.',
+      'Pelvic floor physical therapy after birth isn\'t just for incontinence. It\'s essential healing, and most insurance won\'t cover it.',
     date: 'March 22, 2026',
     readTime: '6 min read',
     authorInitials: 'TR',

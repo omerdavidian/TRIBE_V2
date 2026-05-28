@@ -176,7 +176,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     await adminOnly(request)
     const email = request.user?.email ?? ''
     if (email.toLowerCase() !== 'omerdavidian@gmail.com') {
-      throw { statusCode: 403, message: 'Forbidden — reserved for the platform owner' }
+      throw { statusCode: 403, message: 'Forbidden, reserved for the platform owner' }
     }
   }
 
@@ -833,7 +833,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(rows)
   })
 
-  // POST /dashboard/admin/providers — manually onboard an approved provider
+  // POST /dashboard/admin/providers, manually onboard an approved provider
   fastify.post('/dashboard/admin/providers', { preHandler: adminOnly }, async (request, reply) => {
     const body = createProviderSchema.safeParse(request.body)
     if (!body.success) {

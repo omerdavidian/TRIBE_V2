@@ -130,7 +130,7 @@ Disable heavy features temporarily during traffic spikes.
 
 **Q: Middleware error about Edge Config**
 
-- Edge Config is optional—middleware fails gracefully if unavailable
+- Edge Config is optional,middleware fails gracefully if unavailable
 - Check `.env.local` has `EDGE_CONFIG` value
 
 **Q: How do I test locally?**

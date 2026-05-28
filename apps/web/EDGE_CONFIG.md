@@ -147,7 +147,7 @@ Manage dynamic content:
 
 ```json
 {
-  "heroText": "Welcome to TRIBE — Your postpartum care village",
+  "heroText": "Welcome to TRIBE, Your postpartum care village",
   "ctaButtonText": "Create Your Registry",
   "supportEmail": "support@tribewishlist.com"
 }
@@ -168,7 +168,7 @@ Manage dynamic content:
 1. **Use Feature Flags for Risky Changes**: Test new features with flags before
    full rollout
 2. **Cache Strategically**: Edge Config values are cached; use appropriate TTLs
-3. **Monitor Performance**: Edge Config is geographically distributed—leverage
+3. **Monitor Performance**: Edge Config is geographically distributed,leverage
    this for low-latency access
 4. **Version Your Config**: Keep old feature flags for rollback capability
 5. **Document Flags**: Add comments in Edge Config describing what each flag

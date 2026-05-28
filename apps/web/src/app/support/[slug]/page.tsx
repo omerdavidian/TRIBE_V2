@@ -82,14 +82,14 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params
   const page = await fetchSupportPage(slug)
-  if (!page) return { title: 'Not Found — TRIBE' }
+  if (!page) return { title: 'Not Found, TRIBE' }
   const name = page.user.firstName
     ? `${page.user.firstName}'s`
     : page.user.fullName
     ? `${page.user.fullName}'s`
     : 'A'
   return {
-    title: `${name} Support Page — TRIBE`,
+    title: `${name} Support Page, TRIBE`,
     description:
       page.bio ??
       `Support ${page.user.fullName ?? 'a new mother'} through postpartum care on TRIBE.`,

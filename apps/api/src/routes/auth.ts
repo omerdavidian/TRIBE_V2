@@ -250,7 +250,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   })
 
-  // GET /auth/me , requires auth
+  // GET /auth/me, requires auth
   fastify.get('/auth/me', { preHandler: requireAuth }, async (request, reply) => {
     const [user] = await db
       .select(authSelect)
@@ -371,7 +371,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ message: 'Password reset successfully' })
   })
 
-  // POST /auth/change-password — requires authentication
+  // POST /auth/change-password, requires authentication
   fastify.post('/auth/change-password', { preHandler: requireAuth }, async (request, reply) => {
     const changePasswordSchema = z.object({
       currentPassword: z.string().min(1),

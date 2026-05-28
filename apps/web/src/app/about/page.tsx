@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'About TRIBE — Postpartum Care, Finally Organized',
+  title: 'About TRIBE, Postpartum Care, Finally Organized',
   description: 'Learn how TRIBE is changing the way families support new mothers through funded postpartum care registries.',
 }
 
@@ -26,7 +26,7 @@ const TEAM = [
   {
     name: 'The Village',
     role: 'Our Community',
-    bio: 'Hundreds of families across the U.S. who believe every new mother deserves a real recovery — not just a pile of baby gear.',
+    bio: 'Hundreds of families across the U.S. who believe every new mother deserves a real recovery, not just a pile of baby gear.',
     initials: '🌿',
     color: '#fcf9f8',
     textColor: '#40484a',
@@ -37,7 +37,7 @@ const VALUES = [
   {
     icon: '🤝',
     title: 'Care over stuff',
-    body: 'We believe the most meaningful gift you can give a new mother is real, professional support — not another onesie.',
+    body: 'We believe the most meaningful gift you can give a new mother is real, professional support, not another onesie.',
   },
   {
     icon: '🔒',
@@ -47,7 +47,7 @@ const VALUES = [
   {
     icon: '🌍',
     title: 'Radically inclusive',
-    body: 'TRIBE is for every family — regardless of income, background, or configuration. The Pass It Forward fund helps mothers who can\u2019t afford care get it anyway.',
+    body: 'TRIBE is for every family, regardless of income, background, or configuration. The Pass It Forward fund helps mothers who can\u2019t afford care get it anyway.',
   },
   {
     icon: '📋',
@@ -81,7 +81,7 @@ export default function AboutPage() {
         </h1>
         <p className="text-xl text-[#40484a] dark:text-[#bfc8ca] leading-relaxed max-w-2xl">
           TRIBE exists because postpartum care is one of the most underfunded needs in modern family life.
-          We built a platform that lets the people who love a new mother actually help — with funded,
+          We built a platform that lets the people who love a new mother actually help, with funded,
           professional care instead of more baby stuff.
         </p>
       </section>
@@ -112,7 +112,7 @@ export default function AboutPage() {
             </h2>
             <div className="space-y-4 text-[#40484a] dark:text-[#bfc8ca] leading-relaxed">
               <p>
-                The postpartum period — the &ldquo;fourth trimester&rdquo; — is the most physically and emotionally
+                The postpartum period, the &ldquo;fourth trimester&rdquo;, is the most physically and emotionally
                 demanding time in a new mother&apos;s life. Yet it&apos;s almost entirely ignored by healthcare systems,
                 insurance companies, and gift-giving culture.
               </p>

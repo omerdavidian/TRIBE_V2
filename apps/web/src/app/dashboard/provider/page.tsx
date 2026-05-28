@@ -623,7 +623,7 @@ export default function ProviderDashboard() {
       const p = await apiRequest<ProviderProfile>('/provider/profile', { token })
       setProfile(p)
     } catch {
-      // non-fatal — profile may not exist yet
+      // non-fatal, profile may not exist yet
     } finally {
       setLoadingProfile(false)
     }

@@ -95,7 +95,7 @@ export default function HeroSearch() {
             Search for a registry by name
           </label>
 
-          {/* Icon — spinner while debouncing/fetching, magnifier otherwise */}
+          {/* Icon, spinner while debouncing/fetching, magnifier otherwise */}
           <span className="pl-5 pr-2 text-[#70797a] flex-shrink-0" aria-hidden>
             {(isPending || loading) ? (
               <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
@@ -172,7 +172,7 @@ export default function HeroSearch() {
       )}
 
       <p className="text-white/60 text-xs mt-3 text-center">
-        Browse public registries — no account needed
+        Browse public registries, no account needed
       </p>
     </div>
   )

@@ -168,6 +168,17 @@ const NAV_ITEMS = [
     ),
   },
   {
+    id: 'profile',
+    href: '/dashboard/mother?section=profile',
+    label: 'Profile',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M20 21a8 8 0 0 0-16 0" />
+        <circle cx="12" cy="7" r="4" />
+      </svg>
+    ),
+  },
+  {
     id: 'registry',
     href: '/dashboard/mother?section=registry',
     label: 'My Registry',
@@ -190,9 +201,30 @@ const NAV_ITEMS = [
     ),
   },
   {
-    id: 'bookings',
-    href: '/dashboard/mother?section=bookings',
-    label: 'Bookings',
+    id: 'payment',
+    href: '/dashboard/mother?section=payment',
+    label: 'Payment Hub',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <line x1="2" y1="10" x2="22" y2="10" />
+      </svg>
+    ),
+  },
+  {
+    id: 'gratitude',
+    href: '/dashboard/mother?section=gratitude',
+    label: 'Gratitude CRM',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z" />
+      </svg>
+    ),
+  },
+  {
+    id: 'calendar',
+    href: '/dashboard/mother?section=calendar',
+    label: 'Care Calendar',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="4" width="18" height="18" rx="2" />
@@ -203,12 +235,15 @@ const NAV_ITEMS = [
     ),
   },
   {
-    id: 'security',
-    href: '/dashboard/mother?section=security',
-    label: 'Security',
+    id: 'bookings',
+    href: '/dashboard/mother?section=bookings',
+    label: 'Bookings',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        <rect x="3" y="4" width="18" height="18" rx="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
       </svg>
     ),
   },
@@ -306,7 +341,7 @@ function AddToRegistryModal({
 
   const modalContent = (
     <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
-      {/* Backdrop — full viewport isolation */}
+      {/* Backdrop , full viewport isolation */}
       <div
         className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-all"
         onClick={onClose}
@@ -381,7 +416,7 @@ function AddToRegistryModal({
                   </div>
                 </div>
 
-                {/* Quantity selector — pricing is computed automatically */}
+                {/* Quantity selector , pricing is computed automatically */}
                 <div>
                   <p className="text-xs font-semibold text-[#40484a] uppercase tracking-widest mb-3">
                     Quantity
@@ -504,7 +539,7 @@ function ProviderCard({
 
         {/* Service title */}
         <h3 className="font-display font-bold text-xl text-[#00343a] mt-3 mb-2 leading-tight">
-          {primaryService?.description?.split('—')[0]?.trim() ?? name}
+          {primaryService?.description?.split(',')[0]?.trim() ?? name}
         </h3>
 
         {/* Bio */}
@@ -922,7 +957,7 @@ export default function MotherServicesPage() {
                   <div className="flex items-center gap-2 mb-4">
                     <div className="h-px flex-1 bg-[#e8e2de]" />
                     <span className="text-[11px] font-semibold text-[#8a9da0] uppercase tracking-widest px-2">
-                      Sample Catalog — run seed script to activate
+                      Sample Catalog , run seed script to activate
                     </span>
                     <div className="h-px flex-1 bg-[#e8e2de]" />
                   </div>

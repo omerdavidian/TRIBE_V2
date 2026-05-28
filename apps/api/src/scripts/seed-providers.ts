@@ -1,5 +1,5 @@
 /**
- * Seed Script — Local Dev Provider Data
+ * Seed Script, Local Dev Provider Data
  * Run: npx tsx apps/api/src/scripts/seed-providers.ts
  *
  * Injects 4 diverse, approved provider profiles so the mother's
@@ -40,7 +40,7 @@ const PROVIDERS = [
       sortOrder: 1,
     },
     service: {
-      description: 'In-home postpartum doula visits — physical recovery support, newborn care, and feeding assistance.',
+      description: 'In-home postpartum doula visits, physical recovery support, newborn care, and feeding assistance.',
       priceMinCents: 18000,
       priceMaxCents: 25000,
     },
@@ -65,7 +65,7 @@ const PROVIDERS = [
       sortOrder: 2,
     },
     service: {
-      description: 'Weekly healing meal deliveries — broths, warm grains, and lactation-supportive dishes.',
+      description: 'Weekly healing meal deliveries, broths, warm grains, and lactation-supportive dishes.',
       priceMinCents: 8000,
       priceMaxCents: 14000,
     },
@@ -90,7 +90,7 @@ const PROVIDERS = [
       sortOrder: 3,
     },
     service: {
-      description: 'Overnight newborn care (10pm–6am) — feeds, settling, and sleep-shaping guidance.',
+      description: 'Overnight newborn care (10pm–6am), feeds, settling, and sleep-shaping guidance.',
       priceMinCents: 20000,
       priceMaxCents: 35000,
     },
@@ -140,7 +140,7 @@ const PROVIDERS = [
       sortOrder: 5,
     },
     service: {
-      description: 'IBCLC-led in-home lactation consult — latch assessment, pumping strategy, and follow-up plan.',
+      description: 'IBCLC-led in-home lactation consult, latch assessment, pumping strategy, and follow-up plan.',
       priceMinCents: 15000,
       priceMaxCents: 20000,
     },
@@ -249,7 +249,7 @@ async function main() {
     console.log()
   }
 
-  console.log('🎉  Seed complete — 5 providers ready in local DB.')
+  console.log('🎉  Seed complete, 5 providers ready in local DB.')
   console.log(`    Default password for all accounts: ${password}`)
   process.exit(0)
 }

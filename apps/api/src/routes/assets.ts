@@ -5,7 +5,7 @@ import { requireAuth } from '../plugins/auth.js'
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB raw upload limit
-const MAX_OUTPUT_WIDTH = 1200 // px — images wider than this are downscaled
+const MAX_OUTPUT_WIDTH = 1200 // px, images wider than this are downscaled
 const WEBP_QUALITY = 80
 
 const assetRoutes: FastifyPluginAsync = async (fastify) => {
@@ -75,7 +75,7 @@ const assetRoutes: FastifyPluginAsync = async (fastify) => {
       })
     }
 
-    // 3. Store only the optimised WebP — discard raw buffer
+    // 3. Store only the optimised WebP, discard raw buffer
     const pathname = `registry-covers/${Date.now()}-${Math.random().toString(36).slice(2)}.webp`
 
     try {

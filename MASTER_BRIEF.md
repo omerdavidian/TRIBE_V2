@@ -16,7 +16,7 @@ allows supporters (friends/family) to fund specific services, and connects
 everything through service providers who fulfill bookings in exchange for
 platform fees.
 
-**Mission**: Give new mothers the gift that actually matters—real postpartum
+**Mission**: Give new mothers the gift that actually matters,real postpartum
 support through a community-powered marketplace.
 
 **Go-to-Market Rollout (Current Plan):**

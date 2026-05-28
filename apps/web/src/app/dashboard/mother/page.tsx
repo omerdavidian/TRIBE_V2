@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, Suspense, useRef } from 'react'
+import React, { useCallback, useEffect, useState, Suspense, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -215,7 +215,7 @@ function SupportPageCanvas() {
           maxLength={1200}
           value={bio}
           onChange={(e) => setBio(e.target.value)}
-          placeholder="Share your story — what kind of support you're seeking, where you are in your postpartum journey, and what this care means to you…"
+          placeholder="Share your story , what kind of support you're seeking, where you are in your postpartum journey, and what this care means to you…"
           rows={4}
           className="w-full bg-transparent border-none outline-none resize-none text-[#2d3a3a] dark:text-[#c8e8eb] text-base leading-relaxed placeholder:text-[#a0b5b3] focus:ring-0 caret-[#29676f]"
         />
@@ -278,7 +278,14 @@ function SupportPageCanvas() {
   )
 }
 
-type Section = 'home' | 'registry' | 'bookings' | 'security'
+type Section =
+  | 'home'
+  | 'profile'
+  | 'registry'
+  | 'payment'
+  | 'gratitude'
+  | 'calendar'
+  | 'bookings'
 
 type RegistryWithItems = Registry & { items: RegistryItem[] }
 
@@ -302,7 +309,7 @@ function RegistryPreviewModal({ slug, onClose }: { slug: string; onClose: () => 
             <div className="w-2 h-2 rounded-full bg-[#95d0d9] animate-pulse" />
             <span className="text-sm font-semibold">Live Page Preview</span>
           </div>
-          <span className="text-xs text-[#95d0d9]/70 hidden sm:block">— exactly what contributors see</span>
+          <span className="text-xs text-[#95d0d9]/70 hidden sm:block">, exactly what contributors see</span>
           <div className="ml-auto flex items-center gap-1 bg-white/10 rounded-lg p-1">
             <button onClick={() => setDevice('desktop')} className={['text-xs px-3 py-1.5 rounded-md font-medium transition-all', device === 'desktop' ? 'bg-white text-[#00343a]' : 'text-white/70 hover:text-white'].join(' ')}>Desktop</button>
             <button onClick={() => setDevice('mobile')} className={['text-xs px-3 py-1.5 rounded-md font-medium transition-all', device === 'mobile' ? 'bg-white text-[#00343a]' : 'text-white/70 hover:text-white'].join(' ')}>Mobile</button>
@@ -417,7 +424,7 @@ function CreateRegistryWizard({ existingRegistry, onSuccess, onCancel }: WizardP
           ...(form.dueDate ? { dueDate: new Date(form.dueDate + 'T00:00:00Z').toISOString() } : {}),
         }
         if (!draftId) {
-          // First save — create the draft
+          // First save , create the draft
           const reg = await apiRequest<RegistryWithItems>('/registries', {
             method: 'POST',
             token: token ?? undefined,
@@ -462,14 +469,14 @@ function CreateRegistryWizard({ existingRegistry, onSuccess, onCancel }: WizardP
 
   async function handleSubmit(e?: React.FormEvent | React.MouseEvent) {
     e?.preventDefault()
-    if (!draftId) { setError('Draft not saved yet — go back to step 1.'); return }
+    if (!draftId) { setError('Draft not saved yet , go back to step 1.'); return }
     setError(null)
     setSubmitting(true)
     try {
       const token = getToken()
       const totalCents = computeTotalCents(form)
 
-      // In create mode — add the service items (edit mode leaves existing items intact)
+      // In create mode , add the service items (edit mode leaves existing items intact)
       if (!isEdit) {
         let sortOrder = 0
         for (const svc of POSTPARTUM_SERVICES) {
@@ -1027,12 +1034,713 @@ function RegistryManagementPanel({
   )
 }
 
+function ProfileSection({
+  user,
+  onUserUpdate,
+}: {
+  user: User
+  onUserUpdate: (update: Partial<User>) => void
+}) {
+  const [name, setName] = useState([user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName || '')
+  const [email, setEmail] = useState(user.email ?? '')
+  const [phone, setPhone] = useState('')
+  const [addressStreet, setAddressStreet] = useState('')
+  const [addressCity, setAddressCity] = useState('')
+  const [addressState, setAddressState] = useState('')
+  const [addressZip, setAddressZip] = useState('')
+  const [instagramUrl, setInstagramUrl] = useState('')
+  const [facebookUrl, setFacebookUrl] = useState('')
+  const [tiktokUrl, setTiktokUrl] = useState('')
+  const [websiteUrl, setWebsiteUrl] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    const token = getToken()
+    if (!token) {
+      setLoading(false)
+      return
+    }
+
+    apiRequest<{
+      user: {
+        fullName: string | null
+        firstName: string | null
+        lastName: string | null
+        email: string
+      }
+      profile: {
+        phone: string | null
+        addressStreet: string | null
+        addressCity: string | null
+        addressState: string | null
+        addressZip: string | null
+        instagramUrl: string | null
+        facebookUrl: string | null
+        tiktokUrl: string | null
+        websiteUrl: string | null
+      } | null
+    }>('/mother/profile', { token })
+      .then((data) => {
+        const fetchedName =
+          [data.user.firstName, data.user.lastName].filter(Boolean).join(' ') ||
+          data.user.fullName ||
+          ''
+        setName(fetchedName)
+        setEmail(data.user.email)
+        setPhone(data.profile?.phone ?? '')
+        setAddressStreet(data.profile?.addressStreet ?? '')
+        setAddressCity(data.profile?.addressCity ?? '')
+        setAddressState(data.profile?.addressState ?? '')
+        setAddressZip(data.profile?.addressZip ?? '')
+        setInstagramUrl(data.profile?.instagramUrl ?? '')
+        setFacebookUrl(data.profile?.facebookUrl ?? '')
+        setTiktokUrl(data.profile?.tiktokUrl ?? '')
+        setWebsiteUrl(data.profile?.websiteUrl ?? '')
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to load profile')
+      })
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    setName([user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName || '')
+    setEmail(user.email ?? '')
+  }, [user])
+
+  async function handleSave() {
+    const token = getToken()
+    if (!token) return
+    setSaving(true)
+    setError(null)
+    const [firstName, ...rest] = name.trim().split(/\s+/).filter(Boolean)
+    const lastName = rest.join(' ')
+    try {
+      const updated = await apiRequest<{
+        user: {
+          fullName: string | null
+          firstName: string | null
+          lastName: string | null
+          email: string
+          avatarUrl: string | null
+        }
+      }>('/mother/profile', {
+        method: 'PATCH',
+        token,
+        body: JSON.stringify({
+          fullName: name.trim() || undefined,
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+          email,
+          phone,
+          addressStreet,
+          addressCity,
+          addressState,
+          addressZip,
+          instagramUrl: instagramUrl || null,
+          facebookUrl: facebookUrl || null,
+          tiktokUrl: tiktokUrl || null,
+          websiteUrl: websiteUrl || null,
+        }),
+      })
+      onUserUpdate({
+        fullName: updated.user.fullName ?? undefined,
+        firstName: updated.user.firstName ?? undefined,
+        lastName: updated.user.lastName ?? undefined,
+        email: updated.user.email,
+        avatarUrl: updated.user.avatarUrl ?? undefined,
+      })
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 1800)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save profile')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleAvatarChange(avatarUrl: string | undefined) {
+    const token = getToken()
+    if (!token) return
+    onUserUpdate({ avatarUrl })
+    try {
+      await apiRequest('/mother/profile', {
+        method: 'PATCH',
+        token,
+        body: JSON.stringify({ avatarUrl: avatarUrl ?? null }),
+      })
+    } catch {}
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-serif text-3xl text-[#00343a]">Profile</h1>
+        <p className="text-sm text-[#70797a]">Manage your public details, socials, and account security in one place.</p>
+      </div>
+
+      {error && (
+        <div className="rounded-xl border border-[#f2d3d3] bg-[#fff1f1] text-[#8c2d2d] text-sm px-4 py-3">
+          {error}
+        </div>
+      )}
+
+      {loading && <div className="h-20 bg-white rounded-2xl border border-[#e8e1db] animate-pulse" />}
+
+      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+        <h2 className="font-semibold text-[#00343a] mb-4">Profile Photo</h2>
+        <ImageUploader
+          value={user.avatarUrl ?? ''}
+          onChange={(avatarUrl) => {
+            handleAvatarChange(avatarUrl || undefined).catch(() => {})
+          }}
+          className="max-w-sm"
+        />
+      </div>
+
+      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+        <h2 className="font-semibold text-[#00343a] mb-4">Personal Info</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+        <h2 className="font-semibold text-[#00343a] mb-4">Address</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input value={addressStreet} onChange={(e) => setAddressStreet(e.target.value)} placeholder="Street" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm md:col-span-2" />
+          <input value={addressCity} onChange={(e) => setAddressCity(e.target.value)} placeholder="City" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          <input value={addressState} onChange={(e) => setAddressState(e.target.value)} placeholder="State" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          <input value={addressZip} onChange={(e) => setAddressZip(e.target.value)} placeholder="ZIP" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+        <h2 className="font-semibold text-[#00343a] mb-4">Social Links</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <input value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} placeholder="Instagram URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          <input value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="Facebook URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          <input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="TikTok URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          <input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="Website URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+        </div>
+        <div className="mt-5">
+          <button onClick={handleSave} className="h-11 px-5 rounded-xl bg-[#00343a] text-white text-sm font-semibold hover:bg-[#004c54] transition-colors">
+            {saving ? 'Saving...' : saved ? 'Saved' : 'Save Profile'}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+        <h2 className="font-semibold text-[#00343a] mb-4">Security</h2>
+        <ChangePasswordForm />
+      </div>
+    </div>
+  )
+}
+
+function PaymentSection() {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
+  const [working, setWorking] = useState<'stripe' | 'paypal' | 'bank' | null>(null)
+  const [paypalEmail, setPaypalEmail] = useState('')
+  const [bankAccountLast4, setBankAccountLast4] = useState('')
+  const [bankRoutingLast4, setBankRoutingLast4] = useState('')
+  const [summary, setSummary] = useState<{
+    metrics: {
+      totalRaisedCents: number
+      feeCents: number
+      availableBalanceCents: number
+    }
+    stripe: {
+      accountId: string | null
+      onboardingCompleted: boolean
+      chargesEnabled: boolean
+      payoutsEnabled: boolean
+      detailsSubmitted: boolean
+    }
+    paypal: {
+      connected: boolean
+      email: string | null
+    }
+    bank: {
+      connected: boolean
+      accountLast4: string | null
+      routingLast4: string | null
+    }
+    payouts: Array<{
+      id: string
+      amountCents: number
+      feeCents: number
+      netCents: number
+      status: string
+      settledAt: string | null
+      createdAt: string
+    }>
+  } | null>(null)
+
+  const formatMoney = (cents: number) =>
+    new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      maximumFractionDigits: 2,
+    }).format(cents / 100)
+
+  const loadSummary = useCallback(async () => {
+    const token = getToken()
+    if (!token) {
+      setError('You are not authenticated')
+      setLoading(false)
+      return
+    }
+
+    try {
+      const data = await apiRequest<{
+        metrics: {
+          totalRaisedCents: number
+          feeCents: number
+          availableBalanceCents: number
+        }
+        stripe: {
+          accountId: string | null
+          onboardingCompleted: boolean
+          chargesEnabled: boolean
+          payoutsEnabled: boolean
+          detailsSubmitted: boolean
+        }
+        paypal: {
+          connected: boolean
+          email: string | null
+        }
+        bank: {
+          connected: boolean
+          accountLast4: string | null
+          routingLast4: string | null
+        }
+        payouts: Array<{
+          id: string
+          amountCents: number
+          feeCents: number
+          netCents: number
+          status: string
+          settledAt: string | null
+          createdAt: string
+        }>
+      }>('/payments/mother/summary', { token })
+      setSummary(data)
+      setPaypalEmail(data.paypal.email ?? '')
+      setBankAccountLast4(data.bank.accountLast4 ?? '')
+      setBankRoutingLast4(data.bank.routingLast4 ?? '')
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load payment details')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadSummary().catch(() => {})
+  }, [loadSummary])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    const connect = params.get('connect')
+    if (connect === 'success') {
+      setNotice('Stripe onboarding complete. Your payment status has been refreshed.')
+      loadSummary().catch(() => {})
+    } else if (connect === 'retry') {
+      setNotice('Stripe onboarding was interrupted. You can continue setup.')
+    }
+  }, [loadSummary])
+
+  async function startStripeOnboarding() {
+    const token = getToken()
+    if (!token) return
+    setWorking('stripe')
+    setError(null)
+    try {
+      const res = await apiRequest<{ onboardingUrl: string }>('/payments/mother/connect/stripe/start', {
+        method: 'POST',
+        token,
+      })
+      window.location.href = res.onboardingUrl
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not start Stripe onboarding')
+      setWorking(null)
+    }
+  }
+
+  async function openStripeDashboard() {
+    const token = getToken()
+    if (!token) return
+    setWorking('stripe')
+    setError(null)
+    try {
+      const res = await apiRequest<{ dashboardUrl: string }>('/payments/mother/connect/stripe/dashboard', {
+        method: 'POST',
+        token,
+      })
+      window.open(res.dashboardUrl, '_blank', 'noopener,noreferrer')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not open Stripe dashboard')
+    } finally {
+      setWorking(null)
+    }
+  }
+
+  async function savePaypal() {
+    if (!paypalEmail) return
+    const token = getToken()
+    if (!token) return
+    setWorking('paypal')
+    setError(null)
+    try {
+      await apiRequest('/payments/mother/connect/paypal', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ paypalEmail }),
+      })
+      setNotice('PayPal payout email saved successfully.')
+      await loadSummary()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save PayPal details')
+    } finally {
+      setWorking(null)
+    }
+  }
+
+  async function saveBank() {
+    if (!/^\d{4}$/.test(bankAccountLast4) || !/^\d{4}$/.test(bankRoutingLast4)) {
+      setError('Enter the last 4 digits for both account and routing numbers.')
+      return
+    }
+    const token = getToken()
+    if (!token) return
+    setWorking('bank')
+    setError(null)
+    try {
+      await apiRequest('/payments/mother/connect/bank', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({
+          accountLast4: bankAccountLast4,
+          routingLast4: bankRoutingLast4,
+        }),
+      })
+      setNotice('Bank payout details saved successfully.')
+      await loadSummary()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save bank details')
+    } finally {
+      setWorking(null)
+    }
+  }
+
+  const metrics = [
+    { label: 'Total Raised', value: formatMoney(summary?.metrics.totalRaisedCents ?? 0) },
+    { label: 'Fees', value: formatMoney(summary?.metrics.feeCents ?? 0) },
+    { label: 'Available Balance', value: formatMoney(summary?.metrics.availableBalanceCents ?? 0) },
+  ]
+
+  const payouts = (summary?.payouts ?? []).map((payout) => ({
+    id: payout.id,
+    date: new Date(payout.settledAt ?? payout.createdAt).toLocaleDateString(),
+    amount: formatMoney(payout.netCents),
+    status: payout.status,
+  }))
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-serif text-3xl text-[#00343a]">Payment Hub</h1>
+        <p className="text-sm text-[#70797a]">Review incoming support, payouts, and payout methods.</p>
+      </div>
+
+      {notice && (
+        <div className="rounded-xl border border-[#d5ebdf] bg-[#eff9f3] text-[#205e38] text-sm px-4 py-3">
+          {notice}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-[#f2d3d3] bg-[#fff1f1] text-[#8c2d2d] text-sm px-4 py-3">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="h-28 rounded-2xl bg-white border border-[#e8e1db] animate-pulse" />
+      ) : (
+        <>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {metrics.map((metric) => (
+              <div key={metric.label} className="bg-white rounded-2xl border border-[#e8e1db] p-5">
+                <p className="text-xs uppercase tracking-[0.18em] text-[#7f8d8f]">{metric.label}</p>
+                <p className="mt-2 text-2xl font-semibold text-[#00343a]">{metric.value}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-semibold text-[#00343a]">Payouts</h2>
+              </div>
+              <div className="space-y-3">
+                {payouts.length === 0 ? (
+                  <p className="text-sm text-[#7f8d8f]">No payouts yet.</p>
+                ) : (
+                  payouts.map((payout) => (
+                    <div key={payout.id} className="flex items-center justify-between rounded-xl border border-[#ece7e3] px-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-[#00343a]">{payout.amount}</p>
+                        <p className="text-xs text-[#7f8d8f]">{payout.date}</p>
+                      </div>
+                      <span className={['text-xs font-semibold px-2 py-1 rounded-full', payout.status === 'paid' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'].join(' ')}>{payout.status}</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+              <h2 className="font-semibold text-[#00343a] mb-4">Payout Methods</h2>
+              <div className="space-y-3">
+                <div className="rounded-xl border border-[#ece7e3] px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-[#00343a]">Stripe Connect</p>
+                    <span className={[
+                      'text-[11px] font-semibold px-2 py-1 rounded-full',
+                      summary?.stripe.onboardingCompleted ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+                    ].join(' ')}>
+                      {summary?.stripe.onboardingCompleted ? 'Connected' : 'Setup needed'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#7f8d8f] mt-1">Connect your Stripe account to receive direct payouts and manage bank details.</p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <button
+                      onClick={startStripeOnboarding}
+                      disabled={working === 'stripe'}
+                      className="h-9 px-4 rounded-lg bg-[#00343a] text-white text-xs font-semibold hover:bg-[#004c54] disabled:opacity-60"
+                    >
+                      {working === 'stripe' ? 'Opening...' : summary?.stripe.accountId ? 'Continue setup' : 'Connect Stripe'}
+                    </button>
+                    {summary?.stripe.accountId && (
+                      <button
+                        onClick={openStripeDashboard}
+                        disabled={working === 'stripe'}
+                        className="h-9 px-4 rounded-lg border border-[#d6d2ce] text-[#00343a] text-xs font-semibold hover:bg-[#f7f4f2] disabled:opacity-60"
+                      >
+                        Stripe Dashboard
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#ece7e3] px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-[#00343a]">PayPal</p>
+                    <span className={[
+                      'text-[11px] font-semibold px-2 py-1 rounded-full',
+                      summary?.paypal.connected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+                    ].join(' ')}>
+                      {summary?.paypal.connected ? 'Connected' : 'Not connected'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#7f8d8f] mt-1">Save your PayPal payout email for outbound transfers.</p>
+                  <div className="mt-3 flex gap-2">
+                    <input
+                      value={paypalEmail}
+                      onChange={(e) => setPaypalEmail(e.target.value)}
+                      placeholder="paypal@example.com"
+                      className="flex-1 h-9 rounded-lg border border-[#d6d2ce] px-3 text-xs"
+                    />
+                    <button
+                      onClick={savePaypal}
+                      disabled={working === 'paypal'}
+                      className="h-9 px-4 rounded-lg bg-[#00343a] text-white text-xs font-semibold hover:bg-[#004c54] disabled:opacity-60"
+                    >
+                      {working === 'paypal' ? 'Saving...' : 'Save'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-[#ece7e3] px-4 py-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-[#00343a]">Bank Account</p>
+                    <span className={[
+                      'text-[11px] font-semibold px-2 py-1 rounded-full',
+                      summary?.bank.connected ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700',
+                    ].join(' ')}>
+                      {summary?.bank.connected ? `•••• ${summary?.bank.accountLast4 ?? ''}` : 'Not connected'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#7f8d8f] mt-1">Store masked bank details for payout operations.</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <input
+                      value={bankAccountLast4}
+                      onChange={(e) => setBankAccountLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="Acct last4"
+                      className="h-9 rounded-lg border border-[#d6d2ce] px-3 text-xs"
+                    />
+                    <input
+                      value={bankRoutingLast4}
+                      onChange={(e) => setBankRoutingLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="Routing last4"
+                      className="h-9 rounded-lg border border-[#d6d2ce] px-3 text-xs"
+                    />
+                  </div>
+                  <button
+                    onClick={saveBank}
+                    disabled={working === 'bank'}
+                    className="mt-3 h-9 px-4 rounded-lg bg-[#00343a] text-white text-xs font-semibold hover:bg-[#004c54] disabled:opacity-60"
+                  >
+                    {working === 'bank' ? 'Saving...' : 'Save Bank'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function GratitudeSection() {
+  const [open, setOpen] = useState(false)
+  const [subject, setSubject] = useState('Thank you for supporting my postpartum journey')
+  const [body, setBody] = useState('Your care means the world to our family. Thank you for helping us feel seen and supported.')
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-3xl text-[#00343a]">Gratitude CRM</h1>
+          <p className="text-sm text-[#70797a]">Track supporters and send personalized thank-you notes.</p>
+        </div>
+        <button onClick={() => setOpen(true)} className="h-11 px-5 rounded-xl bg-[#00343a] text-white text-sm font-semibold hover:bg-[#004c54] transition-colors">Send Thank You</button>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+        <div className="grid grid-cols-4 gap-4 text-xs font-semibold uppercase tracking-[0.16em] text-[#7f8d8f] pb-3 border-b border-[#ece7e3]">
+          <span>Supporter</span>
+          <span>Contribution</span>
+          <span>Date</span>
+          <span>Status</span>
+        </div>
+        <div className="py-8 text-sm text-[#70797a] text-center">Thank-you workflows are ready. Supporter syncing will populate this list after API wiring.</div>
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <div className="relative w-full max-w-xl bg-white rounded-2xl border border-[#e8e1db] p-6 shadow-2xl">
+            <h2 className="font-semibold text-[#00343a] mb-4">Compose Thank You</h2>
+            <div className="space-y-3">
+              <input value={subject} onChange={(e) => setSubject(e.target.value)} className="w-full h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" placeholder="Subject" />
+              <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5} className="w-full rounded-xl border border-[#d6d2ce] px-3 py-2 text-sm" placeholder="Message" />
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setOpen(false)} className="h-10 px-4 rounded-lg border border-[#d6d2ce] text-sm font-medium">Cancel</button>
+              <button onClick={() => setOpen(false)} className="h-10 px-4 rounded-lg bg-[#00343a] text-white text-sm font-semibold">Save Draft</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function CareCalendarSection() {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState('')
+  const [date, setDate] = useState('')
+  const [events, setEvents] = useState<Array<{ title: string; date: string }>>([])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const raw = window.localStorage.getItem('tribe_care_calendar_events')
+    if (!raw) return
+    try {
+      setEvents(JSON.parse(raw) as Array<{ title: string; date: string }>)
+    } catch {}
+  }, [])
+
+  function addEvent() {
+    if (!title || !date) return
+    const next = [...events, { title, date }].sort((a, b) => a.date.localeCompare(b.date))
+    setEvents(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('tribe_care_calendar_events', JSON.stringify(next))
+    }
+    setTitle('')
+    setDate('')
+    setOpen(false)
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-serif text-3xl text-[#00343a]">Care Calendar</h1>
+          <p className="text-sm text-[#70797a]">Plan postpartum care sessions, meals, and support visits.</p>
+        </div>
+        <button onClick={() => setOpen(true)} className="h-11 px-5 rounded-xl bg-[#00343a] text-white text-sm font-semibold hover:bg-[#004c54] transition-colors">Add Event</button>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+        {events.length === 0 ? (
+          <p className="text-sm text-[#70797a]">No care events scheduled yet.</p>
+        ) : (
+          <ul className="space-y-3">
+            {events.map((event) => (
+              <li key={`${event.date}-${event.title}`} className="flex items-center justify-between rounded-xl border border-[#ece7e3] px-4 py-3">
+                <span className="text-sm font-medium text-[#00343a]">{event.title}</span>
+                <span className="text-xs text-[#70797a]">{new Date(event.date).toLocaleDateString()}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl border border-[#e8e1db] p-6 shadow-2xl">
+            <h2 className="font-semibold text-[#00343a] mb-4">New Care Event</h2>
+            <div className="space-y-3">
+              <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Event title" className="w-full h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+              <input value={date} onChange={(e) => setDate(e.target.value)} type="datetime-local" className="w-full h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button onClick={() => setOpen(false)} className="h-10 px-4 rounded-lg border border-[#d6d2ce] text-sm font-medium">Cancel</button>
+              <button onClick={addEvent} className="h-10 px-4 rounded-lg bg-[#00343a] text-white text-sm font-semibold">Save Event</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 const NAV_ITEMS: { id: Section | 'services'; label: string; icon: React.ReactNode; href?: string }[] = [
   { id: 'home', label: 'Home', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
+  { id: 'profile', label: 'Profile', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg> },
   { id: 'registry', label: 'My Registry', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/></svg> },
+  { id: 'payment', label: 'Payment Hub', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> },
+  { id: 'gratitude', label: 'Gratitude CRM', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg> },
+  { id: 'calendar', label: 'Care Calendar', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
   { id: 'services', label: 'Services', href: '/dashboard/mother/services', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> },
   { id: 'bookings', label: 'Bookings', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
-  { id: 'security', label: 'Security', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> },
 ]
 
 // ── Main Dashboard Content ──────────────────────────────────────────────────────
@@ -1085,7 +1793,15 @@ function MotherDashboardContent() {
     setUser(stored)
 
     const sectionParam = searchParams.get('section')
-    if (sectionParam === 'home' || sectionParam === 'registry' || sectionParam === 'bookings' || sectionParam === 'security') {
+    if (
+      sectionParam === 'home' ||
+      sectionParam === 'profile' ||
+      sectionParam === 'registry' ||
+      sectionParam === 'payment' ||
+      sectionParam === 'gratitude' ||
+      sectionParam === 'calendar' ||
+      sectionParam === 'bookings'
+    ) {
       setSection(sectionParam)
     } else {
       setSection('home')
@@ -1160,6 +1876,15 @@ function MotherDashboardContent() {
     setEditingRegistry(null)
     setShowWizard(true)
     setSection('registry')
+  }
+
+  function handleUserUpdate(update: Partial<User>) {
+    if (!user) return
+    const next = { ...user, ...update }
+    setUser(next)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('tribe_user', JSON.stringify(next))
+    }
   }
 
   if (!user) {
@@ -1272,9 +1997,9 @@ function MotherDashboardContent() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {[
-                  { label: 'Total registries', value: loadingRegistries ? '—' : registries.length.toString(), bg: 'bg-[#e8f4f5]', text: 'text-[#00343a]' },
-                  { label: 'Published', value: loadingRegistries ? '—' : registries.filter(r => r.isPublished).length.toString(), bg: 'bg-[#f0f9f0]', text: 'text-[#2d7a2d]' },
-                  { label: 'Total items', value: loadingRegistries ? '—' : registries.reduce((s, r) => s + (r.items?.length ?? 0), 0).toString(), bg: 'bg-[#fef3ed]', text: 'text-[#c05928]' },
+                  { label: 'Total registries', value: loadingRegistries ? ',' : registries.length.toString(), bg: 'bg-[#e8f4f5]', text: 'text-[#00343a]' },
+                  { label: 'Published', value: loadingRegistries ? ',' : registries.filter(r => r.isPublished).length.toString(), bg: 'bg-[#f0f9f0]', text: 'text-[#2d7a2d]' },
+                  { label: 'Total items', value: loadingRegistries ? ',' : registries.reduce((s, r) => s + (r.items?.length ?? 0), 0).toString(), bg: 'bg-[#fef3ed]', text: 'text-[#c05928]' },
                 ].map((s) => (
                   <div key={s.label} className={`${s.bg} dark:bg-[#001f23] rounded-2xl p-6`}>
                     <p className={`text-3xl font-bold ${s.text}`}>{s.value}</p>
@@ -1287,9 +2012,12 @@ function MotherDashboardContent() {
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { label: 'My registries', onClick: () => setSection('registry'), icon: '🎁' },
+                    { label: 'Profile settings', onClick: () => setSection('profile'), icon: '👤' },
                     { label: 'Book a service', onClick: () => setSection('bookings'), icon: '📅' },
+                    { label: 'Payment hub', onClick: () => setSection('payment'), icon: '💳' },
+                    { label: 'Gratitude CRM', onClick: () => setSection('gratitude'), icon: '💌' },
+                    { label: 'Care calendar', onClick: () => setSection('calendar'), icon: '🗓️' },
                     { label: 'Browse providers', href: '/search', icon: '🔍' },
-                    { label: 'Security settings', onClick: () => setSection('security'), icon: 'ðŸ”' },
                   ].map((a) =>
                     a.href ? (
                       <Link key={a.label} href={a.href} className="flex items-center gap-3 p-4 rounded-2xl border border-[#e8e1db] hover:bg-[#f7f4f2] transition-colors text-sm font-medium text-gray-700">
@@ -1356,6 +2084,34 @@ function MotherDashboardContent() {
             )
           )}
 
+          {/* ── Profile ── */}
+          {section === 'profile' && (
+            <div className="max-w-4xl">
+              <ProfileSection user={user} onUserUpdate={handleUserUpdate} />
+            </div>
+          )}
+
+          {/* ── Payment ── */}
+          {section === 'payment' && (
+            <div className="max-w-5xl">
+              <PaymentSection />
+            </div>
+          )}
+
+          {/* ── Gratitude ── */}
+          {section === 'gratitude' && (
+            <div className="max-w-5xl">
+              <GratitudeSection />
+            </div>
+          )}
+
+          {/* ── Care Calendar ── */}
+          {section === 'calendar' && (
+            <div className="max-w-5xl">
+              <CareCalendarSection />
+            </div>
+          )}
+
           {/* ── Bookings ── */}
           {section === 'bookings' && (
             <div className="max-w-3xl space-y-6">
@@ -1366,14 +2122,6 @@ function MotherDashboardContent() {
                 <p className="text-sm text-gray-500 dark:text-[#70797a] mb-6 max-w-sm">Browse our provider network and book the postpartum support you deserve.</p>
                 <Link href="/search" className="bg-[#00343a] text-white px-6 py-3 rounded-2xl font-semibold text-sm hover:bg-[#004c54] transition-colors">Browse providers</Link>
               </div>
-            </div>
-          )}
-
-          {/* ── Security ── */}
-          {section === 'security' && (
-            <div className="max-w-2xl space-y-6">
-              <h1 className="font-serif text-2xl font-bold text-[#00343a]">Security</h1>
-              <ChangePasswordForm />
             </div>
           )}
 

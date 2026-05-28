@@ -70,7 +70,7 @@ export async function generateMetadata({
   if (!svc) return { title: 'Service not found' }
 
   const providerName = svc.providerProfile.businessName ?? svc.providerProfile.user.fullName ?? 'Provider'
-  const title = svc.title ?? `${providerName} — ${svc.category.name}`
+  const title = svc.title ?? `${providerName}, ${svc.category.name}`
 
   return {
     title: `${title} | TRIBE`,
@@ -116,7 +116,7 @@ export default async function ServiceDetailPage({
 
   const provider = svc.providerProfile
   const providerName = provider.businessName ?? provider.user.fullName ?? 'Provider'
-  const pageTitle = svc.title ?? `${providerName} — ${svc.category.name}`
+  const pageTitle = svc.title ?? `${providerName}, ${svc.category.name}`
   const heroImage = svc.imageUrls[0] ?? null
   const galleryImages = svc.imageUrls.slice(1)
 
@@ -234,7 +234,7 @@ export default async function ServiceDetailPage({
             {priceLabel && (
               <div className="flex-shrink-0 text-right">
                 <p className="text-2xl font-display font-bold text-[#00343a]">
-                  {svc.priceMinCents != null ? money(svc.priceMinCents) : '—'}
+                  {svc.priceMinCents != null ? money(svc.priceMinCents) : ','}
                   {svc.priceMaxCents != null && svc.priceMinCents !== svc.priceMaxCents && (
                     <span className="text-base font-normal text-[#70797a]"> – {money(svc.priceMaxCents)}</span>
                   )}
@@ -343,7 +343,7 @@ export default async function ServiceDetailPage({
               )}
             </div>
 
-            {/* CTA — add to registry */}
+            {/* CTA, add to registry */}
             <div className="bg-gradient-to-br from-[#00343a] to-[#29676f] rounded-2xl p-5 text-center space-y-3">
               <p className="text-white/90 text-sm leading-snug">
                 Want to add this to your postpartum registry?

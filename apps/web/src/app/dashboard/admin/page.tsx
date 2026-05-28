@@ -578,16 +578,16 @@ function TabIntegrations({ token }: { token: string }) {
       {/* ── Section 1: Financials & Platform Fees (Stripe) ───────────────── */}
       <section>
         <IntgSectionHeader
-          title="Financials & Platform Fees — Stripe"
+          title="Financials & Platform Fees, Stripe"
           subtitle="Payment processing health, revenue metrics, and fee analysis."
         />
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <InfoCard>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Connection Status</p>
             <div className="space-y-2">
-              <StatusDot ok label="Stripe API — Connected" />
-              <StatusDot ok label="Webhooks — Delivering" />
-              <StatusDot ok label="Stripe Connect — Active" />
+              <StatusDot ok label="Stripe API, Connected" />
+              <StatusDot ok label="Webhooks, Delivering" />
+              <StatusDot ok label="Stripe Connect, Active" />
             </div>
             <p className="text-[10px] text-[#70797a] mt-3">
               Last webhook: <span className="font-medium text-[#40484a] dark:text-[#95d0d9]">{new Date().toLocaleTimeString()}</span>
@@ -621,7 +621,7 @@ function TabIntegrations({ token }: { token: string }) {
         <div className="grid sm:grid-cols-3 gap-4">
           <InfoCard>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Frontend — Vercel</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Frontend, Vercel</p>
               <StatusDot ok label="Healthy" />
             </div>
             <StatRow label="Bandwidth (MTD)" value="18.4 GB" sub="/ 100 GB" />
@@ -632,7 +632,7 @@ function TabIntegrations({ token }: { token: string }) {
 
           <InfoCard>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Backend — Railway</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Backend, Railway</p>
               <StatusDot ok label="Running" />
             </div>
             <StatRow label="API uptime (30 d)" value="99.94%" />
@@ -643,7 +643,7 @@ function TabIntegrations({ token }: { token: string }) {
 
           <InfoCard>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Database — Neon</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Database, Neon</p>
               <StatusDot ok label="Healthy" />
             </div>
             <StatRow label="Active connections" value="8" sub="/ 100 pool" />
@@ -663,7 +663,7 @@ function TabIntegrations({ token }: { token: string }) {
         <div className="grid sm:grid-cols-2 gap-4">
           <InfoCard>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Transactional Email — Resend</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Transactional Email, Resend</p>
               <StatusDot ok label="Connected" />
             </div>
             <StatRow label="Monthly quota used" value="3,842" sub="/ 100 K" />
@@ -692,7 +692,7 @@ function TabIntegrations({ token }: { token: string }) {
           </InfoCard>
 
           <InfoCard>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-1">API Traffic — Fastify Rate Limiter</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-1">API Traffic, Fastify Rate Limiter</p>
             <p className="text-[10px] text-[#70797a] mb-4">100 req / min per IP · Current peak load</p>
             {([
               { label: 'p50 req/min', val: 14, max: 100 },
@@ -1250,7 +1250,7 @@ function TabVendors({ token }: { token: string }) {
               </thead>
               <tbody className="divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30">
                 {vendors.map(v => {
-                  const ownerName = [v.user.firstName, v.user.lastName].filter(Boolean).join(' ') || v.user.fullName || '—'
+                  const ownerName = [v.user.firstName, v.user.lastName].filter(Boolean).join(' ') || v.user.fullName || ','
                   return (
                     <tr key={v.id} onClick={() => setSelectedVendor(v)} className="hover:bg-[#f7f4f2]/50 dark:hover:bg-[#00272c]/30 cursor-pointer transition-colors">
                       <td className="px-4 py-3 font-medium text-[#00343a] dark:text-[#e0f5f7] max-w-[150px] truncate">{v.businessName ?? <span className="text-[#70797a] italic">Unnamed</span>}</td>
@@ -1260,7 +1260,7 @@ function TabVendors({ token }: { token: string }) {
                         <div className="flex flex-wrap gap-1">
                           {v.services.slice(0, 2).map(s => <span key={s.id} className="text-[10px] bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#29676f] px-1.5 py-0.5 rounded-full whitespace-nowrap">{s.category.name}</span>)}
                           {v.services.length > 2 && <span className="text-[10px] text-[#70797a]">+{v.services.length - 2}</span>}
-                          {v.services.length === 0 && <span className="text-[10px] text-[#70797a]">—</span>}
+                          {v.services.length === 0 && <span className="text-[10px] text-[#70797a]">,</span>}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-[#70797a] whitespace-nowrap text-xs">{new Date(v.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</td>

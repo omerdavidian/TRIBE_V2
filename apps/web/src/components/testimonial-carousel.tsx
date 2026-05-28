@@ -12,7 +12,7 @@ interface Testimonial {
 
 const TESTIMONIALS: Testimonial[] = [
   {
-    quote: "After our daughter was born, I was drowning. TRIBE let my family actually help — they funded my lactation visits and postpartum doula hours. It changed everything.",
+    quote: "After our daughter was born, I was drowning. TRIBE let my family actually help, they funded my lactation visits and postpartum doula hours. It changed everything.",
     name: 'Sarah M.',
     role: 'Mother of 2',
   },
@@ -27,7 +27,7 @@ const TESTIMONIALS: Testimonial[] = [
     role: 'Postpartum Doula',
   },
   {
-    quote: "I didn't know how to help my sister after she had twins. TRIBE made it so simple — I picked a meal delivery package and it was booked within the day.",
+    quote: "I didn't know how to help my sister after she had twins. TRIBE made it so simple, I picked a meal delivery package and it was booked within the day.",
     name: 'Marcus T.',
     role: 'Supporter',
   },
@@ -47,7 +47,7 @@ const TESTIMONIALS: Testimonial[] = [
     role: 'New Parent',
   },
   {
-    quote: "I was so overwhelmed after birth. Having overnight support funded by people who love me — it felt like the whole community showing up.",
+    quote: "I was so overwhelmed after birth. Having overnight support funded by people who love me, it felt like the whole community showing up.",
     name: 'Lena W.',
     role: 'Mother of 3',
   },
@@ -120,7 +120,7 @@ export default function TestimonialCarousel() {
           What our community says
         </h2>
         <p className="text-[#4b6869] dark:text-[#6aabb5] text-lg max-w-xl mx-auto">
-          Mothers, supporters, and providers — all finding their place in the village.
+          Mothers, supporters, and providers, all finding their place in the village.
         </p>
       </div>
 

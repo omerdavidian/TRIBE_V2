@@ -59,7 +59,7 @@ const ALL_SERVICES: ServiceListing[] = [
   },
   {
     id: '6', slug: 'virtual-care', name: 'Virtual Care',
-    description: 'Remote telehealth visits with postpartum specialists — available anywhere with internet.',
+    description: 'Remote telehealth visits with postpartum specialists, available anywhere with internet.',
     group: 'Specialized Care', providerCount: 56, availability: 'available',
     locations: ['Nationwide (telehealth)'],
     priceRange: '$60–$180/session',

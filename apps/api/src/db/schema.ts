@@ -70,6 +70,19 @@ export const billingFrequencyEnum = pgEnum('billing_frequency', [
   'weekly',
 ])
 
+export const thankYouStatusEnum = pgEnum('thank_you_status', [
+  'draft',
+  'sent',
+  'failed',
+])
+
+export const careEventStatusEnum = pgEnum('care_event_status', [
+  'planned',
+  'confirmed',
+  'completed',
+  'cancelled',
+])
+
 // ─── Tables ───────────────────────────────────────────────────────────────────
 
 export const users = pgTable('users', {
@@ -197,6 +210,29 @@ export const supportPages = pgTable('support_pages', {
     .defaultNow(),
 })
 
+export const motherProfiles = pgTable('mother_profiles', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  phone: text('phone'),
+  addressStreet: text('address_street'),
+  addressCity: text('address_city'),
+  addressState: text('address_state'),
+  addressZip: text('address_zip'),
+  instagramUrl: text('instagram_url'),
+  facebookUrl: text('facebook_url'),
+  tiktokUrl: text('tiktok_url'),
+  websiteUrl: text('website_url'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 export const registries = pgTable('registries', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: uuid('user_id')
@@ -267,6 +303,101 @@ export const donations = pgTable('donations', {
     .notNull()
     .defaultNow(),
   completedAt: timestamp('completed_at', { withTimezone: true }),
+})
+
+export const supporterThankYouMessages = pgTable('supporter_thank_you_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motherUserId: uuid('mother_user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  donationId: uuid('donation_id')
+    .notNull()
+    .references(() => donations.id, { onDelete: 'cascade' }),
+  supporterUserId: uuid('supporter_user_id').references(() => users.id),
+  recipientEmailSnapshot: text('recipient_email_snapshot').notNull(),
+  recipientNameSnapshot: text('recipient_name_snapshot'),
+  subject: text('subject').notNull(),
+  body: text('body').notNull(),
+  resendMessageId: text('resend_message_id'),
+  status: thankYouStatusEnum('status').notNull().default('draft'),
+  sentAt: timestamp('sent_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export const careCalendarEvents = pgTable('care_calendar_events', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motherUserId: uuid('mother_user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  registryId: uuid('registry_id')
+    .notNull()
+    .references(() => registries.id, { onDelete: 'cascade' }),
+  registryItemId: uuid('registry_item_id').references(() => registryItems.id, {
+    onDelete: 'set null',
+  }),
+  voucherId: uuid('voucher_id').references(() => vouchers.id, {
+    onDelete: 'set null',
+  }),
+  providerProfileId: uuid('provider_profile_id').references(() => providerProfiles.id, {
+    onDelete: 'set null',
+  }),
+  title: text('title').notNull(),
+  description: text('description'),
+  startsAt: timestamp('starts_at', { withTimezone: true }).notNull(),
+  endsAt: timestamp('ends_at', { withTimezone: true }),
+  timezone: text('timezone').notNull().default('America/New_York'),
+  locationLabel: text('location_label'),
+  status: careEventStatusEnum('status').notNull().default('planned'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export const motherPaymentAccounts = pgTable('mother_payment_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motherUserId: uuid('mother_user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeConnectAccountId: text('stripe_connect_account_id'),
+  stripeOnboardingCompleted: boolean('stripe_onboarding_completed')
+    .notNull()
+    .default(false),
+  paypalEmail: text('paypal_email'),
+  paypalConnected: boolean('paypal_connected').notNull().default(false),
+  bankAccountLast4: text('bank_account_last4'),
+  bankRoutingLast4: text('bank_routing_last4'),
+  bankConnected: boolean('bank_connected').notNull().default(false),
+  defaultCurrency: text('default_currency').notNull().default('usd'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+export const motherPayouts = pgTable('mother_payouts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  motherUserId: uuid('mother_user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  amountCents: integer('amount_cents').notNull(),
+  feeCents: integer('fee_cents').notNull().default(0),
+  netCents: integer('net_cents').notNull(),
+  stripePayoutId: text('stripe_payout_id'),
+  stripeTransferId: text('stripe_transfer_id'),
+  status: text('status').notNull().default('pending'),
+  settledAt: timestamp('settled_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 })
 
 export const bookings = pgTable('bookings', {
@@ -418,8 +549,24 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [supportPages.userId],
   }),
+  motherProfile: one(motherProfiles, {
+    fields: [users.id],
+    references: [motherProfiles.userId],
+  }),
   registries: many(registries),
   donations: many(donations),
+  sentThankYouMessages: many(supporterThankYouMessages, {
+    relationName: 'motherThankYouMessages',
+  }),
+  receivedThankYouMessages: many(supporterThankYouMessages, {
+    relationName: 'supporterThankYouMessages',
+  }),
+  careCalendarEvents: many(careCalendarEvents),
+  motherPaymentAccount: one(motherPaymentAccounts, {
+    fields: [users.id],
+    references: [motherPaymentAccounts.motherUserId],
+  }),
+  motherPayouts: many(motherPayouts),
   motherBookings: many(bookings, { relationName: 'motherBookings' }),
   providerBookings: many(bookings, { relationName: 'providerBookings' }),
   createdInvitations: many(betaInvitations),
@@ -476,6 +623,13 @@ export const supportPagesRelations = relations(supportPages, ({ one }) => ({
   }),
 }))
 
+export const motherProfilesRelations = relations(motherProfiles, ({ one }) => ({
+  user: one(users, {
+    fields: [motherProfiles.userId],
+    references: [users.id],
+  }),
+}))
+
 export const registriesRelations = relations(registries, ({ one, many }) => ({
   user: one(users, {
     fields: [registries.userId],
@@ -514,6 +668,67 @@ export const donationsRelations = relations(donations, ({ one }) => ({
   registry: one(registries, {
     fields: [donations.registryId],
     references: [registries.id],
+  }),
+  thankYouMessage: one(supporterThankYouMessages, {
+    fields: [donations.id],
+    references: [supporterThankYouMessages.donationId],
+  }),
+}))
+
+export const supporterThankYouMessagesRelations = relations(
+  supporterThankYouMessages,
+  ({ one }) => ({
+    mother: one(users, {
+      fields: [supporterThankYouMessages.motherUserId],
+      references: [users.id],
+      relationName: 'motherThankYouMessages',
+    }),
+    donation: one(donations, {
+      fields: [supporterThankYouMessages.donationId],
+      references: [donations.id],
+    }),
+    supporter: one(users, {
+      fields: [supporterThankYouMessages.supporterUserId],
+      references: [users.id],
+      relationName: 'supporterThankYouMessages',
+    }),
+  })
+)
+
+export const careCalendarEventsRelations = relations(careCalendarEvents, ({ one }) => ({
+  mother: one(users, {
+    fields: [careCalendarEvents.motherUserId],
+    references: [users.id],
+  }),
+  registry: one(registries, {
+    fields: [careCalendarEvents.registryId],
+    references: [registries.id],
+  }),
+  registryItem: one(registryItems, {
+    fields: [careCalendarEvents.registryItemId],
+    references: [registryItems.id],
+  }),
+  voucher: one(vouchers, {
+    fields: [careCalendarEvents.voucherId],
+    references: [vouchers.id],
+  }),
+  providerProfile: one(providerProfiles, {
+    fields: [careCalendarEvents.providerProfileId],
+    references: [providerProfiles.id],
+  }),
+}))
+
+export const motherPaymentAccountsRelations = relations(motherPaymentAccounts, ({ one }) => ({
+  mother: one(users, {
+    fields: [motherPaymentAccounts.motherUserId],
+    references: [users.id],
+  }),
+}))
+
+export const motherPayoutsRelations = relations(motherPayouts, ({ one }) => ({
+  mother: one(users, {
+    fields: [motherPayouts.motherUserId],
+    references: [users.id],
   }),
 }))
 

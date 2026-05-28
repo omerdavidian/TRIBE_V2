@@ -21,7 +21,7 @@ stack:
 
 ## Overview
 
-This skill creates best-in-class, production-grade interfaces for TRIBE—a
+This skill creates best-in-class, production-grade interfaces for TRIBE,a
 postpartum care marketplace connecting mothers with essential services. It
 specializes in generating innovative UI components that elevate TRIBE's brand.
 The skill balances functional marketplace constraints with highly creative,
@@ -42,9 +42,9 @@ premium execution.
 
 ### Typography & Motion
 
-- **Display Font:** Playfair Display (serif) — Headlines, editorial sections,
+- **Display Font:** Playfair Display (serif), Headlines, editorial sections,
   branding.
-- **Body Font:** Inter (sans-serif) — UI components, forms, body text.
+- **Body Font:** Inter (sans-serif), UI components, forms, body text.
 - **Animations:** Purposeful, fluid motion. Use smooth fade-ins, gentle
   slide-ups for content reveals, and snappy micro-interactions on interactive
   elements.

@@ -87,7 +87,7 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // GET /registries/search — public unauthenticated directory search
+  // GET /registries/search, public unauthenticated directory search
   fastify.get('/registries/search', async (request, reply) => {
     const searchQuerySchema = z.object({
       q: z.string().optional().default(''),
@@ -277,7 +277,7 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // DELETE /registries/:id — permanently delete a registry and all its items
+  // DELETE /registries/:id, permanently delete a registry and all its items
   fastify.delete(
     '/registries/:id',
     { preHandler: requireRole('mother') },

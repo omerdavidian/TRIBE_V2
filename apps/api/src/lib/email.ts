@@ -155,7 +155,7 @@ export async function sendProviderVerificationAlert(
   providerEmail: string
 ) {
   const alertTo = env.PLATFORM_ALERT_EMAIL ?? env.RESEND_FROM_EMAIL
-  const subject = `[TRIBE] New Provider Application — ${providerName}`
+  const subject = `[TRIBE] New Provider Application, ${providerName}`
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
       <h1 style="color: #004C54; font-size: 22px;">New Provider Application</h1>
@@ -302,7 +302,7 @@ export async function sendProviderRejectionEmail(to: string, name: string, note?
 }
 
 export async function sendProviderInfoRequestEmail(to: string, name: string, message: string) {
-  const subject = 'Additional information required — TRIBE provider application'
+  const subject = 'Additional information required, TRIBE provider application'
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
       <h1 style="color: #004C54; font-size: 24px;">We need a bit more information</h1>

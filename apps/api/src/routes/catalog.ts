@@ -173,7 +173,7 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     })
   })
 
-  // POST /catalog/providers/:id/reviews — mothers only
+  // POST /catalog/providers/:id/reviews, mothers only
   fastify.post(
     '/catalog/providers/:id/reviews',
     { preHandler: [requireRole('mother')] },
@@ -223,7 +223,7 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // GET /catalog/services/:id — public service detail page
+  // GET /catalog/services/:id, public service detail page
   fastify.get('/catalog/services/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
 
@@ -271,7 +271,7 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     })
   })
 
-  // PATCH /catalog/services/:id — provider updates their own service
+  // PATCH /catalog/services/:id, provider updates their own service
   fastify.patch(
     '/catalog/services/:id',
     { preHandler: [requireRole('provider')] },

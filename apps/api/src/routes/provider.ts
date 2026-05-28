@@ -52,7 +52,7 @@ const updateHoursSchema = z.object({
 const providerRoutes: FastifyPluginAsync = async (fastify) => {
   const providerOnly = requireRole('provider')
 
-  // GET /provider/profile — full profile with services and hours
+  // GET /provider/profile, full profile with services and hours
   fastify.get('/provider/profile', { preHandler: providerOnly }, async (request, reply) => {
     const profile = await db.query.providerProfiles.findFirst({
       where: eq(providerProfiles.userId, request.user!.sub),
@@ -73,7 +73,7 @@ const providerRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(profile)
   })
 
-  // PUT /provider/profile — update business info
+  // PUT /provider/profile, update business info
   fastify.put('/provider/profile', { preHandler: providerOnly }, async (request, reply) => {
     const body = updateProfileSchema.safeParse(request.body)
     if (!body.success) {
@@ -104,7 +104,7 @@ const providerRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(updated)
   })
 
-  // GET /catalog/categories — available categories (re-exposed for provider convenience)
+  // GET /catalog/categories, available categories (re-exposed for provider convenience)
   fastify.get('/provider/categories', { preHandler: providerOnly }, async (_request, reply) => {
     const cats = await db.query.serviceCategories.findMany({
       where: eq(serviceCategories.isActive, true),
@@ -113,7 +113,7 @@ const providerRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(cats)
   })
 
-  // PUT /provider/services — replace full service catalog for this provider
+  // PUT /provider/services, replace full service catalog for this provider
   fastify.put('/provider/services', { preHandler: providerOnly }, async (request, reply) => {
     const body = updateServicesSchema.safeParse(request.body)
     if (!body.success) {
@@ -165,7 +165,7 @@ const providerRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(hours)
   })
 
-  // PUT /provider/hours — upsert the full week schedule
+  // PUT /provider/hours, upsert the full week schedule
   fastify.put('/provider/hours', { preHandler: providerOnly }, async (request, reply) => {
     const body = updateHoursSchema.safeParse(request.body)
     if (!body.success) {

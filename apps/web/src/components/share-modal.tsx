@@ -254,7 +254,7 @@ export default function ShareModal({ url, title, motherName, onClose }: ShareMod
                   <li>Copy the link below</li>
                   <li>Open Instagram and create a new Story</li>
                   <li>Tap the <strong>link sticker</strong> and paste the URL</li>
-                  <li>Share — friends can tap to open the registry!</li>
+                  <li>Share, friends can tap to open the registry!</li>
                 </ol>
               </div>
 

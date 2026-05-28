@@ -19,7 +19,7 @@ const paymentIntentBodySchema = z.object({
 
 export default async function donationRoutes(fastify: FastifyInstance) {
 
-  // POST /donations/create-payment-intent — create Stripe PaymentIntent for inline Elements checkout.
+  // POST /donations/create-payment-intent, create Stripe PaymentIntent for inline Elements checkout.
   // Auth is optional: guests are allowed but always treated as anonymous.
   fastify.post('/donations/create-payment-intent', async (request, reply) => {
     if (!env.STRIPE_SECRET_KEY) {
@@ -134,7 +134,7 @@ export default async function donationRoutes(fastify: FastifyInstance) {
     })
   })
 
-  // GET /donations/registry/:registryId/supporters — public list of completed donors.
+  // GET /donations/registry/:registryId/supporters, public list of completed donors.
   fastify.get('/donations/registry/:registryId/supporters', async (request, reply) => {
     const { registryId } = request.params as { registryId: string }
 

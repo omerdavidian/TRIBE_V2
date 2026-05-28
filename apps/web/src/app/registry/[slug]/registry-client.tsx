@@ -141,7 +141,7 @@ function CareImpactCard({ item, onFund }: { item: RegistryItem; onFund: (item: R
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
             <polyline points="20 6 9 17 4 12" />
           </svg>
-          Fully funded — Thank you!
+          Fully funded, Thank you!
         </div>
       ) : (
         <button
@@ -190,7 +190,7 @@ function PaymentToast({ status, onDismiss }: { status: 'success' | 'cancelled'; 
       {isSuccess ? (
         <><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden><polyline points="20 6 9 17 4 12" /></svg>Thank you for your contribution!</>
       ) : (
-        <>Payment cancelled — no charge was made.</>
+        <>Payment cancelled, no charge was made.</>
       )}
       <button onClick={onDismiss} className="ml-2 opacity-60 hover:opacity-100 transition-opacity" aria-label="Dismiss">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
@@ -352,7 +352,7 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
 
       <footer className="border-t border-[#e5dfd9] dark:border-[#054f57]/40 mt-8 py-6">
         <p className="text-center text-xs text-[#8a9da0] dark:text-[#3d6870]">
-          Powered by <Link href="/" className="font-semibold text-[#00343a] dark:text-[#95d0d9] hover:underline">TRIBE</Link> — Real postpartum support for new mothers.
+          Powered by <Link href="/" className="font-semibold text-[#00343a] dark:text-[#95d0d9] hover:underline">TRIBE</Link>, Real postpartum support for new mothers.
         </p>
       </footer>
 

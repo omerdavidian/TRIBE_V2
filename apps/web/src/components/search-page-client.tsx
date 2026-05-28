@@ -145,7 +145,7 @@ function RegistryTile({ r }: { r: SupportPageResult }) {
       className="group relative block bg-white dark:bg-[#00272c] border border-[#e8e2de] dark:border-[#054f57] rounded-xl p-4 hover:border-[#29676f] dark:hover:border-[#29676f] hover:shadow-md transition-all duration-150 flex flex-col justify-between min-h-[148px]"
       aria-label={`Support ${name}'s care`}
     >
-      {/* Avatar — top-right corner */}
+      {/* Avatar, top-right corner */}
       <div
         className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#e4f0ee] dark:bg-[#004c54] flex items-center justify-center flex-shrink-0 overflow-hidden"
         aria-hidden
