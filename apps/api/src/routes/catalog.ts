@@ -11,6 +11,16 @@ import {
 } from '../db/schema.js'
 import { requireRole } from '../plugins/auth.js'
 
+const patchServiceSchema = z.object({
+  title: z.string().max(200).optional().nullable(),
+  description: z.string().max(4000).optional().nullable(),
+  imageUrls: z.array(z.string().url()).max(12).optional(),
+  locationCity: z.string().max(200).optional().nullable(),
+  radiusMiles: z.number().int().min(1).max(500).optional().nullable(),
+  priceMinCents: z.number().int().min(0).optional().nullable(),
+  priceMaxCents: z.number().int().min(0).optional().nullable(),
+})
+
 const createReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
   isRecommended: z.boolean(),
@@ -71,9 +81,16 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     const location = query['location']?.trim() ?? ''
 
     const whereClause = location
-      ? sql`${providerProfiles.applicationStatus} = 'approved' and exists (
-          select 1 from unnest(${providerProfiles.serviceAreas}) as area
-          where area ilike ${'%' + location + '%'}
+      ? sql`${providerProfiles.applicationStatus} = 'approved' and (
+          exists (
+            select 1 from unnest(${providerProfiles.serviceAreas}) as area
+            where area ilike ${'%' + location + '%'}
+          )
+          or exists (
+            select 1 from "provider_services" ps
+            where ps.provider_profile_id = ${providerProfiles.id}
+            and ps.location_city ilike ${'%' + location + '%'}
+          )
         )`
       : eq(providerProfiles.applicationStatus, 'approved')
 
@@ -203,6 +220,100 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
         .returning()
 
       return reply.status(201).send(review)
+    }
+  )
+
+  // GET /catalog/services/:id — public service detail page
+  fastify.get('/catalog/services/:id', async (request, reply) => {
+    const { id } = request.params as { id: string }
+
+    const service = await db.query.providerServices.findFirst({
+      where: eq(providerServices.id, id),
+      with: {
+        category: true,
+        providerProfile: {
+          with: {
+            user: {
+              columns: {
+                id: true,
+                fullName: true,
+                firstName: true,
+                lastName: true,
+                avatarUrl: true,
+                email: false,
+                passwordHash: false,
+                googleId: false,
+                appleId: false,
+                emailVerificationToken: false,
+                passwordResetToken: false,
+              },
+            },
+          },
+        },
+      },
+    })
+
+    if (!service || service.providerProfile.applicationStatus !== 'approved') {
+      return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Service not found' })
+    }
+
+    const ratingsMap = await getRatingsMap([service.providerProfileId])
+    const ratingData = ratingsMap.get(service.providerProfileId)
+
+    return reply.send({
+      ...service,
+      providerProfile: {
+        ...service.providerProfile,
+        averageRating: ratingData?.avgRating ?? 0,
+        reviewCount: ratingData?.reviewCount ?? 0,
+        recommendCount: ratingData?.recommendCount ?? 0,
+      },
+    })
+  })
+
+  // PATCH /catalog/services/:id — provider updates their own service
+  fastify.patch(
+    '/catalog/services/:id',
+    { preHandler: [requireRole('provider')] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+      const userId = request.user!.sub
+
+      const body = patchServiceSchema.safeParse(request.body)
+      if (!body.success) {
+        return reply.status(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: body.error.flatten().fieldErrors,
+        })
+      }
+
+      // Verify the service belongs to this provider
+      const existing = await db.query.providerServices.findFirst({
+        where: eq(providerServices.id, id),
+        with: { providerProfile: { columns: { id: true, userId: true } } },
+      })
+
+      if (!existing || existing.providerProfile.userId !== userId) {
+        return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Service not found' })
+      }
+
+      const updateFields: Record<string, unknown> = {}
+      if (body.data.title !== undefined) updateFields.title = body.data.title
+      if (body.data.description !== undefined) updateFields.description = body.data.description
+      if (body.data.imageUrls !== undefined) updateFields.imageUrls = body.data.imageUrls
+      if (body.data.locationCity !== undefined) updateFields.locationCity = body.data.locationCity
+      if (body.data.radiusMiles !== undefined) updateFields.radiusMiles = body.data.radiusMiles
+      if (body.data.priceMinCents !== undefined) updateFields.priceMinCents = body.data.priceMinCents
+      if (body.data.priceMaxCents !== undefined) updateFields.priceMaxCents = body.data.priceMaxCents
+
+      const [updated] = await db
+        .update(providerServices)
+        .set(updateFields)
+        .where(eq(providerServices.id, id))
+        .returning()
+
+      return reply.send(updated)
     }
   )
 }

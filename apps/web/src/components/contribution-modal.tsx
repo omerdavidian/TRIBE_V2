@@ -229,18 +229,20 @@ export default function ContributionModal({
                 onClick={handleProceed}
                 disabled={!isValidAmount}
                 className={[
-                  'w-full py-3.5 rounded-xl font-bold text-white text-sm transition-all flex items-center justify-center gap-2',
+                  'w-full px-4 py-3.5 rounded-xl font-bold text-white text-sm transition-all flex items-center justify-between gap-3',
                   isValidAmount
                     ? 'bg-[#7d3527] hover:bg-[#6a2d20] active:scale-[0.98] shadow-md shadow-[#7d3527]/20'
                     : 'bg-[#c0cfc9] cursor-not-allowed',
                 ].join(' ')}
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-                  <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                </svg>
-                Proceed to Payment
+                <span className="flex items-center gap-2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                    <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                  </svg>
+                  Proceed to Payment
+                </span>
                 {isValidAmount && (
-                  <span className="ml-auto font-mono text-white/80 text-xs">
+                  <span className="font-mono text-white/80 text-xs">
                     ${(selectedCents / 100).toFixed(0)}
                   </span>
                 )}

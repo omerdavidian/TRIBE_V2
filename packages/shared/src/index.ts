@@ -77,6 +77,17 @@ export interface ProviderService {
   description: string | null
 }
 
+export interface SupportPage {
+  id: string
+  userId: string
+  slug: string
+  bio: string | null
+  heroImageUrl: string | null
+  isActive: boolean
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Registry {
   id: string
   userId: string

@@ -5,6 +5,7 @@ import Fastify from 'fastify'
 import cors from '@fastify/cors'
 import cookie from '@fastify/cookie'
 import rateLimit from '@fastify/rate-limit'
+import multipart from '@fastify/multipart'
 import {
   serializerCompiler,
   validatorCompiler,
@@ -21,6 +22,8 @@ import adminRoutes from './routes/admin.js'
 import providerRoutes from './routes/provider.js'
 import donationRoutes from './routes/donations.js'
 import { registerWebhookRoutes } from './routes/webhooks.js'
+import assetRoutes from './routes/assets.js'
+import supportRoutes from './routes/support.js'
 import { ensureBaselineSchema } from './db/ensure-baseline-schema.js'
 
 const fastify = Fastify({
@@ -92,6 +95,10 @@ async function bootstrap() {
     }),
   })
 
+  await fastify.register(multipart, {
+    limits: { fileSize: 5 * 1024 * 1024, files: 1 },
+  })
+
   // ─── Auth plugin ──────────────────────────────────────────────────────────────
   await fastify.register(authPlugin)
 
@@ -107,6 +114,8 @@ async function bootstrap() {
       await app.register(providerRoutes)
       await app.register(donationRoutes)
       await registerWebhookRoutes(app)
+      await app.register(assetRoutes)
+      await app.register(supportRoutes)
     },
     { prefix: '/v1' }
   )

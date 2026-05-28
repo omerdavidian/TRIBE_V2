@@ -38,12 +38,16 @@ export async function apiRequest<T>(
     const error = await response.json().catch(() => ({
       message: response.statusText,
     }))
-    const err = new Error(error.message ?? 'API request failed') as Error & {
-      status: number
-    }
+    const rawMessage = error.message ?? error.error ?? 'API request failed'
+    const err = new Error(
+      typeof rawMessage === 'string' ? rawMessage : JSON.stringify(rawMessage)
+    ) as Error & { status: number }
     err.status = response.status
     throw err
   }
+
+  // 204 No Content — nothing to parse
+  if (response.status === 204) return null as unknown as T
 
   return response.json() as Promise<T>
 }

@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { login, register } from '@/lib/auth'
+import { login, register, getToken, getStoredUser } from '@/lib/auth'
 import type { UserRole } from '@tribe/shared'
 
 type Tab = 'login' | 'register'
@@ -31,6 +31,19 @@ function AuthContent() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showPassword, setShowPassword] = useState(false)
+
+  // Redirect already-authenticated users away from the auth page
+  useEffect(() => {
+    const token = getToken()
+    const stored = getStoredUser()
+    if (token && stored) {
+      const dest =
+        stored.role === 'mother' ? '/dashboard/mother' :
+        stored.role === 'provider' ? '/dashboard/provider' :
+        '/dashboard'
+      router.replace(dest)
+    }
+  }, [router])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()

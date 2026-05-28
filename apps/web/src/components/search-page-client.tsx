@@ -8,14 +8,6 @@ import { useDebounce } from '@/hooks/use-debounce'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type RegistryItem = {
-  id: string
-  targetAmountCents: number
-  fundedAmountCents: number
-  isFulfilled: boolean
-  category?: { id: string; name: string } | null
-}
-
 type RegistryUser = {
   id: string
   fullName: string | null
@@ -24,17 +16,14 @@ type RegistryUser = {
   avatarUrl: string | null
 }
 
-type RegistryResult = {
-  id: string
-  slug: string
-  title: string
-  description: string | null
-  dueDate: string | null
-  coverImageUrl: string | null
-  targetAmountCents: number | null
-  createdAt: string
+type SupportPageResult = {
+  userId: string
   user: RegistryUser
-  items: RegistryItem[]
+  supportPageSlug: string | null
+  registryCount: number
+  totalTargetCents: number
+  totalFundedCents: number
+  earliestDueDate: string | null
 }
 
 type DueDateFilter = '' | 'this_month' | '3_months' | '6_months'
@@ -83,14 +72,10 @@ const DUE_DATE_OPTIONS: [DueDateFilter, string][] = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function fundingPercent(items: RegistryItem[]): number {
-  const total = items.reduce((s, i) => s + i.targetAmountCents, 0)
-  const funded = items.reduce((s, i) => s + i.fundedAmountCents, 0)
-  return total > 0 ? Math.min(100, Math.round((funded / total) * 100)) : 0
-}
-
-function supporterCount(items: RegistryItem[]): number {
-  return items.filter((i) => i.fundedAmountCents > 0).length
+function fundingPercent(r: SupportPageResult): number {
+  return r.totalTargetCents > 0
+    ? Math.min(100, Math.round((r.totalFundedCents / r.totalTargetCents) * 100))
+    : 0
 }
 
 function formatDueDate(iso: string | null): string | null {
@@ -107,6 +92,12 @@ function initials(name: string | null): string {
 
 function shortId(id: string): string {
   return `TRB-${id.replace(/-/g, '').slice(0, 4).toUpperCase()}`
+}
+
+function money(cents: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
+    cents / 100
+  )
 }
 
 function dueDateBounds(range: DueDateFilter): { start?: Date; end?: Date } {
@@ -128,13 +119,12 @@ function hasActiveFilters(f: Filters): boolean {
   return !!(f.funded || f.dueDateRange || f.fundingBracket || f.categories.length)
 }
 
-// ─── Registry Tile (square aspect-ratio) ──────────────────────────────────────
+// ─── Mother Tile (square aspect-ratio) ───────────────────────────────────────
 
-function RegistryTile({ r }: { r: RegistryResult }) {
-  const pct = fundingPercent(r.items)
-  const supporters = supporterCount(r.items)
-  const due = formatDueDate(r.dueDate)
-  const id = shortId(r.id)
+function RegistryTile({ r }: { r: SupportPageResult }) {
+  const pct = fundingPercent(r)
+  const due = formatDueDate(r.earliestDueDate)
+  const id = shortId(r.userId)
   const name = r.user.fullName ?? [r.user.firstName, r.user.lastName].filter(Boolean).join(' ') ?? 'Anonymous'
 
   const barColor =
@@ -151,9 +141,9 @@ function RegistryTile({ r }: { r: RegistryResult }) {
 
   return (
     <Link
-      href={`/registry/${r.slug}`}
+      href={r.supportPageSlug ? `/support/${r.supportPageSlug}` : `/search`}
       className="group relative block bg-white dark:bg-[#00272c] border border-[#e8e2de] dark:border-[#054f57] rounded-xl p-4 hover:border-[#29676f] dark:hover:border-[#29676f] hover:shadow-md transition-all duration-150 flex flex-col justify-between min-h-[148px]"
-      aria-label={`Support ${name}'s registry`}
+      aria-label={`Support ${name}'s care`}
     >
       {/* Avatar — top-right corner */}
       <div
@@ -176,7 +166,8 @@ function RegistryTile({ r }: { r: RegistryResult }) {
           {name}
         </h3>
         <p className="text-[11px] text-[#5a6468] dark:text-[#7a9da3] mt-0.5 line-clamp-2 leading-snug">
-          {r.title}
+          {r.registryCount} {r.registryCount === 1 ? 'registry' : 'registries'}
+          {r.totalTargetCents > 0 && ` · ${money(r.totalTargetCents)} goal`}
         </p>
         <div className="flex flex-col gap-0.5 mt-2">
           {due && (
@@ -201,9 +192,9 @@ function RegistryTile({ r }: { r: RegistryResult }) {
         </div>
         <p className={`text-[10px] font-semibold tabular-nums ${pctColor}`}>
           {pct}% funded
-          {supporters > 0 && (
+          {r.totalFundedCents > 0 && (
             <span className="font-normal text-[#70797a] dark:text-[#4a7880]">
-              {' '}&bull; {supporters} {supporters === 1 ? 'supporter' : 'supporters'}
+              {' '}&bull; {money(r.totalFundedCents)} raised
             </span>
           )}
         </p>
@@ -261,7 +252,7 @@ function FilterSidebar({
       {/* Result count header */}
       <div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a9da0] dark:text-[#3d6870] mb-0.5">
-          Registries
+          Mothers
         </p>
         <p className="font-display font-bold text-3xl text-[#00343a] dark:text-[#e8f6f7]">
           {loading ? (
@@ -391,7 +382,7 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
 
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [inputVal, setInputVal] = useState(initialQ)
-  const [results, setResults] = useState<RegistryResult[]>([])
+  const [results, setResults] = useState<SupportPageResult[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState(initialQ)
@@ -412,13 +403,13 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
       if (bounds.start) params.set('dueDateStart', bounds.start.toISOString())
       if (bounds.end) params.set('dueDateEnd', bounds.end.toISOString())
 
-      const url = getApiUrl(`/registries/search?${params.toString()}`)
+      const url = getApiUrl(`/support/search?${params.toString()}`)
       const res = await fetch(url)
-      if (!res.ok) throw new Error('Failed to load registries')
-      const data: RegistryResult[] = await res.json()
+      if (!res.ok) throw new Error('Failed to load results')
+      const data: SupportPageResult[] = await res.json()
       setResults(data)
     } catch {
-      setError('Could not load registries. Please try again.')
+      setError('Could not load results. Please try again.')
       setResults([])
     } finally {
       setLoading(false)
@@ -445,28 +436,19 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
     setQ(inputVal.trim())
   }
 
-  // Client-side filters (funded status, funding bracket, categories)
+  // Client-side filters (funded status, funding bracket)
   const filtered = results.filter((r) => {
-    const pct = fundingPercent(r.items)
+    const pct = fundingPercent(r)
 
     if (filters.funded === 'new' && pct !== 0) return false
     if (filters.funded === 'halfway' && !(pct >= 25 && pct < 75)) return false
     if (filters.funded === 'nearing' && pct < 75) return false
 
     if (filters.fundingBracket) {
-      const totalFunded = r.items.reduce((s, i) => s + i.fundedAmountCents, 0)
-      const remaining = (r.targetAmountCents ?? 0) - totalFunded
+      const remaining = r.totalTargetCents - r.totalFundedCents
       if (filters.fundingBracket === 'under_500' && remaining >= 50000) return false
       if (filters.fundingBracket === '500_1500' && (remaining < 50000 || remaining > 150000)) return false
       if (filters.fundingBracket === 'over_1500' && remaining <= 150000) return false
-    }
-
-    if (filters.categories.length > 0) {
-      const itemCats = r.items.map((i) => i.category?.name ?? '').filter(Boolean)
-      const matches = filters.categories.some((cat) =>
-        itemCats.some((ic) => ic.toLowerCase().includes(cat.toLowerCase()))
-      )
-      if (!matches) return false
     }
 
     return true
@@ -503,16 +485,16 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
                   </svg>
                 )}
               </span>
-              <label htmlFor="search-input" className="sr-only">Search registries by name</label>
+              <label htmlFor="search-input" className="sr-only">Search mothers by name</label>
               <input
                 id="search-input"
                 type="search"
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
-                placeholder="Search registries by name"
+                placeholder="Search mothers by name"
                 className="flex-1 min-w-0 py-2.5 bg-transparent text-sm text-[#00343a] dark:text-[#fcf9f8] outline-none placeholder:text-[#8a9da0]"
                 autoComplete="off"
-                aria-label="Search registries"
+                aria-label="Search mothers"
               />
               {isPending && (
                 <span className="text-[10px] text-[#8a9da0] flex-shrink-0 whitespace-nowrap font-mono">
@@ -556,7 +538,7 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
               ) : (
                 <p className="text-sm text-[#5a6468] dark:text-[#4a7880]">
                   <span className="font-semibold text-[#00343a] dark:text-[#e8f6f7]">{filtered.length}</span>
-                  {' '}{filtered.length === 1 ? 'registry' : 'registries'}
+                  {' '}{filtered.length === 1 ? 'mother' : 'mothers'}
                   {q && (
                     <> matching <span className="text-[#00343a] dark:text-[#e8f6f7] italic">&ldquo;{q}&rdquo;</span></>
                   )}
@@ -574,7 +556,7 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
                   {q ? `"${q}"` : '\u25cc'}
                 </p>
                 <p className="text-sm text-[#70797a] dark:text-[#4a7880]">
-                  {q ? 'No registries match that search.' : 'No registries yet.'}
+                  {q ? 'No mothers match that search.' : 'No support pages yet.'}
                 </p>
                 <p className="text-xs text-[#8a9da0] dark:text-[#3d6870] mt-1">
                   Try a different name or adjust the filters.
@@ -583,7 +565,7 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {filtered.map((r) => (
-                  <RegistryTile key={r.id} r={r} />
+                  <RegistryTile key={r.userId} r={r} />
                 ))}
               </div>
             )}

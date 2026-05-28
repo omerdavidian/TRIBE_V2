@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getStoredUser, getToken, logout } from '@/lib/auth'
@@ -31,6 +32,7 @@ type SeedProvider = {
   serviceTitle: string
   priceRange: string
   suggestedLabel: string
+  priceMinCents: number
 }
 
 const SEED_PROVIDERS: SeedProvider[] = [
@@ -45,6 +47,7 @@ const SEED_PROVIDERS: SeedProvider[] = [
     serviceTitle: 'Postpartum Doula Visits',
     priceRange: '$180 – $250',
     suggestedLabel: '4 sessions',
+    priceMinCents: 18000,
   },
   {
     id: 'seed-2',
@@ -57,6 +60,7 @@ const SEED_PROVIDERS: SeedProvider[] = [
     serviceTitle: 'Healing Meal Delivery',
     priceRange: '$80 – $140 / week',
     suggestedLabel: '2 weeks',
+    priceMinCents: 8000,
   },
   {
     id: 'seed-3',
@@ -69,6 +73,7 @@ const SEED_PROVIDERS: SeedProvider[] = [
     serviceTitle: 'Overnight Newborn Care',
     priceRange: '$200 – $350',
     suggestedLabel: '4 nights',
+    priceMinCents: 20000,
   },
   {
     id: 'seed-4',
@@ -81,6 +86,7 @@ const SEED_PROVIDERS: SeedProvider[] = [
     serviceTitle: 'Maternal Therapy Fund',
     priceRange: '$150 – $200',
     suggestedLabel: '$300 goal',
+    priceMinCents: 15000,
   },
   {
     id: 'seed-5',
@@ -93,6 +99,7 @@ const SEED_PROVIDERS: SeedProvider[] = [
     serviceTitle: 'IBCLC Lactation Consult',
     priceRange: '$150 – $200',
     suggestedLabel: '2 sessions',
+    priceMinCents: 15000,
   },
 ]
 
@@ -218,44 +225,78 @@ function formatPrice(minCents: number | null, maxCents: number | null) {
   return null
 }
 
-// ── Add-to-registry inline form ───────────────────────────────────────────────
+// ── Add-to-Registry modal overlay with checkboxes ────────────────────────────
 
-function AddToRegistryInline({
+type ModalProvider = {
+  id: string
+  businessName?: string | null
+  bio?: string | null
+  user?: { fullName?: string | null }
+  priceMinCents?: number | null
+  priceMaxCents?: number | null
+}
+
+function AddToRegistryModal({
   provider,
   registries,
   token,
   onSuccess,
-  onCancel,
+  onClose,
 }: {
-  provider: ProviderWithRating
+  provider: ModalProvider
   registries: Registry[]
   token: string
   onSuccess: () => void
-  onCancel: () => void
+  onClose: () => void
 }) {
-  const [registryId, setRegistryId] = useState(registries[0]?.id ?? '')
-  const [amount, setAmount] = useState('')
+  const [selectedIds, setSelectedIds] = useState<string[]>(
+    registries.length > 0 ? [registries[0]!.id] : []
+  )
+  const [quantity, setQuantity] = useState(1)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [addedCount, setAddedCount] = useState(0)
+
+  const basePriceCents = provider.priceMinCents ?? 0
+  const totalCents = basePriceCents * quantity
+
+  // Close on Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  function toggle(id: string) {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!registryId || !amount) { setError('Select a registry and enter an amount.'); return }
+    if (selectedIds.length === 0) { setError('Select at least one registry.'); return }
+    if (totalCents <= 0) { setError('Funding goal must be greater than $0.'); return }
     setSaving(true)
     setError('')
     try {
-      await apiRequest(`/registries/${registryId}/items`, {
-        method: 'POST',
-        token,
-        body: JSON.stringify({
-          title: provider.businessName ?? provider.user.fullName ?? 'Provider service',
-          description: provider.bio ?? undefined,
-          providerProfileId: provider.id,
-          targetAmountCents: Math.round(parseFloat(amount) * 100),
-          fundingFrequency: 'one_time',
-        }),
-      })
-      onSuccess()
+      await Promise.all(
+        selectedIds.map((registryId) =>
+          apiRequest(`/registries/${registryId}/items`, {
+            method: 'POST',
+            token,
+            body: JSON.stringify({
+              title: provider.businessName ?? provider.user?.fullName ?? 'Provider service',
+              description: provider.bio ?? undefined,
+              ...(provider.id && !provider.id.startsWith('seed-') ? { providerProfileId: provider.id } : {}),
+              targetAmountCents: totalCents,
+              fundingFrequency: 'one_time',
+            }),
+          })
+        )
+      )
+      setAddedCount(selectedIds.length)
+      setTimeout(onSuccess, 1200)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to add to registry')
     } finally {
@@ -263,51 +304,149 @@ function AddToRegistryInline({
     }
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="mt-3 p-3 bg-teal-50 rounded-xl border border-teal-200 space-y-2">
-      <p className="text-xs font-semibold text-teal-700">Add to Registry</p>
-      {registries.length > 1 && (
-        <select
-          value={registryId}
-          onChange={(e) => setRegistryId(e.target.value)}
-          className="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
-        >
-          {registries.map((r) => (
-            <option key={r.id} value={r.id}>{r.title}</option>
-          ))}
-        </select>
-      )}
-      <div className="flex items-center gap-2">
-        <span className="text-gray-400 text-sm">$</span>
-        <input
-          type="number"
-          min="1"
-          step="1"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          placeholder="Target amount"
-          className="flex-1 text-xs border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-teal-500"
-        />
-      </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
-      <div className="flex gap-2">
+  const modalContent = (
+    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4">
+      {/* Backdrop — full viewport isolation */}
+      <div
+        className="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-all"
+        onClick={onClose}
+        aria-hidden
+      />
+
+      {/* Panel */}
+      <div
+        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+        role="dialog"
+        aria-modal
+        aria-label="Add to registry"
+      >
+        {/* Close */}
         <button
-          type="submit"
-          disabled={saving}
-          className="flex-1 text-xs font-semibold bg-teal-700 text-white px-3 py-1.5 rounded-lg hover:bg-teal-800 disabled:opacity-50"
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          aria-label="Close"
         >
-          {saving ? 'Adding…' : 'Confirm'}
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
         </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="text-xs text-gray-500 hover:text-gray-700 px-2"
-        >
-          Cancel
-        </button>
+
+        <h2 className="font-semibold text-[#00343a] mb-1">Add to Registry</h2>
+        <p className="text-sm text-[#70797a] mb-4">
+          {provider.businessName ?? provider.user?.fullName ?? 'Provider'}
+        </p>
+
+        {addedCount > 0 ? (
+          <div className="text-center py-6">
+            <div className="text-3xl mb-3">✓</div>
+            <p className="text-sm font-semibold text-emerald-700">
+              Added to {addedCount} {addedCount === 1 ? 'registry' : 'registries'}!
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {registries.length === 0 ? (
+              <p className="text-sm text-[#70797a] bg-amber-50 border border-amber-200 px-4 py-3 rounded-xl">
+                You need to create a registry first.
+              </p>
+            ) : (
+              <>
+                {/* Registry checkboxes */}
+                <div>
+                  <p className="text-xs font-semibold text-[#40484a] uppercase tracking-widest mb-2">Select Registries</p>
+                  <div className="space-y-2">
+                    {registries.map((r) => (
+                      <label key={r.id} className="flex items-center gap-3 cursor-pointer group">
+                        <div
+                          onClick={() => toggle(r.id)}
+                          className={[
+                            'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer',
+                            selectedIds.includes(r.id)
+                              ? 'bg-[#00343a] border-[#00343a]'
+                              : 'bg-white border-[#c8d8d5] group-hover:border-[#29676f]',
+                          ].join(' ')}
+                        >
+                          {selectedIds.includes(r.id) && (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-[#00343a] truncate">{r.title}</p>
+                          <p className="text-xs text-[#70797a]">{r.isPublished ? 'Published' : 'Draft'}</p>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quantity selector — pricing is computed automatically */}
+                <div>
+                  <p className="text-xs font-semibold text-[#40484a] uppercase tracking-widest mb-3">
+                    Quantity
+                    {basePriceCents > 0 && (
+                      <span className="ml-1.5 font-normal normal-case tracking-normal text-[#70797a]">
+                        × ${(basePriceCents / 100).toFixed(0)} base rate
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex items-center gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                      className="w-10 h-10 rounded-xl border-2 border-[#e0ebe9] hover:border-[#29676f] flex items-center justify-center text-[#00343a] font-bold text-xl transition-all active:scale-95"
+                    >
+                      −
+                    </button>
+                    <span className="text-2xl font-bold text-[#00343a] min-w-[2.5ch] text-center tabular-nums">
+                      {quantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setQuantity((q) => Math.min(52, q + 1))}
+                      className="w-10 h-10 rounded-xl border-2 border-[#e0ebe9] hover:border-[#29676f] flex items-center justify-center text-[#00343a] font-bold text-xl transition-all active:scale-95"
+                    >
+                      +
+                    </button>
+                    {basePriceCents > 0 && (
+                      <div className="ml-auto text-right">
+                        <p className="text-xl font-bold text-[#00343a]">${(totalCents / 100).toFixed(0)}</p>
+                        <p className="text-[11px] text-[#70797a] mt-0.5">total goal</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {error && (
+                  <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={saving || selectedIds.length === 0}
+                  className="w-full py-2.5 bg-[#00343a] hover:bg-[#004c54] disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  {saving && (
+                    <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
+                    </svg>
+                  )}
+                  {saving
+                    ? 'Adding…'
+                    : `Add to ${selectedIds.length} ${selectedIds.length === 1 ? 'registry' : 'registries'}`
+                  }
+                </button>
+              </>
+            )}
+          </form>
+        )}
       </div>
-    </form>
+    </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 // ── Stitch-style Provider Card ────────────────────────────────────────────────
@@ -321,7 +460,7 @@ function ProviderCard({
   registries: Registry[]
   token: string
 }) {
-  const [adding, setAdding] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
   const [added, setAdded] = useState(false)
   const name = provider.businessName ?? provider.user.fullName ?? 'Provider'
   const primaryService = provider.services[0]
@@ -398,23 +537,32 @@ function ProviderCard({
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
               Added
             </span>
-          ) : adding ? (
-            <AddToRegistryInline
-              provider={provider}
-              registries={registries}
-              token={token}
-              onSuccess={() => { setAdding(false); setAdded(true) }}
-              onCancel={() => setAdding(false)}
-            />
           ) : (
             <button
-              onClick={() => setAdding(true)}
+              onClick={() => setModalOpen(true)}
               disabled={registries.length === 0}
               className="flex-shrink-0 text-[13px] font-semibold text-[#7d3527] border border-[#c05928]/30 rounded-xl px-4 py-2 hover:bg-[#fdf2ee] hover:border-[#c05928]/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
             >
               + Add to Registry
             </button>
           )}
+
+        {modalOpen && (
+          <AddToRegistryModal
+            provider={{
+              id: provider.id,
+              businessName: provider.businessName,
+              bio: provider.bio,
+              user: provider.user,
+              priceMinCents: provider.services[0]?.priceMinCents ?? null,
+              priceMaxCents: provider.services[0]?.priceMaxCents ?? null,
+            }}
+            registries={registries}
+            token={token}
+            onSuccess={() => { setModalOpen(false); setAdded(true) }}
+            onClose={() => setModalOpen(false)}
+          />
+        )}
         </div>
       </div>
     </div>
@@ -423,8 +571,10 @@ function ProviderCard({
 
 // ── Seed / Sample Card (shown when no real providers in local dev) ─────────────
 
-function SeedProviderCard({ seed }: { seed: SeedProvider }) {
+function SeedProviderCard({ seed, registries, token }: { seed: SeedProvider; registries: Registry[]; token: string }) {
   const vis = getCatVisual(seed.categorySlug)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [added, setAdded] = useState(false)
   return (
     <div className="bg-white rounded-2xl overflow-hidden border border-[#ede8e4] shadow-sm opacity-90">
       {/* Hero gradient */}
@@ -465,13 +615,35 @@ function SeedProviderCard({ seed }: { seed: SeedProvider }) {
             <p className="text-[13px] font-semibold text-[#40484a] truncate">{seed.priceRange}</p>
             <p className="text-[11px] text-[#8a9da0] mt-0.5">Suggested: {seed.suggestedLabel}</p>
           </div>
-          <button
-            disabled
-            title="Run the seed script to enable live providers"
-            className="flex-shrink-0 text-[13px] font-semibold text-[#7d3527] border border-[#c05928]/30 rounded-xl px-4 py-2 opacity-40 cursor-not-allowed whitespace-nowrap"
-          >
-            + Add to Registry
-          </button>
+          {added ? (
+            <span className="flex-shrink-0 text-xs font-semibold text-[#29676f] flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Added
+            </span>
+          ) : (
+            <button
+              onClick={() => registries.length > 0 && setModalOpen(true)}
+              disabled={registries.length === 0}
+              title={registries.length === 0 ? 'Create a registry first' : undefined}
+              className="flex-shrink-0 text-[13px] font-semibold text-[#7d3527] border border-[#c05928]/30 rounded-xl px-4 py-2 hover:bg-[#fdf2ee] hover:border-[#c05928]/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              + Add to Registry
+            </button>
+          )}
+          {modalOpen && (
+            <AddToRegistryModal
+              provider={{
+                id: seed.id,
+                businessName: seed.serviceTitle,
+                bio: seed.bio,
+                priceMinCents: seed.priceMinCents,
+              }}
+              registries={registries}
+              token={token}
+              onSuccess={() => { setModalOpen(false); setAdded(true) }}
+              onClose={() => setModalOpen(false)}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -667,7 +839,7 @@ export default function MotherServicesPage() {
           <h1 className="font-semibold text-gray-900 text-lg">Services</h1>
         </div>
 
-        <div className="p-6 max-w-4xl mx-auto">
+        <div className="p-6 max-w-[1600px] w-full mx-auto">
           {/* Tab switcher */}
           <div className="flex bg-white rounded-2xl p-1 border border-gray-100 shadow-sm mb-6 max-w-sm">
             <button
@@ -734,7 +906,7 @@ export default function MotherServicesPage() {
                   <div className="w-8 h-8 border-2 border-[#00343a] border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : providers.length > 0 ? (
-                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                   {providers.map((provider) => (
                     <ProviderCard
                       key={provider.id}
@@ -754,9 +926,9 @@ export default function MotherServicesPage() {
                     </span>
                     <div className="h-px flex-1 bg-[#e8e2de]" />
                   </div>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {SEED_PROVIDERS.map((seed) => (
-                      <SeedProviderCard key={seed.id} seed={seed} />
+                      <SeedProviderCard key={seed.id} seed={seed} registries={registries} token={token ?? ''} />
                     ))}
                   </div>
                   <p className="text-center text-xs text-[#8a9da0] mt-6">

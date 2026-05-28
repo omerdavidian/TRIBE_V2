@@ -243,14 +243,14 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
       {paymentStatus && <PaymentToast status={paymentStatus} onDismiss={() => setPaymentStatus(null)} />}
 
       {/* ── Full-bleed hero ── */}
-      <header className="relative w-full h-[480px] sm:h-[560px] overflow-hidden">
+      <header className="relative w-full h-[240px] sm:h-[360px] overflow-hidden">
         {registry.coverImageUrl ? (
           <Image src={registry.coverImageUrl} alt="" aria-hidden fill priority className="object-cover object-center" sizes="100vw" />
         ) : (
           <div className="absolute inset-0 bg-gradient-to-br from-[#c8dbd9] via-[#dce8e0] to-[#e8d8cc] dark:from-[#001f23] dark:via-[#002530] dark:to-[#001a1e]" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#f7f4f2] via-[#f7f4f2]/60 via-60% to-transparent dark:from-[#00141a] dark:via-[#00141a]/60" />
-        <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-8 pb-8 pt-24 max-w-[1200px] mx-auto">
+        <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-8 pb-6 pt-12 max-w-[1200px] mx-auto">
           <h1 className="font-display font-bold text-3xl sm:text-4xl md:text-5xl text-[#00343a] dark:text-[#e8f6f7] leading-tight max-w-2xl">{registry.title}</h1>
           {registry.description && (
             <p className="mt-2 text-[#40484a] dark:text-[#95d0d9] text-sm sm:text-base max-w-xl leading-relaxed line-clamp-2">{registry.description}</p>

@@ -157,10 +157,14 @@ export const providerServices = pgTable('provider_services', {
   categoryId: uuid('category_id')
     .notNull()
     .references(() => serviceCategories.id),
+  title: text('title'),
   priceMinCents: integer('price_min_cents'),
   priceMaxCents: integer('price_max_cents'),
   billingFrequency: billingFrequencyEnum('billing_frequency').notNull().default('flat'),
   description: text('description'),
+  imageUrls: text('image_urls').array().notNull().default([]),
+  locationCity: text('location_city'),
+  radiusMiles: integer('radius_miles'),
 })
 
 export const providerOperatingHours = pgTable('provider_operating_hours', {
@@ -172,6 +176,25 @@ export const providerOperatingHours = pgTable('provider_operating_hours', {
   isClosed: boolean('is_closed').notNull().default(false),
   openTime: text('open_time'),  // 'HH:MM' 24-hour
   closeTime: text('close_time'), // 'HH:MM' 24-hour
+})
+
+export const supportPages = pgTable('support_pages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  slug: text('slug').notNull().unique(),
+  title: text('title'),
+  bio: text('bio'),
+  heroImageUrl: text('hero_image_url'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 })
 
 export const registries = pgTable('registries', {
@@ -391,6 +414,10 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [providerProfiles.userId],
   }),
+  supportPage: one(supportPages, {
+    fields: [users.id],
+    references: [supportPages.userId],
+  }),
   registries: many(registries),
   donations: many(donations),
   motherBookings: many(bookings, { relationName: 'motherBookings' }),
@@ -438,6 +465,13 @@ export const providerReviewsRelations = relations(providerReviews, ({ one }) => 
   }),
   mother: one(users, {
     fields: [providerReviews.motherId],
+    references: [users.id],
+  }),
+}))
+
+export const supportPagesRelations = relations(supportPages, ({ one }) => ({
+  user: one(users, {
+    fields: [supportPages.userId],
     references: [users.id],
   }),
 }))

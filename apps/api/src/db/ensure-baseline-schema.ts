@@ -552,4 +552,44 @@ export async function ensureBaselineSchema() {
       "created_at" timestamp with time zone not null default now()
     );
   `)
+
+  // ── support_pages table ─────────────────────────────────────────────────────
+  await db.execute(sql`
+    create table if not exists "support_pages" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "user_id" uuid not null unique references "users"("id") on delete cascade,
+      "slug" text not null unique,
+      "bio" text,
+      "hero_image_url" text,
+      "is_active" boolean not null default true,
+      "created_at" timestamp with time zone not null default now(),
+      "updated_at" timestamp with time zone not null default now()
+    );
+  `)
+
+  await db.execute(sql`
+    alter table if exists "support_pages"
+      add column if not exists "title" text;
+  `)
+
+  // ── provider_services: add rich service detail columns ─────────────────────
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "title" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "image_urls" text[] not null default '{}';
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "location_city" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "radius_miles" integer;
+  `)
 }

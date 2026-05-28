@@ -8,7 +8,7 @@ import { requireAuth, requireRole } from '../plugins/auth.js'
 const createRegistrySchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional(),
-  dueDate: z.string().datetime().optional(),
+  dueDate: z.string().optional(),
   coverImageUrl: z.string().url().optional(),
   targetAmountCents: z.number().int().positive().optional(),
 })
@@ -47,7 +47,8 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({
           statusCode: 400,
           error: 'Bad Request',
-          message: body.error.flatten().fieldErrors,
+          message: 'Validation failed',
+          errors: body.error.flatten().fieldErrors,
         })
       }
 
@@ -195,7 +196,8 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({
           statusCode: 400,
           error: 'Bad Request',
-          message: body.error.flatten().fieldErrors,
+          message: 'Validation failed',
+          errors: body.error.flatten().fieldErrors,
         })
       }
 
@@ -221,7 +223,15 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
         .where(eq(registries.id, id))
         .returning()
 
-      return reply.send(updated)
+      // Return registry with items so clients can safely read .items
+      const withItems = updated
+        ? await db.query.registries.findFirst({
+            where: eq(registries.id, updated.id),
+            with: { items: true },
+          })
+        : null
+
+      return reply.send(withItems)
     }
   )
 
@@ -245,7 +255,8 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(400).send({
           statusCode: 400,
           error: 'Bad Request',
-          message: body.error.flatten().fieldErrors,
+          message: 'Validation failed',
+          errors: body.error.flatten().fieldErrors,
         })
       }
 
@@ -263,6 +274,29 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
         .returning()
 
       return reply.status(201).send(item)
+    }
+  )
+
+  // DELETE /registries/:id — permanently delete a registry and all its items
+  fastify.delete(
+    '/registries/:id',
+    { preHandler: requireRole('mother') },
+    async (request, reply) => {
+      const { id } = request.params as { id: string }
+
+      const existing = await db.query.registries.findFirst({
+        where: and(eq(registries.id, id), eq(registries.userId, request.user!.sub)),
+      })
+
+      if (!existing) {
+        return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Registry not found' })
+      }
+
+      // Delete items first (FK constraint), then the registry
+      await db.delete(registryItems).where(eq(registryItems.registryId, id))
+      await db.delete(registries).where(eq(registries.id, id))
+
+      return reply.status(204).send()
     }
   )
 }
