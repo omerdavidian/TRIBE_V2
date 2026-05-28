@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import Image from 'next/image'
 import ContributionModal from '@/components/contribution-modal'
 import ShareModal from '@/components/share-modal'
@@ -288,40 +287,6 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
 
   return (
     <div className="min-h-screen bg-white font-sans">
-      {/* ── Top sticky header ── */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#e8e1db]">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="font-display font-bold text-[#00343a] text-xl tracking-tight">
-            TRIBE
-          </Link>
-          <nav className="hidden sm:flex items-center gap-8">
-            <Link href="/" className="text-sm text-[#70797a] hover:text-[#00343a] transition-colors">
-              How it works
-            </Link>
-            <Link href="/services" className="text-sm text-[#70797a] hover:text-[#00343a] transition-colors">
-              Services
-            </Link>
-            <Link href="/search" className="text-sm text-[#70797a] hover:text-[#00343a] transition-colors">
-              Testimonials
-            </Link>
-            <Link href="/search" className="text-sm font-semibold text-[#d9534f] hover:text-[#c9241a] transition-colors">
-              Search Registries
-            </Link>
-          </nav>
-          <button
-            type="button"
-            onClick={() => setShareOpen(true)}
-            className="flex items-center gap-2 text-xs font-semibold text-[#00343a] hover:text-[#004c54] transition-colors"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
-              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-            </svg>
-            Share
-          </button>
-        </div>
-      </header>
-
       {/* ── Hero section with image and title ── */}
       <div className="relative w-full">
         {/* Hero image background */}
@@ -468,14 +433,6 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
           </aside>
         </div>
       </main>
-
-      {/* ── Footer ───────────────────────────────────────────────────────── */}
-      <footer className="border-t border-[#e8e1db] mt-16 py-8 text-center">
-        <Link href="/" className="font-display font-bold text-[#00343a] text-lg tracking-tight">
-          TRIBE
-        </Link>
-        <p className="text-xs text-[#8a9da0] mt-1">Postpartum care, funded by community.</p>
-      </footer>
 
       {/* ── Modals ───────────────────────────────────────────────────────── */}
       {fundingItem && (

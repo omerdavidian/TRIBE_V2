@@ -315,10 +315,11 @@ function RegistryPreviewModal({ slug, onClose }: { slug: string; onClose: () => 
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        <div className="flex-1 bg-[#f0ebe7] overflow-auto flex items-start justify-center p-6">
+        <div className="flex-1 bg-[#f0ebe7] overflow-auto flex items-start justify-center p-6" onClick={onClose}>
           <div
             className={['bg-white shadow-2xl overflow-hidden transition-all duration-300', device === 'mobile' ? 'w-[390px] rounded-3xl border-8 border-[#1c1c1e]' : 'w-full max-w-5xl rounded-xl'].join(' ')}
             style={{ height: device === 'mobile' ? '780px' : 'calc(100vh - 9rem)' }}
+            onClick={(e) => e.stopPropagation()}
           >
             <iframe src={`/registry/${slug}`} className="w-full h-full border-0" title="Preview of your registry" />
           </div>
@@ -685,12 +686,14 @@ function RegistryListPanel({
   onEdit,
   onDelete,
   onCreateNew,
+  onMove,
 }: {
   registries: RegistryWithItems[]
   onSelect: (id: string) => void
   onEdit: (registry: RegistryWithItems) => void
   onDelete: (id: string) => void
   onCreateNew: () => void
+  onMove: (id: string, direction: 'up' | 'down') => void
 }) {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
@@ -734,7 +737,7 @@ function RegistryListPanel({
       )}
 
       <div className="space-y-3">
-        {registries.map((registry) => {
+        {registries.map((registry, index) => {
           const totalFunded = registry.items.reduce((s, it) => s + it.fundedAmountCents, 0)
           const totalTarget = registry.items.reduce((s, it) => s + it.targetAmountCents, 0)
           const pct = totalTarget > 0 ? Math.round((totalFunded / totalTarget) * 100) : 0
@@ -778,6 +781,26 @@ function RegistryListPanel({
 
               {/* Actions */}
               <div className="flex items-center gap-1 px-4 pb-3 border-t border-[#f0ebe7] pt-3">
+                <div className="flex items-center gap-1 mr-1">
+                  <button
+                    onClick={() => onMove(registry.id, 'up')}
+                    disabled={index === 0}
+                    className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-[#d7e5e2] text-[#3f5956] hover:border-[#29676f] disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="Move registry up"
+                    title="Move up"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="18 15 12 9 6 15" /></svg>
+                  </button>
+                  <button
+                    onClick={() => onMove(registry.id, 'down')}
+                    disabled={index === registries.length - 1}
+                    className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-[#d7e5e2] text-[#3f5956] hover:border-[#29676f] disabled:opacity-40 disabled:cursor-not-allowed"
+                    aria-label="Move registry down"
+                    title="Move down"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
+                  </button>
+                </div>
                 <button
                   onClick={() => onSelect(registry.id)}
                   className="flex items-center gap-1.5 text-xs font-semibold text-[#00343a] bg-[#e8f4f0] hover:bg-[#d4ede7] px-3 py-1.5 rounded-lg transition-colors"
@@ -1029,6 +1052,31 @@ function MotherDashboardContent() {
   const [editingRegistry, setEditingRegistry] = useState<RegistryWithItems | null>(null)
   const [previewSlug, setPreviewSlug] = useState<string | null>(null)
 
+  function applyRegistryOrder(items: RegistryWithItems[]): RegistryWithItems[] {
+    if (typeof window === 'undefined') return items
+    const raw = window.localStorage.getItem('tribe_registry_order')
+    if (!raw) return items
+    try {
+      const ids = JSON.parse(raw) as string[]
+      const rank = new Map(ids.map((id, i) => [id, i]))
+      return [...items].sort((a, b) => {
+        const ai = rank.get(a.id)
+        const bi = rank.get(b.id)
+        if (ai === undefined && bi === undefined) return 0
+        if (ai === undefined) return 1
+        if (bi === undefined) return -1
+        return ai - bi
+      })
+    } catch {
+      return items
+    }
+  }
+
+  function persistRegistryOrder(items: RegistryWithItems[]) {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem('tribe_registry_order', JSON.stringify(items.map((r) => r.id)))
+  }
+
   useEffect(() => {
     const stored = getStoredUser()
     const token = getToken()
@@ -1046,7 +1094,7 @@ function MotherDashboardContent() {
     if (token) {
       apiRequest<RegistryWithItems[]>('/registries/mine', { token })
         .then((data) => {
-          setRegistries(data)
+          setRegistries(applyRegistryOrder(data))
           // Auto-select the single registry when there's exactly one
           if (data.length === 1) setActiveRegistryId(data[0]!.id)
         })
@@ -1074,13 +1122,32 @@ function MotherDashboardContent() {
   }
 
   function handleDelete(id: string) {
-    setRegistries((prev) => prev.filter((r) => r.id !== id))
+    setRegistries((prev) => {
+      const next = prev.filter((r) => r.id !== id)
+      persistRegistryOrder(next)
+      return next
+    })
     if (activeRegistryId === id) setActiveRegistryId(null)
   }
 
   function handlePublish(updated: RegistryWithItems) {
     setRegistries((prev) => prev.map((r) => (r.id === updated.id ? updated : r)))
     if (activeRegistryId === updated.id) setActiveRegistryId(updated.id) // refresh
+  }
+
+  function moveRegistry(id: string, direction: 'up' | 'down') {
+    setRegistries((prev) => {
+      const idx = prev.findIndex((r) => r.id === id)
+      if (idx < 0) return prev
+      const target = direction === 'up' ? idx - 1 : idx + 1
+      if (target < 0 || target >= prev.length) return prev
+      const next = [...prev]
+      const temp = next[idx]
+      next[idx] = next[target]!
+      next[target] = temp!
+      persistRegistryOrder(next)
+      return next
+    })
   }
 
   function openEdit(registry: RegistryWithItems) {
@@ -1282,6 +1349,7 @@ function MotherDashboardContent() {
                     onEdit={openEdit}
                     onDelete={handleDelete}
                     onCreateNew={openCreateNew}
+                      onMove={moveRegistry}
                   />
                 )}
               </div>

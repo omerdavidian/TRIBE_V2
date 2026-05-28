@@ -8,7 +8,7 @@ import { env } from '../lib/env.js'
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
-const checkoutBodySchema = z.object({
+const paymentIntentBodySchema = z.object({
   registryId: z.string().uuid(),
   registryItemId: z.string().uuid().optional(),
   amountCents: z.number().int().min(50), // Stripe minimum is $0.50
@@ -19,16 +19,16 @@ const checkoutBodySchema = z.object({
 
 export default async function donationRoutes(fastify: FastifyInstance) {
 
-  // POST /donations/checkout — create a Stripe Checkout Session for a fund contribution.
+  // POST /donations/create-payment-intent — create Stripe PaymentIntent for inline Elements checkout.
   // Auth is optional: guests are allowed but always treated as anonymous.
-  fastify.post('/donations/checkout', async (request, reply) => {
+  fastify.post('/donations/create-payment-intent', async (request, reply) => {
     if (!env.STRIPE_SECRET_KEY) {
       return reply
         .status(503)
         .send({ statusCode: 503, error: 'Service Unavailable', message: 'Payment processing is not configured' })
     }
 
-    const parsed = checkoutBodySchema.safeParse(request.body)
+    const parsed = paymentIntentBodySchema.safeParse(request.body)
     if (!parsed.success) {
       return reply
         .status(400)
@@ -42,7 +42,7 @@ export default async function donationRoutes(fastify: FastifyInstance) {
         eq(registries.id, body.registryId),
         eq(registries.isPublished, true)
       ),
-      columns: { id: true, title: true, slug: true },
+      columns: { id: true, title: true },
     })
     if (!registry) {
       return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Registry not found' })
@@ -89,31 +89,20 @@ export default async function donationRoutes(fastify: FastifyInstance) {
         .send({ statusCode: 500, error: 'Internal Server Error', message: 'Failed to create donation record' })
     }
 
-    // ── Create Stripe Checkout Session ──────────────────────────────────────
+    // ── Create Stripe Payment Intent ────────────────────────────────────────
     const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       apiVersion: '2026-04-22.dahlia' as any,
       typescript: true,
     })
 
-    let session: Stripe.Checkout.Session
+    let paymentIntent: Stripe.PaymentIntent
     try {
-      session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        mode: 'payment',
-        line_items: [
-          {
-            price_data: {
-              currency: 'usd',
-              product_data: {
-                name: registry.title,
-                description: 'Postpartum care contribution via TRIBE',
-              },
-              unit_amount: body.amountCents,
-            },
-            quantity: 1,
-          },
-        ],
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: body.amountCents,
+        currency: 'usd',
+        automatic_payment_methods: { enabled: true },
+        description: `Contribution to ${registry.title} via TRIBE`,
         metadata: {
           donationId: pendingDonation.id,
           registryId: body.registryId,
@@ -121,21 +110,28 @@ export default async function donationRoutes(fastify: FastifyInstance) {
           supporterId: supporterId ?? '',
           isAnonymous: String(isAnonymous),
         },
-        success_url: `${env.FRONTEND_URL}/registry/${registry.slug}?payment=success`,
-        cancel_url: `${env.FRONTEND_URL}/registry/${registry.slug}?payment=cancelled`,
       })
     } catch (err) {
-      fastify.log.error(err, 'Stripe session creation failed')
-      return reply.status(502).send({ statusCode: 502, error: 'Payment Gateway Error', message: 'Could not create payment session' })
+      fastify.log.error(err, 'Stripe payment intent creation failed')
+      const message = err instanceof Error ? err.message : 'Could not create payment intent'
+      return reply.status(502).send({ statusCode: 502, error: 'Payment Gateway Error', message })
     }
 
-    // ── Attach session ID to donation ───────────────────────────────────────
+    // ── Attach payment intent ID to donation ────────────────────────────────
     await db
       .update(donations)
-      .set({ stripeSessionId: session.id })
+      .set({ stripePaymentIntentId: paymentIntent.id })
       .where(eq(donations.id, pendingDonation.id))
 
-    return reply.send({ url: session.url, sessionId: session.id })
+    if (!paymentIntent.client_secret) {
+      return reply.status(502).send({ statusCode: 502, error: 'Payment Gateway Error', message: 'Missing client secret from Stripe' })
+    }
+
+    return reply.send({
+      donationId: pendingDonation.id,
+      paymentIntentId: paymentIntent.id,
+      clientSecret: paymentIntent.client_secret,
+    })
   })
 
   // GET /donations/registry/:registryId/supporters — public list of completed donors.

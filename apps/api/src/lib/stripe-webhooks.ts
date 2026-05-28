@@ -6,7 +6,7 @@
  * - Refunds
  * - Disputes (chargebacks)
  * - Provider account updates
- * - Donation checkout session completions
+ * - Donation payment intent completions
  */
 
 import { Stripe } from 'stripe'
@@ -22,20 +22,131 @@ export interface WebhookHandler {
   [key: string]: (event: Stripe.Event) => Promise<void>
 }
 
+async function completeDonationAfterPayment(
+  paymentIntentId: string,
+  metadata: Stripe.Metadata,
+  amountReceivedCents: number
+): Promise<void> {
+  const donationId = metadata['donationId']
+
+  const donation = donationId
+    ? await db.query.donations.findFirst({
+        where: eq(donations.id, donationId),
+        columns: {
+          id: true,
+          status: true,
+          amountCents: true,
+          registryItemId: true,
+          registryId: true,
+        },
+      })
+    : await db.query.donations.findFirst({
+        where: eq(donations.stripePaymentIntentId, paymentIntentId),
+        columns: {
+          id: true,
+          status: true,
+          amountCents: true,
+          registryItemId: true,
+          registryId: true,
+        },
+      })
+
+  if (!donation) {
+    console.warn(`No donation row found for paymentIntent ${paymentIntentId}`)
+    return
+  }
+
+  if (donation.status === 'completed') {
+    console.log(`Donation ${donation.id} already completed; skipping repeat webhook`)
+    return
+  }
+
+  const registryItemId = donation.registryItemId ?? metadata['registryItemId'] ?? null
+  const donationAmountCents = donation.amountCents || amountReceivedCents
+
+  await db
+    .update(donations)
+    .set({
+      status: 'completed',
+      stripePaymentIntentId: paymentIntentId,
+      completedAt: new Date(),
+    })
+    .where(eq(donations.id, donation.id))
+
+  // If donation was scoped to a specific registry item, update its funded amount.
+  if (registryItemId) {
+    await db
+      .update(registryItems)
+      .set({
+        fundedAmountCents: sql`LEAST(${registryItems.fundedAmountCents} + ${donationAmountCents}, ${registryItems.targetAmountCents})`,
+        isFulfilled: sql`(${registryItems.fundedAmountCents} + ${donationAmountCents}) >= ${registryItems.targetAmountCents}`,
+      })
+      .where(eq(registryItems.id, registryItemId))
+
+    const updatedItem = await db.query.registryItems.findFirst({
+      where: eq(registryItems.id, registryItemId),
+      columns: { id: true, registryId: true, title: true, isFulfilled: true },
+    })
+
+    if (updatedItem?.isFulfilled) {
+      const existing = await db.query.vouchers.findFirst({
+        where: eq(vouchers.registryItemId, registryItemId),
+        columns: { id: true },
+      })
+
+      if (!existing) {
+        const suffix = crypto.randomBytes(4).toString('hex').toUpperCase()
+        const code = `VOUCH-${suffix}`
+
+        await db.insert(vouchers).values({
+          registryItemId,
+          registryId: updatedItem.registryId,
+          code,
+        })
+
+        const registry = await db.query.registries.findFirst({
+          where: eq(registries.id, updatedItem.registryId),
+          columns: { slug: true, userId: true },
+        })
+
+        if (registry) {
+          const mother = await db.query.users.findFirst({
+            where: eq(users.id, registry.userId),
+            columns: { email: true, fullName: true, firstName: true },
+          })
+
+          if (mother?.email) {
+            const motherName = mother.fullName ?? mother.firstName ?? 'Mom'
+            sendVoucherEmail({
+              to: mother.email,
+              motherName,
+              itemTitle: updatedItem.title,
+              voucherCode: code,
+              registrySlug: registry.slug,
+            }).catch((err: unknown) => console.error('Voucher email failed:', err))
+          }
+        }
+
+        console.log(`Voucher ${code} generated for fulfilled item ${registryItemId}`)
+      }
+    }
+  }
+
+  console.log(`Donation ${donation.id} marked completed (payment: ${paymentIntentId})`)
+}
+
 /**
  * Handle payment intent succeeded
  */
 async function handlePaymentIntentSucceeded(event: Stripe.Event): Promise<void> {
   const paymentIntent = event.data.object as Stripe.PaymentIntent
+  console.log(`Payment succeeded: ${paymentIntent.id}`)
 
-  console.log(`✅ Payment succeeded: ${paymentIntent.id}`)
-
-  // TODO: Update booking status in database
-  // TODO: Schedule provider payout
-  // TODO: Send confirmation email to mother
-  // TODO: Create invoice
-
-  console.log('Metadata:', paymentIntent.metadata)
+  await completeDonationAfterPayment(
+    paymentIntent.id,
+    paymentIntent.metadata ?? {},
+    paymentIntent.amount_received || paymentIntent.amount
+  )
 }
 
 /**
@@ -44,12 +155,22 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event): Promise<void> 
 async function handlePaymentIntentFailed(event: Stripe.Event): Promise<void> {
   const paymentIntent = event.data.object as Stripe.PaymentIntent
 
-  console.error(`❌ Payment failed: ${paymentIntent.id}`)
+  console.error(`Payment failed: ${paymentIntent.id}`)
   console.error('Error:', paymentIntent.last_payment_error?.message)
 
-  // TODO: Update booking status to failed
-  // TODO: Send failure notification to mother
-  // TODO: Suggest retry or alternative payment method
+  const donationId = paymentIntent.metadata?.['donationId']
+
+  if (donationId) {
+    await db
+      .update(donations)
+      .set({ status: 'failed', stripePaymentIntentId: paymentIntent.id })
+      .where(eq(donations.id, donationId))
+  } else {
+    await db
+      .update(donations)
+      .set({ status: 'failed' })
+      .where(eq(donations.stripePaymentIntentId, paymentIntent.id))
+  }
 }
 
 /**
@@ -96,102 +217,6 @@ async function handleConnectAccountUpdated(event: Stripe.Event): Promise<void> {
 }
 
 /**
- * Handle checkout.session.completed — marks the donation as completed
- * and updates the registry item's funded amount if the donation was item-scoped.
- */
-async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void> {
-  const session = event.data.object as Stripe.Checkout.Session
-  const { donationId, registryItemId } = session.metadata ?? {}
-
-  if (!donationId) {
-    console.log('checkout.session.completed: no donationId in metadata — skipping donation update')
-    return
-  }
-
-  const paymentIntentId =
-    typeof session.payment_intent === 'string'
-      ? session.payment_intent
-      : (session.payment_intent as Stripe.PaymentIntent | null)?.id ?? null
-
-  // Mark donation as completed
-  await db
-    .update(donations)
-    .set({
-      status: 'completed',
-      stripePaymentIntentId: paymentIntentId,
-      completedAt: new Date(),
-    })
-    .where(eq(donations.id, donationId))
-
-  // If donation was scoped to a specific registry item, update its funded amount
-  if (registryItemId) {
-    const amountCents = session.amount_total ?? 0
-
-    await db
-      .update(registryItems)
-      .set({
-        fundedAmountCents: sql`LEAST(${registryItems.fundedAmountCents} + ${amountCents}, ${registryItems.targetAmountCents})`,
-        isFulfilled: sql`(${registryItems.fundedAmountCents} + ${amountCents}) >= ${registryItems.targetAmountCents}`,
-      })
-      .where(eq(registryItems.id, registryItemId))
-
-    // Check if item is now fulfilled — generate voucher + notify mother
-    const updatedItem = await db.query.registryItems.findFirst({
-      where: eq(registryItems.id, registryItemId),
-      columns: { id: true, registryId: true, title: true, isFulfilled: true },
-    })
-
-    if (updatedItem?.isFulfilled) {
-      // Only generate a voucher if one doesn't already exist
-      const existing = await db.query.vouchers.findFirst({
-        where: eq(vouchers.registryItemId, registryItemId),
-        columns: { id: true },
-      })
-
-      if (!existing) {
-        // Generate a clean alphanumeric voucher code: VOUCH-XXXXXX
-        const suffix = crypto.randomBytes(4).toString('hex').toUpperCase()
-        const code = `VOUCH-${suffix}`
-
-        await db.insert(vouchers).values({
-          registryItemId,
-          registryId: updatedItem.registryId,
-          code,
-        })
-
-        // Fetch the registry + mother info for the notification email
-        const registry = await db.query.registries.findFirst({
-          where: eq(registries.id, updatedItem.registryId),
-          columns: { slug: true, userId: true },
-        })
-
-        if (registry) {
-          const mother = await db.query.users.findFirst({
-            where: eq(users.id, registry.userId),
-            columns: { email: true, fullName: true, firstName: true },
-          })
-
-          if (mother?.email) {
-            const motherName = mother.fullName ?? mother.firstName ?? 'Mom'
-            sendVoucherEmail({
-              to: mother.email,
-              motherName,
-              itemTitle: updatedItem.title,
-              voucherCode: code,
-              registrySlug: registry.slug,
-            }).catch((err: unknown) => console.error('Voucher email failed:', err))
-          }
-        }
-
-        console.log(`🎁 Voucher ${code} generated for fulfilled item ${registryItemId}`)
-      }
-    }
-  }
-
-  console.log(`✅ Donation ${donationId} marked completed (payment: ${paymentIntentId ?? 'n/a'})`)
-}
-
-/**
  * Map webhook event types to handlers
  */
 export const webhookHandlers: WebhookHandler = {
@@ -200,7 +225,6 @@ export const webhookHandlers: WebhookHandler = {
   'charge.refunded': handleChargeRefunded,
   'charge.dispute.created': handleChargeDisputeCreated,
   'account.updated': handleConnectAccountUpdated,
-  'checkout.session.completed': handleCheckoutSessionCompleted,
 }
 
 /**

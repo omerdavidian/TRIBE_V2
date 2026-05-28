@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { getApiUrl } from '@/lib/api'
+import EmbeddedPaymentModal from '@/components/embedded-payment-modal'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -13,7 +14,13 @@ interface ContributionModalProps {
   onClose: () => void
 }
 
-type ModalStep = 'amount' | 'redirecting'
+type ModalStep = 'amount' | 'initializing' | 'payment' | 'success'
+
+type PaymentIntentResponse = {
+  clientSecret: string
+  paymentIntentId: string
+  donationId: string
+}
 
 // ─── Quick-select amounts ─────────────────────────────────────────────────────
 
@@ -33,6 +40,7 @@ export default function ContributionModal({
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [step, setStep] = useState<ModalStep>('amount')
   const [error, setError] = useState<string | null>(null)
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
 
   const selectedCents = customAmount
     ? Math.round(Number(customAmount) * 100)
@@ -41,9 +49,9 @@ export default function ContributionModal({
   const isValidAmount = selectedCents >= 100 // Stripe minimum $1.00
 
   async function handleProceed() {
-    if (!isValidAmount || step === 'redirecting') return
+    if (!isValidAmount || step === 'initializing' || step === 'payment') return
     setError(null)
-    setStep('redirecting')
+    setStep('initializing')
 
     try {
       const token =
@@ -51,7 +59,7 @@ export default function ContributionModal({
           ? localStorage.getItem('tribe_access_token')
           : null
 
-      const res = await fetch(getApiUrl('/donations/checkout'), {
+      const res = await fetch(getApiUrl('/donations/create-payment-intent'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -70,12 +78,10 @@ export default function ContributionModal({
         throw new Error(err.message ?? 'Payment could not be started')
       }
 
-      const { url } = await res.json()
-      if (url) {
-        window.location.href = url
-      } else {
-        throw new Error('No payment URL returned')
-      }
+      const data = (await res.json()) as PaymentIntentResponse
+      if (!data.clientSecret) throw new Error('No payment client secret returned')
+      setClientSecret(data.clientSecret)
+      setStep('payment')
     } catch (err: unknown) {
       setStep('amount')
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
@@ -83,13 +89,35 @@ export default function ContributionModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Contribute to fund"
-      onClick={onClose}
-    >
+    <>
+      {step === 'payment' && clientSecret && (
+        <EmbeddedPaymentModal
+          amountCents={selectedCents}
+          itemTitle={itemTitle ?? registryTitle}
+          clientSecret={clientSecret}
+          onClose={() => {
+            setStep('amount')
+            setClientSecret(null)
+          }}
+          onSuccess={() => {
+            setStep('success')
+            setTimeout(() => {
+              onClose()
+              if (typeof window !== 'undefined') {
+                window.location.reload()
+              }
+            }, 700)
+          }}
+        />
+      )}
+
+      <div
+        className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Contribute to fund"
+        onClick={onClose}
+      >
       {/* Backdrop */}
       <div className="absolute inset-0 bg-[#001a1e]/75 backdrop-blur-sm" aria-hidden />
 
@@ -127,15 +155,24 @@ export default function ContributionModal({
             </button>
           </div>
 
-          {step === 'redirecting' ? (
+          {step === 'initializing' ? (
             <div className="py-8 text-center">
               <svg className="animate-spin w-8 h-8 mx-auto mb-4 text-[#00343a] dark:text-[#95d0d9]" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
               </svg>
               <p className="text-sm text-[#40484a] dark:text-[#bfc8ca]">
-                Preparing secure checkout…
+                Preparing secure payment…
               </p>
+            </div>
+          ) : step === 'success' ? (
+            <div className="py-8 text-center">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 mx-auto mb-3 flex items-center justify-center">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+              </div>
+              <p className="text-sm text-[#40484a] dark:text-[#bfc8ca]">Payment successful. Thank you for your support.</p>
             </div>
           ) : (
             <>
@@ -258,6 +295,7 @@ export default function ContributionModal({
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
