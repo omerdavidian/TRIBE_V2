@@ -213,6 +213,22 @@ export const registryItems = pgTable('registry_items', {
   fundingFrequency: fundingFrequencyEnum('funding_frequency').notNull().default('one_time'),
 })
 
+export const vouchers = pgTable('vouchers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  registryItemId: uuid('registry_item_id')
+    .notNull()
+    .references(() => registryItems.id, { onDelete: 'cascade' }),
+  registryId: uuid('registry_id')
+    .notNull()
+    .references(() => registries.id, { onDelete: 'cascade' }),
+  code: text('code').notNull().unique(),
+  isRedeemed: boolean('is_redeemed').notNull().default(false),
+  redeemedAt: timestamp('redeemed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 export const donations = pgTable('donations', {
   id: uuid('id').primaryKey().defaultRandom(),
   supporterId: uuid('supporter_id').references(() => users.id),
@@ -433,9 +449,10 @@ export const registriesRelations = relations(registries, ({ one, many }) => ({
   }),
   items: many(registryItems),
   donations: many(donations),
+  vouchers: many(vouchers),
 }))
 
-export const registryItemsRelations = relations(registryItems, ({ one }) => ({
+export const registryItemsRelations = relations(registryItems, ({ one, many }) => ({
   registry: one(registries, {
     fields: [registryItems.registryId],
     references: [registries.id],
@@ -448,6 +465,7 @@ export const registryItemsRelations = relations(registryItems, ({ one }) => ({
     fields: [registryItems.providerProfileId],
     references: [providerProfiles.id],
   }),
+  vouchers: many(vouchers),
 }))
 
 export const donationsRelations = relations(donations, ({ one }) => ({
@@ -528,5 +546,16 @@ export const adminActionLogsRelations = relations(adminActionLogs, ({ one }) => 
   admin: one(users, {
     fields: [adminActionLogs.adminUserId],
     references: [users.id],
+  }),
+}))
+
+export const vouchersRelations = relations(vouchers, ({ one }) => ({
+  registryItem: one(registryItems, {
+    fields: [vouchers.registryItemId],
+    references: [registryItems.id],
+  }),
+  registry: one(registries, {
+    fields: [vouchers.registryId],
+    references: [registries.id],
   }),
 }))

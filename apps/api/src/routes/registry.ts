@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, ilike, or, desc } from 'drizzle-orm'
+import { eq, and, ilike, desc, gte, lte } from 'drizzle-orm'
 import { db } from '../db/client.js'
 import { registries, registryItems, users } from '../db/schema.js'
 import { requireAuth, requireRole } from '../plugins/auth.js'
@@ -88,23 +88,36 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
 
   // GET /registries/search — public unauthenticated directory search
   fastify.get('/registries/search', async (request, reply) => {
-    const { q = '' } = request.query as { q?: string }
+    const searchQuerySchema = z.object({
+      q: z.string().optional().default(''),
+      dueDateStart: z.string().datetime({ offset: true }).optional().catch(undefined),
+      dueDateEnd: z.string().datetime({ offset: true }).optional().catch(undefined),
+    })
+
+    const parsed = searchQuerySchema.safeParse(request.query)
+    if (!parsed.success) {
+      return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: parsed.error.flatten().fieldErrors })
+    }
+
+    const { q, dueDateStart, dueDateEnd } = parsed.data
     const term = q.trim()
 
     const conditions = [eq(registries.isPublished, true)]
-    if (term) {
-      conditions.push(ilike(registries.title, `%${term}%`))
-    }
+    if (term) conditions.push(ilike(registries.title, `%${term}%`))
+    if (dueDateStart) conditions.push(gte(registries.dueDate, new Date(dueDateStart)))
+    if (dueDateEnd) conditions.push(lte(registries.dueDate, new Date(dueDateEnd)))
 
-    const rows = await db.query.registries.findMany({
+    let rows = await db.query.registries.findMany({
       where: and(...conditions),
       orderBy: [desc(registries.createdAt)],
-      limit: 40,
+      limit: 80,
       with: {
         user: {
           columns: {
             id: true,
             fullName: true,
+            firstName: true,
+            lastName: true,
             avatarUrl: true,
             email: false,
             passwordHash: false,
@@ -120,6 +133,9 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
             targetAmountCents: true,
             fundedAmountCents: true,
             isFulfilled: true,
+          },
+          with: {
+            category: true,
           },
         },
       },

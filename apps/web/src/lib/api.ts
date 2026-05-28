@@ -24,7 +24,10 @@ export async function apiRequest<T>(
 
   if (!response.ok) {
     // Global 401 handler — expired/invalid session
-    if (response.status === 401 && typeof window !== 'undefined') {
+    // Skip this when on the login or register pages (handled by the form itself)
+    const isAuthRoute = path.includes('/auth/login') || path.includes('/auth/register')
+
+    if (response.status === 401 && !isAuthRoute && typeof window !== 'undefined') {
       localStorage.removeItem('tribe_access_token')
       localStorage.removeItem('tribe_user')
       window.location.replace('/auth?reason=session_expired')

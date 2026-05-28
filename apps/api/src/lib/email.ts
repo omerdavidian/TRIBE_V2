@@ -323,3 +323,54 @@ export async function sendProviderInfoRequestEmail(to: string, name: string, mes
   `
   return dispatchEmail({ to, subject, html, fallbackText: `Your TRIBE provider application requires additional information: ${message}` })
 }
+
+export async function sendVoucherEmail(params: {
+  to: string
+  motherName: string
+  itemTitle: string
+  voucherCode: string
+  registrySlug: string
+}) {
+  const { to, motherName, itemTitle, voucherCode, registrySlug } = params
+  const registryUrl = `${env.FRONTEND_URL}/registry/${registrySlug}`
+  const subject = `🎉 Your ${itemTitle} has been fully funded!`
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px; background: #fff;">
+      <div style="text-align: center; margin-bottom: 32px;">
+        <div style="font-size: 48px; margin-bottom: 12px;">🎁</div>
+        <h1 style="color: #004C54; font-size: 26px; margin: 0; font-weight: 700;">
+          Congratulations, ${motherName.split(' ')[0]}!
+        </h1>
+      </div>
+      <p style="color: #555; font-size: 16px; line-height: 1.6;">
+        Your care item <strong style="color: #004C54;">${itemTitle}</strong> has been completely funded by your TRIBE.
+        You can now redeem this service with a certified local provider.
+      </p>
+      <div style="background: #f0faf8; border: 2px dashed #29676f; border-radius: 12px; padding: 24px; text-align: center; margin: 28px 0;">
+        <p style="color: #70797a; font-size: 12px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; margin: 0 0 8px;">Your Voucher Code</p>
+        <p style="color: #004C54; font-size: 28px; font-weight: 800; letter-spacing: 0.18em; font-family: monospace; margin: 0;">${voucherCode}</p>
+      </div>
+      <p style="color: #555; font-size: 15px; line-height: 1.6;">
+        Present this code to your provider when scheduling your session.
+        Your voucher is active and ready to use.
+      </p>
+      <div style="text-align: center; margin: 28px 0;">
+        <a href="${registryUrl}"
+           style="display: inline-block; background: #004C54; color: white; padding: 14px 32px;
+                  border-radius: 10px; text-decoration: none; font-weight: 700; font-size: 15px;">
+          View Your Registry →
+        </a>
+      </div>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px; text-align: center;">
+        TRIBE · tribewishlist.com · Real postpartum support for new mothers.
+      </p>
+    </div>
+  `
+  return dispatchEmail({
+    to,
+    subject,
+    html,
+    fallbackText: `Congratulations! Your "${itemTitle}" has been fully funded. Your voucher code is: ${voucherCode}. Visit your registry at ${registryUrl}`,
+  })
+}

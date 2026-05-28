@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getStoredUser, getToken, logout } from '@/lib/auth'
 import { apiRequest } from '@/lib/api'
-import VerifiedBadge from '@/components/verified-badge'
 import StarRating from '@/components/star-rating'
 import type { User, ProviderProfile, FundingFrequency, Registry } from '@tribe/shared'
 
@@ -16,7 +15,128 @@ interface ProviderWithRating extends ProviderProfile {
   reviewCount: number
   recommendCount: number
   user: { id: string; fullName: string | null }
-  services: { id: string; description: string | null; priceMinCents: number | null; priceMaxCents: number | null; category: { name: string; iconName: string | null } }[]
+  services: { id: string; description: string | null; priceMinCents: number | null; priceMaxCents: number | null; category: { name: string; iconName: string | null; slug?: string } }[]
+}
+
+// ── Sample catalog shown when API returns empty (local dev) ────────────────────
+
+type SeedProvider = {
+  id: string
+  businessName: string
+  bio: string
+  serviceAreas: string[]
+  categoryName: string
+  categorySlug: string
+  categoryIcon: string
+  serviceTitle: string
+  priceRange: string
+  suggestedLabel: string
+}
+
+const SEED_PROVIDERS: SeedProvider[] = [
+  {
+    id: 'seed-1',
+    businessName: 'Sage Bloom Postpartum',
+    bio: 'In-home support focusing on physical healing, infant feeding assistance, and allowing you to rest. A restorative presence when you need it most.',
+    serviceAreas: ['Austin, TX'],
+    categoryName: 'Postpartum Doula',
+    categorySlug: 'postpartum-doula',
+    categoryIcon: '🌿',
+    serviceTitle: 'Postpartum Doula Visits',
+    priceRange: '$180 – $250',
+    suggestedLabel: '4 sessions',
+  },
+  {
+    id: 'seed-2',
+    businessName: 'The Golden Broth',
+    bio: 'Nutrient-dense, warm, and easily digestible meals prepared specifically for postpartum recovery, delivered fresh to your door.',
+    serviceAreas: ['Austin, TX'],
+    categoryName: 'Nourishment',
+    categorySlug: 'nourishment',
+    categoryIcon: '🍲',
+    serviceTitle: 'Healing Meal Delivery',
+    priceRange: '$80 – $140 / week',
+    suggestedLabel: '2 weeks',
+  },
+  {
+    id: 'seed-3',
+    businessName: 'Rest & Restore',
+    bio: 'Overnight support so the whole family can sleep. A certified night doula handles feeds and settling from 10pm to 6am.',
+    serviceAreas: ['Austin, TX'],
+    categoryName: 'Sleep Support',
+    categorySlug: 'sleep-support',
+    categoryIcon: '🌙',
+    serviceTitle: 'Overnight Newborn Care',
+    priceRange: '$200 – $350',
+    suggestedLabel: '4 nights',
+  },
+  {
+    id: 'seed-4',
+    businessName: 'Bloom & Mind Therapy',
+    bio: 'Specialized maternal mental health sessions creating a safe space to process the massive transition into motherhood.',
+    serviceAreas: ['Austin, TX', 'Virtual'],
+    categoryName: 'Mental Wellness',
+    categorySlug: 'mental-wellness',
+    categoryIcon: '💆',
+    serviceTitle: 'Maternal Therapy Fund',
+    priceRange: '$150 – $200',
+    suggestedLabel: '$300 goal',
+  },
+  {
+    id: 'seed-5',
+    businessName: 'Latch & Love Lactation',
+    bio: 'Board-certified lactation consultant offering in-home visits for latch challenges, milk supply concerns, and confident feeding plans.',
+    serviceAreas: ['Austin, TX'],
+    categoryName: 'Lactation Support',
+    categorySlug: 'lactation',
+    categoryIcon: '🤱',
+    serviceTitle: 'IBCLC Lactation Consult',
+    priceRange: '$150 – $200',
+    suggestedLabel: '2 sessions',
+  },
+]
+
+// ── Category → visual config ──────────────────────────────────────────────────
+
+type CatVisual = { gradient: string; pillBg: string; pillText: string }
+
+const CAT_VISUALS: Record<string, CatVisual> = {
+  'postpartum-doula': {
+    gradient: 'bg-gradient-to-br from-[#c8dbd7] via-[#a5c5c0] to-[#7aada6]',
+    pillBg: 'bg-[#e6f4f1]',
+    pillText: 'text-[#1a5c50]',
+  },
+  nourishment: {
+    gradient: 'bg-gradient-to-br from-[#dfc9a8] via-[#cdb48e] to-[#b89770]',
+    pillBg: 'bg-[#fef3e8]',
+    pillText: 'text-[#7a3a0a]',
+  },
+  'sleep-support': {
+    gradient: 'bg-gradient-to-br from-[#c4cfe0] via-[#aabbd4] to-[#8fa8c8]',
+    pillBg: 'bg-[#eef3fa]',
+    pillText: 'text-[#1a3a6c]',
+  },
+  'mental-wellness': {
+    gradient: 'bg-gradient-to-br from-[#e0c8d0] via-[#ceb0bc] to-[#ba96a6]',
+    pillBg: 'bg-[#faeef3]',
+    pillText: 'text-[#6c1a3a]',
+  },
+  lactation: {
+    gradient: 'bg-gradient-to-br from-[#d4e0c0] via-[#bfcea8] to-[#a8bb8c]',
+    pillBg: 'bg-[#f0f5e8]',
+    pillText: 'text-[#3a5c1a]',
+  },
+}
+
+function getCatVisual(slug?: string): CatVisual {
+  if (slug && slug in CAT_VISUALS) {
+    return CAT_VISUALS[slug as keyof typeof CAT_VISUALS]!
+  }
+  return {
+    gradient: 'bg-gradient-to-br from-[#c8dbd7] via-[#a5c5c0] to-[#7aada6]',
+    pillBg: 'bg-[#e6f4f1]',
+    pillText: 'text-[#00343a]',
+  }
 }
 
 type ActiveTab = 'search' | 'custom'
@@ -190,7 +310,7 @@ function AddToRegistryInline({
   )
 }
 
-// ── Provider Card ─────────────────────────────────────────────────────────────
+// ── Stitch-style Provider Card ────────────────────────────────────────────────
 
 function ProviderCard({
   provider,
@@ -204,82 +324,156 @@ function ProviderCard({
   const [adding, setAdding] = useState(false)
   const [added, setAdded] = useState(false)
   const name = provider.businessName ?? provider.user.fullName ?? 'Provider'
+  const primaryService = provider.services[0]
+  const catSlug = (primaryService?.category as { slug?: string } | undefined)?.slug
+  const catName = primaryService?.category.name ?? 'Care Service'
+  const catIcon = primaryService?.category.iconName ?? '✨'
+  const vis = getCatVisual(catSlug)
   const priceRange = provider.services
     .map((s) => formatPrice(s.priceMinCents, s.priceMaxCents))
     .filter(Boolean)[0]
 
   return (
-    <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100 flex flex-col gap-3">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className="w-10 h-10 rounded-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-sm flex-shrink-0">
-          {name.charAt(0).toUpperCase()}
+    <div className="bg-white rounded-2xl overflow-hidden border border-[#ede8e4] shadow-sm hover:shadow-md transition-shadow">
+      {/* Hero gradient */}
+      <div className={`h-40 ${vis.gradient} relative`}>
+        {/* Subtle texture overlay */}
+        <div className="absolute inset-0 opacity-10" style={{
+          backgroundImage: 'radial-gradient(circle at 30% 40%, rgba(255,255,255,0.6) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.3) 0%, transparent 50%)',
+        }} />
+        {/* Certified badge top-right */}
+        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-[#00343a] text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Certified
         </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="font-semibold text-gray-900 text-sm">{name}</span>
-            <VerifiedBadge applicationStatus={provider.applicationStatus} showLabel />
+        {/* Service areas bottom-left */}
+        {provider.serviceAreas.length > 0 && (
+          <div className="absolute bottom-3 left-3 flex items-center gap-1 text-white/80 text-[10px]">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {provider.serviceAreas[0]}
           </div>
-          <div className="mt-0.5">
-            <StarRating
-              rating={provider.averageRating}
-              reviewCount={provider.reviewCount}
-              recommendCount={provider.recommendCount}
-            />
-          </div>
-        </div>
-        {priceRange && (
-          <span className="text-xs text-gray-500 flex-shrink-0 font-medium">{priceRange}</span>
         )}
       </div>
 
-      {/* Services */}
-      {provider.services.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {provider.services.slice(0, 4).map((s) => (
-            <span key={s.id} className="text-xs bg-cream-100 text-teal-700 px-2 py-0.5 rounded-full border border-teal-100">
-              {s.category.iconName && <span className="mr-1">{s.category.iconName}</span>}
-              {s.category.name}
+      {/* Content */}
+      <div className="p-5">
+        {/* Category pill */}
+        <span className={`inline-flex items-center gap-1.5 ${vis.pillBg} ${vis.pillText} text-[11px] font-semibold px-2.5 py-1 rounded-full`}>
+          <span>{catIcon}</span>
+          {catName}
+        </span>
+
+        {/* Service title */}
+        <h3 className="font-display font-bold text-xl text-[#00343a] mt-3 mb-2 leading-tight">
+          {primaryService?.description?.split('—')[0]?.trim() ?? name}
+        </h3>
+
+        {/* Bio */}
+        <p className="text-sm text-[#5a6468] leading-relaxed line-clamp-3 min-h-[63px]">
+          {provider.bio ?? primaryService?.description ?? 'Certified postpartum care specialist.'}
+        </p>
+
+        {/* Divider */}
+        <div className="border-t border-[#f0ebe7] my-4" />
+
+        {/* Footer row */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            {priceRange && (
+              <p className="text-[13px] font-semibold text-[#40484a] truncate">
+                {priceRange}
+              </p>
+            )}
+            <div className="flex items-center gap-1 mt-0.5">
+              <StarRating
+                rating={provider.averageRating}
+                reviewCount={provider.reviewCount}
+                recommendCount={provider.recommendCount}
+              />
+            </div>
+          </div>
+
+          {added ? (
+            <span className="flex-shrink-0 text-xs font-semibold text-[#29676f] flex items-center gap-1">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              Added
             </span>
-          ))}
+          ) : adding ? (
+            <AddToRegistryInline
+              provider={provider}
+              registries={registries}
+              token={token}
+              onSuccess={() => { setAdding(false); setAdded(true) }}
+              onCancel={() => setAdding(false)}
+            />
+          ) : (
+            <button
+              onClick={() => setAdding(true)}
+              disabled={registries.length === 0}
+              className="flex-shrink-0 text-[13px] font-semibold text-[#7d3527] border border-[#c05928]/30 rounded-xl px-4 py-2 hover:bg-[#fdf2ee] hover:border-[#c05928]/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+            >
+              + Add to Registry
+            </button>
+          )}
         </div>
-      )}
+      </div>
+    </div>
+  )
+}
 
-      {/* Bio */}
-      {provider.bio && (
-        <p className="text-xs text-gray-500 leading-relaxed line-clamp-2">{provider.bio}</p>
-      )}
+// ── Seed / Sample Card (shown when no real providers in local dev) ─────────────
 
-      {/* Service areas */}
-      {provider.serviceAreas.length > 0 && (
-        <div className="flex items-center gap-1 text-xs text-gray-400">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
-            <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" />
-          </svg>
-          {provider.serviceAreas.slice(0, 3).join(', ')}
+function SeedProviderCard({ seed }: { seed: SeedProvider }) {
+  const vis = getCatVisual(seed.categorySlug)
+  return (
+    <div className="bg-white rounded-2xl overflow-hidden border border-[#ede8e4] shadow-sm opacity-90">
+      {/* Hero gradient */}
+      <div className={`h-40 ${vis.gradient} relative`}>
+        <div className="absolute inset-0 opacity-10" style={{
+          backgroundImage: 'radial-gradient(circle at 30% 40%, rgba(255,255,255,0.6) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.3) 0%, transparent 50%)',
+        }} />
+        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-[#00343a] text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          Certified
         </div>
-      )}
+        {seed.serviceAreas.length > 0 && (
+          <div className="absolute bottom-3 left-3 flex items-center gap-1 text-white/80 text-[10px]">
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            {seed.serviceAreas[0]}
+          </div>
+        )}
+      </div>
 
-      {/* Add to registry */}
-      {added ? (
-        <p className="text-xs font-semibold text-teal-600">✓ Added to registry</p>
-      ) : adding ? (
-        <AddToRegistryInline
-          provider={provider}
-          registries={registries}
-          token={token}
-          onSuccess={() => { setAdding(false); setAdded(true) }}
-          onCancel={() => setAdding(false)}
-        />
-      ) : (
-        <button
-          onClick={() => setAdding(true)}
-          disabled={registries.length === 0}
-          className="w-full text-sm font-semibold text-teal-700 border-2 border-teal-200 rounded-xl py-2 hover:bg-teal-50 hover:border-teal-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {registries.length === 0 ? 'No registry yet' : 'Add to Registry'}
-        </button>
-      )}
+      <div className="p-5">
+        <span className={`inline-flex items-center gap-1.5 ${vis.pillBg} ${vis.pillText} text-[11px] font-semibold px-2.5 py-1 rounded-full`}>
+          <span>{seed.categoryIcon}</span>
+          {seed.categoryName}
+        </span>
+
+        <h3 className="font-display font-bold text-xl text-[#00343a] mt-3 mb-2 leading-tight">
+          {seed.serviceTitle}
+        </h3>
+
+        <p className="text-sm text-[#5a6468] leading-relaxed line-clamp-3 min-h-[63px]">
+          {seed.bio}
+        </p>
+
+        <div className="border-t border-[#f0ebe7] my-4" />
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-[#40484a] truncate">{seed.priceRange}</p>
+            <p className="text-[11px] text-[#8a9da0] mt-0.5">Suggested: {seed.suggestedLabel}</p>
+          </div>
+          <button
+            disabled
+            title="Run the seed script to enable live providers"
+            className="flex-shrink-0 text-[13px] font-semibold text-[#7d3527] border border-[#c05928]/30 rounded-xl px-4 py-2 opacity-40 cursor-not-allowed whitespace-nowrap"
+          >
+            + Add to Registry
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -537,17 +731,10 @@ export default function MotherServicesPage() {
               {/* Results */}
               {searching ? (
                 <div className="flex justify-center py-16">
-                  <div className="w-8 h-8 border-2 border-teal-700 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-8 h-8 border-2 border-[#00343a] border-t-transparent rounded-full animate-spin" />
                 </div>
-              ) : providers.length === 0 ? (
-                <div className="text-center py-16">
-                  <div className="text-4xl mb-3">🔍</div>
-                  <p className="text-gray-500 text-sm">
-                    {location ? `No approved providers found in "${location}"` : 'No providers available yet.'}
-                  </p>
-                </div>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
+              ) : providers.length > 0 ? (
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
                   {providers.map((provider) => (
                     <ProviderCard
                       key={provider.id}
@@ -556,6 +743,28 @@ export default function MotherServicesPage() {
                       token={token!}
                     />
                   ))}
+                </div>
+              ) : (
+                <div>
+                  {/* Sample catalog (local dev fallback when DB has no approved providers) */}
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-px flex-1 bg-[#e8e2de]" />
+                    <span className="text-[11px] font-semibold text-[#8a9da0] uppercase tracking-widest px-2">
+                      Sample Catalog — run seed script to activate
+                    </span>
+                    <div className="h-px flex-1 bg-[#e8e2de]" />
+                  </div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {SEED_PROVIDERS.map((seed) => (
+                      <SeedProviderCard key={seed.id} seed={seed} />
+                    ))}
+                  </div>
+                  <p className="text-center text-xs text-[#8a9da0] mt-6">
+                    To activate live providers:{' '}
+                    <code className="bg-[#f0ebe7] px-1.5 py-0.5 rounded text-[#5a6468]">
+                      npx tsx apps/api/src/scripts/seed-providers.ts
+                    </code>
+                  </p>
                 </div>
               )}
             </div>

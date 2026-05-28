@@ -10,7 +10,6 @@ const envSchema = z.object({
   DATABASE_URL_UNPOOLED: z.string().optional(),
   BLOB_STORE_ID: z.string().optional(),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
-  WT_SECRET: z.string().min(32, 'WT_SECRET must be at least 32 characters'),
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   JWT_EXPIRES_IN: z.string().default('7d'),
   ADMIN_BOOTSTRAP_KEY: z.string().optional(),

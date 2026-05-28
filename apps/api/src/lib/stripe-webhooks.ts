@@ -6,9 +6,15 @@
  * - Refunds
  * - Disputes (chargebacks)
  * - Provider account updates
+ * - Donation checkout session completions
  */
 
 import { Stripe } from 'stripe'
+import { db } from '../db/client.js'
+import { donations, registryItems, registries, users, vouchers } from '../db/schema.js'
+import { eq, sql } from 'drizzle-orm'
+import crypto from 'crypto'
+import { sendVoucherEmail } from './email.js'
 
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 
@@ -90,6 +96,102 @@ async function handleConnectAccountUpdated(event: Stripe.Event): Promise<void> {
 }
 
 /**
+ * Handle checkout.session.completed — marks the donation as completed
+ * and updates the registry item's funded amount if the donation was item-scoped.
+ */
+async function handleCheckoutSessionCompleted(event: Stripe.Event): Promise<void> {
+  const session = event.data.object as Stripe.Checkout.Session
+  const { donationId, registryItemId } = session.metadata ?? {}
+
+  if (!donationId) {
+    console.log('checkout.session.completed: no donationId in metadata — skipping donation update')
+    return
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === 'string'
+      ? session.payment_intent
+      : (session.payment_intent as Stripe.PaymentIntent | null)?.id ?? null
+
+  // Mark donation as completed
+  await db
+    .update(donations)
+    .set({
+      status: 'completed',
+      stripePaymentIntentId: paymentIntentId,
+      completedAt: new Date(),
+    })
+    .where(eq(donations.id, donationId))
+
+  // If donation was scoped to a specific registry item, update its funded amount
+  if (registryItemId) {
+    const amountCents = session.amount_total ?? 0
+
+    await db
+      .update(registryItems)
+      .set({
+        fundedAmountCents: sql`LEAST(${registryItems.fundedAmountCents} + ${amountCents}, ${registryItems.targetAmountCents})`,
+        isFulfilled: sql`(${registryItems.fundedAmountCents} + ${amountCents}) >= ${registryItems.targetAmountCents}`,
+      })
+      .where(eq(registryItems.id, registryItemId))
+
+    // Check if item is now fulfilled — generate voucher + notify mother
+    const updatedItem = await db.query.registryItems.findFirst({
+      where: eq(registryItems.id, registryItemId),
+      columns: { id: true, registryId: true, title: true, isFulfilled: true },
+    })
+
+    if (updatedItem?.isFulfilled) {
+      // Only generate a voucher if one doesn't already exist
+      const existing = await db.query.vouchers.findFirst({
+        where: eq(vouchers.registryItemId, registryItemId),
+        columns: { id: true },
+      })
+
+      if (!existing) {
+        // Generate a clean alphanumeric voucher code: VOUCH-XXXXXX
+        const suffix = crypto.randomBytes(4).toString('hex').toUpperCase()
+        const code = `VOUCH-${suffix}`
+
+        await db.insert(vouchers).values({
+          registryItemId,
+          registryId: updatedItem.registryId,
+          code,
+        })
+
+        // Fetch the registry + mother info for the notification email
+        const registry = await db.query.registries.findFirst({
+          where: eq(registries.id, updatedItem.registryId),
+          columns: { slug: true, userId: true },
+        })
+
+        if (registry) {
+          const mother = await db.query.users.findFirst({
+            where: eq(users.id, registry.userId),
+            columns: { email: true, fullName: true, firstName: true },
+          })
+
+          if (mother?.email) {
+            const motherName = mother.fullName ?? mother.firstName ?? 'Mom'
+            sendVoucherEmail({
+              to: mother.email,
+              motherName,
+              itemTitle: updatedItem.title,
+              voucherCode: code,
+              registrySlug: registry.slug,
+            }).catch((err: unknown) => console.error('Voucher email failed:', err))
+          }
+        }
+
+        console.log(`🎁 Voucher ${code} generated for fulfilled item ${registryItemId}`)
+      }
+    }
+  }
+
+  console.log(`✅ Donation ${donationId} marked completed (payment: ${paymentIntentId ?? 'n/a'})`)
+}
+
+/**
  * Map webhook event types to handlers
  */
 export const webhookHandlers: WebhookHandler = {
@@ -98,6 +200,7 @@ export const webhookHandlers: WebhookHandler = {
   'charge.refunded': handleChargeRefunded,
   'charge.dispute.created': handleChargeDisputeCreated,
   'account.updated': handleConnectAccountUpdated,
+  'checkout.session.completed': handleCheckoutSessionCompleted,
 }
 
 /**

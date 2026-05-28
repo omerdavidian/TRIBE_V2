@@ -21,9 +21,16 @@ export default function ShareModal({ url, title, motherName, onClose }: ShareMod
   const encodedText = encodeURIComponent(`${text}\n${url}`)
   const encodedUrl = encodeURIComponent(url)
 
-  // Try native share on mobile first
+  // Try native share on mobile only (not on desktop/Windows)
   useEffect(() => {
-    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+    const isMobile = () => {
+      return (
+        typeof navigator !== 'undefined' &&
+        /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+      )
+    }
+
+    if (isMobile() && 'share' in navigator) {
       navigator
         .share({ title, text, url })
         .then(() => onClose())

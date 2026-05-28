@@ -539,4 +539,17 @@ export async function ensureBaselineSchema() {
     create unique index if not exists "provider_operating_hours_unique_day"
       on "provider_operating_hours" ("provider_profile_id", "day_of_week");
   `)
+
+  // ── vouchers table ──────────────────────────────────────────────────────────
+  await db.execute(sql`
+    create table if not exists "vouchers" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "registry_item_id" uuid not null references "registry_items"("id") on delete cascade,
+      "registry_id" uuid not null references "registries"("id") on delete cascade,
+      "code" text not null unique,
+      "is_redeemed" boolean not null default false,
+      "redeemed_at" timestamp with time zone,
+      "created_at" timestamp with time zone not null default now()
+    );
+  `)
 }
