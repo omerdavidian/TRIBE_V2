@@ -1041,7 +1041,8 @@ function ProfileSection({
   user: User
   onUserUpdate: (update: Partial<User>) => void
 }) {
-  const [name, setName] = useState([user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName || '')
+  const [firstName, setFirstName] = useState(user.firstName ?? '')
+  const [lastName, setLastName] = useState(user.lastName ?? '')
   const [email, setEmail] = useState(user.email ?? '')
   const [phone, setPhone] = useState('')
   const [addressStreet, setAddressStreet] = useState('')
@@ -1084,11 +1085,8 @@ function ProfileSection({
       } | null
     }>('/mother/profile', { token })
       .then((data) => {
-        const fetchedName =
-          [data.user.firstName, data.user.lastName].filter(Boolean).join(' ') ||
-          data.user.fullName ||
-          ''
-        setName(fetchedName)
+        setFirstName(data.user.firstName ?? '')
+        setLastName(data.user.lastName ?? '')
         setEmail(data.user.email)
         setPhone(data.profile?.phone ?? '')
         setAddressStreet(data.profile?.addressStreet ?? '')
@@ -1107,7 +1105,8 @@ function ProfileSection({
   }, [])
 
   useEffect(() => {
-    setName([user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName || '')
+    setFirstName(user.firstName ?? '')
+    setLastName(user.lastName ?? '')
     setEmail(user.email ?? '')
   }, [user])
 
@@ -1116,8 +1115,9 @@ function ProfileSection({
     if (!token) return
     setSaving(true)
     setError(null)
-    const [firstName, ...rest] = name.trim().split(/\s+/).filter(Boolean)
-    const lastName = rest.join(' ')
+    const normalizedFirstName = firstName.trim()
+    const normalizedLastName = lastName.trim()
+    const fullName = [normalizedFirstName, normalizedLastName].filter(Boolean).join(' ')
     try {
       const updated = await apiRequest<{
         user: {
@@ -1131,9 +1131,9 @@ function ProfileSection({
         method: 'PATCH',
         token,
         body: JSON.stringify({
-          fullName: name.trim() || undefined,
-          firstName: firstName || undefined,
-          lastName: lastName || undefined,
+          fullName: fullName || undefined,
+          firstName: normalizedFirstName || undefined,
+          lastName: normalizedLastName || undefined,
           email,
           phone,
           addressStreet,
@@ -1204,7 +1204,8 @@ function ProfileSection({
       <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
         <h2 className="font-semibold text-[#00343a] mb-4">Personal Info</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
           <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
           <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
         </div>
@@ -1750,7 +1751,6 @@ function MotherDashboardContent() {
   const searchParams = useSearchParams()
   const [user, setUser] = useState<User | null>(null)
   const [section, setSection] = useState<Section>('home')
-  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // Registry state
   const [registries, setRegistries] = useState<RegistryWithItems[]>([])
@@ -1896,85 +1896,13 @@ function MotherDashboardContent() {
   }
 
   const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName || 'there'
-  const initials = (user.firstName?.[0] ?? user.email.charAt(0)).toUpperCase()
 
   return (
-    <div className="h-[calc(100vh-64px)] overflow-hidden bg-[#f7f4f2] dark:bg-[#00141a] font-sans flex">
+    <>
       {/* Preview modal */}
       {resolvedPreviewSlug && previewSlug && (
         <RegistryPreviewModal slug={resolvedPreviewSlug} onClose={() => setPreviewSlug(null)} />
       )}
-
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-        </div>
-      )}
-
-      {/* ── Sidebar ─────────────────────────────────────────────────────── */}
-      <aside className={['fixed top-16 left-0 h-[calc(100vh-64px)] w-64 bg-[#00343a] text-white flex flex-col z-50 transition-transform duration-200', 'lg:translate-x-0 lg:static lg:z-auto lg:flex-shrink-0', sidebarOpen ? 'translate-x-0' : '-translate-x-full'].join(' ')}>
-        <div className="h-16 flex items-center px-5 border-b border-[#054f57]/60">
-          <Link href="/" className="font-serif font-bold text-xl text-white tracking-tight">TRIBE</Link>
-          <span className="ml-2 text-[#95d0d9]/60 text-xs font-semibold uppercase tracking-widest">Mother</span>
-        </div>
-        <nav className="flex-1 overflow-y-auto py-4 px-3">
-          <p className="text-[#95d0d9]/40 text-[10px] font-semibold uppercase tracking-widest px-3 mb-3">Dashboard</p>
-          <ul className="space-y-1">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.id}>
-                {item.href ? (
-                  <Link href={item.href} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-[#95d0d9]/70 hover:bg-white/5 hover:text-white">
-                    <span className="flex-shrink-0 opacity-80">{item.icon}</span>
-                    {item.label}
-                  </Link>
-                ) : (
-                  <button
-                    onClick={() => { setSection(item.id as Section); setSidebarOpen(false) }}
-                    className={['w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left', section === item.id ? 'bg-white/10 text-white' : 'text-[#95d0d9]/70 hover:bg-white/5 hover:text-white'].join(' ')}
-                  >
-                    <span className="flex-shrink-0 opacity-80">{item.icon}</span>
-                    {item.label}
-                    {item.id === 'registry' && registries.length > 0 && (
-                      <span className="ml-auto text-[10px] font-bold bg-white/20 px-1.5 py-0.5 rounded-full">{registries.length}</span>
-                    )}
-                  </button>
-                )}
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <div className="p-4 border-t border-[#054f57]/60">
-          <div className="flex items-center gap-2 px-1 mb-3">
-            <div className="w-7 h-7 rounded-full bg-[#29676f] flex items-center justify-center text-xs font-bold text-white flex-shrink-0">{initials}</div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{displayName}</p>
-              <p className="text-[10px] text-[#95d0d9]/60 truncate">{user.email}</p>
-            </div>
-          </div>
-          <button onClick={() => { logout(); router.replace('/') }} className="w-full text-xs text-[#95d0d9]/70 hover:text-white py-2 px-3 rounded-lg hover:bg-white/5 transition-colors text-left">Sign out</button>
-        </div>
-      </aside>
-
-      {/* ── Content ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="sticky top-0 z-30 bg-[#f7f4f2]/95 dark:bg-[#00141a]/95 backdrop-blur border-b border-[#e0ebe9] dark:border-[#054f57]/40 h-16 flex items-center px-4 sm:px-6 gap-3">
-          <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-lg text-[#40484a] dark:text-[#95d0d9] hover:bg-[#e8f4f0] dark:hover:bg-[#004c54]/20 transition-colors" aria-label="Open menu">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </button>
-          <h1 className="flex-1 text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">{NAV_ITEMS.find(t => t.id === section)?.label}</h1>
-          {firstPublished && (
-            <button
-              onClick={() => setPreviewSlug(firstPublished.slug)}
-              className="hidden sm:flex items-center gap-1.5 text-xs font-semibold text-[#29676f] dark:text-[#95d0d9] border border-[#29676f]/40 dark:border-[#95d0d9]/30 rounded-lg px-3 py-1.5 hover:bg-[#e8f4f0] dark:hover:bg-[#004c54]/20 transition-colors"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-              Preview My Page
-            </button>
-          )}
-        </header>
-
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 
           {/* ── Home ── */}
           {section === 'home' && (
@@ -2125,9 +2053,7 @@ function MotherDashboardContent() {
             </div>
           )}
 
-        </main>
-      </div>
-    </div>
+    </>
   )
 }
 

@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getStoredUser, getToken, logout } from '@/lib/auth'
+import { getStoredUser, getToken } from '@/lib/auth'
 import { apiRequest } from '@/lib/api'
 import StarRating from '@/components/star-rating'
 import type { User, ProviderProfile, FundingFrequency, Registry } from '@tribe/shared'
@@ -350,7 +350,7 @@ function AddToRegistryModal({
 
       {/* Panel */}
       <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+        className="relative bg-white dark:bg-[#021d22] rounded-2xl shadow-2xl w-full max-w-sm p-6"
         role="dialog"
         aria-modal
         aria-label="Add to registry"
@@ -358,7 +358,7 @@ function AddToRegistryModal({
         {/* Close */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 dark:text-[#79a0a6] dark:hover:text-[#e0f5f7] transition-colors"
           aria-label="Close"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -366,8 +366,8 @@ function AddToRegistryModal({
           </svg>
         </button>
 
-        <h2 className="font-semibold text-[#00343a] mb-1">Add to Registry</h2>
-        <p className="text-sm text-[#70797a] mb-4">
+        <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7] mb-1">Add to Registry</h2>
+        <p className="text-sm text-[#70797a] dark:text-[#79a0a6] mb-4">
           {provider.businessName ?? provider.user?.fullName ?? 'Provider'}
         </p>
 
@@ -381,14 +381,14 @@ function AddToRegistryModal({
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {registries.length === 0 ? (
-              <p className="text-sm text-[#70797a] bg-amber-50 border border-amber-200 px-4 py-3 rounded-xl">
+              <p className="text-sm text-[#70797a] bg-amber-50 border border-amber-200 px-4 py-3 rounded-xl dark:bg-[rgba(120,80,20,0.18)] dark:border-[rgba(245,204,170,0.2)] dark:text-[#f3d5a3]">
                 You need to create a registry first.
               </p>
             ) : (
               <>
                 {/* Registry checkboxes */}
                 <div>
-                  <p className="text-xs font-semibold text-[#40484a] uppercase tracking-widest mb-2">Select Registries</p>
+                  <p className="text-xs font-semibold text-[#40484a] dark:text-[#a8c2c6] uppercase tracking-widest mb-2">Select Registries</p>
                   <div className="space-y-2">
                     {registries.map((r) => (
                       <label key={r.id} className="flex items-center gap-3 cursor-pointer group">
@@ -398,7 +398,7 @@ function AddToRegistryModal({
                             'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all cursor-pointer',
                             selectedIds.includes(r.id)
                               ? 'bg-[#00343a] border-[#00343a]'
-                              : 'bg-white border-[#c8d8d5] group-hover:border-[#29676f]',
+                              : 'bg-white dark:bg-[#08333a] border-[#c8d8d5] dark:border-[#154850] group-hover:border-[#29676f]',
                           ].join(' ')}
                         >
                           {selectedIds.includes(r.id) && (
@@ -408,8 +408,8 @@ function AddToRegistryModal({
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-[#00343a] truncate">{r.title}</p>
-                          <p className="text-xs text-[#70797a]">{r.isPublished ? 'Published' : 'Draft'}</p>
+                          <p className="text-sm font-medium text-[#00343a] dark:text-[#e0f5f7] truncate">{r.title}</p>
+                          <p className="text-xs text-[#70797a] dark:text-[#79a0a6]">{r.isPublished ? 'Published' : 'Draft'}</p>
                         </div>
                       </label>
                     ))}
@@ -418,10 +418,10 @@ function AddToRegistryModal({
 
                 {/* Quantity selector , pricing is computed automatically */}
                 <div>
-                  <p className="text-xs font-semibold text-[#40484a] uppercase tracking-widest mb-3">
+                  <p className="text-xs font-semibold text-[#40484a] dark:text-[#a8c2c6] uppercase tracking-widest mb-3">
                     Quantity
                     {basePriceCents > 0 && (
-                      <span className="ml-1.5 font-normal normal-case tracking-normal text-[#70797a]">
+                        <span className="ml-1.5 font-normal normal-case tracking-normal text-[#70797a] dark:text-[#79a0a6]">
                         × ${(basePriceCents / 100).toFixed(0)} base rate
                       </span>
                     )}
@@ -430,31 +430,31 @@ function AddToRegistryModal({
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                      className="w-10 h-10 rounded-xl border-2 border-[#e0ebe9] hover:border-[#29676f] flex items-center justify-center text-[#00343a] font-bold text-xl transition-all active:scale-95"
+                      className="w-10 h-10 rounded-xl border-2 border-[#e0ebe9] dark:border-[#154850] hover:border-[#29676f] dark:hover:border-[#95d0d9] flex items-center justify-center text-[#00343a] dark:text-[#e0f5f7] font-bold text-xl transition-all active:scale-95"
                     >
                       −
                     </button>
-                    <span className="text-2xl font-bold text-[#00343a] min-w-[2.5ch] text-center tabular-nums">
+                    <span className="text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7] min-w-[2.5ch] text-center tabular-nums">
                       {quantity}
                     </span>
                     <button
                       type="button"
                       onClick={() => setQuantity((q) => Math.min(52, q + 1))}
-                      className="w-10 h-10 rounded-xl border-2 border-[#e0ebe9] hover:border-[#29676f] flex items-center justify-center text-[#00343a] font-bold text-xl transition-all active:scale-95"
+                      className="w-10 h-10 rounded-xl border-2 border-[#e0ebe9] dark:border-[#154850] hover:border-[#29676f] dark:hover:border-[#95d0d9] flex items-center justify-center text-[#00343a] dark:text-[#e0f5f7] font-bold text-xl transition-all active:scale-95"
                     >
                       +
                     </button>
                     {basePriceCents > 0 && (
                       <div className="ml-auto text-right">
-                        <p className="text-xl font-bold text-[#00343a]">${(totalCents / 100).toFixed(0)}</p>
-                        <p className="text-[11px] text-[#70797a] mt-0.5">total goal</p>
+                        <p className="text-xl font-bold text-[#00343a] dark:text-[#e0f5f7]">${(totalCents / 100).toFixed(0)}</p>
+                        <p className="text-[11px] text-[#70797a] dark:text-[#79a0a6] mt-0.5">total goal</p>
                       </div>
                     )}
                   </div>
                 </div>
 
                 {error && (
-                  <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+                  <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg dark:bg-[rgba(122,18,32,0.22)] dark:text-[#ffb4be]">{error}</p>
                 )}
 
                 <button
@@ -508,7 +508,7 @@ function ProviderCard({
     .filter(Boolean)[0]
 
   return (
-    <div className="bg-white rounded-2xl overflow-hidden border border-[#ede8e4] shadow-sm hover:shadow-md transition-shadow">
+    <div className="bg-white dark:bg-[#021d22] rounded-2xl overflow-hidden border border-[#ede8e4] dark:border-[#0c3b42] shadow-sm hover:shadow-md transition-shadow">
       {/* Hero gradient */}
       <div className={`h-40 ${vis.gradient} relative`}>
         {/* Subtle texture overlay */}
@@ -516,7 +516,7 @@ function ProviderCard({
           backgroundImage: 'radial-gradient(circle at 30% 40%, rgba(255,255,255,0.6) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.3) 0%, transparent 50%)',
         }} />
         {/* Certified badge top-right */}
-        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-[#00343a] text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+        <div className="absolute top-3 right-3 bg-white/90 dark:bg-[#08333a]/90 backdrop-blur-sm text-[#00343a] dark:text-[#e0f5f7] text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           Certified
         </div>
@@ -538,23 +538,23 @@ function ProviderCard({
         </span>
 
         {/* Service title */}
-        <h3 className="font-display font-bold text-xl text-[#00343a] mt-3 mb-2 leading-tight">
+        <h3 className="font-display font-bold text-xl text-[#00343a] dark:text-[#e0f5f7] mt-3 mb-2 leading-tight">
           {primaryService?.description?.split(',')[0]?.trim() ?? name}
         </h3>
 
         {/* Bio */}
-        <p className="text-sm text-[#5a6468] leading-relaxed line-clamp-3 min-h-[63px]">
+        <p className="text-sm text-[#5a6468] dark:text-[#a8c2c6] leading-relaxed line-clamp-3 min-h-[63px]">
           {provider.bio ?? primaryService?.description ?? 'Certified postpartum care specialist.'}
         </p>
 
         {/* Divider */}
-        <div className="border-t border-[#f0ebe7] my-4" />
+        <div className="border-t border-[#f0ebe7] dark:border-[#0c3b42] my-4" />
 
         {/* Footer row */}
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             {priceRange && (
-              <p className="text-[13px] font-semibold text-[#40484a] truncate">
+              <p className="text-[13px] font-semibold text-[#40484a] dark:text-[#d7ebee] truncate">
                 {priceRange}
               </p>
             )}
@@ -576,7 +576,7 @@ function ProviderCard({
             <button
               onClick={() => setModalOpen(true)}
               disabled={registries.length === 0}
-              className="flex-shrink-0 text-[13px] font-semibold text-[#7d3527] border border-[#c05928]/30 rounded-xl px-4 py-2 hover:bg-[#fdf2ee] hover:border-[#c05928]/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              className="flex-shrink-0 text-[13px] font-semibold text-[#7d3527] dark:text-[#f1b49f] border border-[#c05928]/30 dark:border-[#7d3527]/50 rounded-xl px-4 py-2 hover:bg-[#fdf2ee] dark:hover:bg-[rgba(125,53,39,0.18)] hover:border-[#c05928]/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
             >
               + Add to Registry
             </button>
@@ -611,13 +611,13 @@ function SeedProviderCard({ seed, registries, token }: { seed: SeedProvider; reg
   const [modalOpen, setModalOpen] = useState(false)
   const [added, setAdded] = useState(false)
   return (
-    <div className="bg-white rounded-2xl overflow-hidden border border-[#ede8e4] shadow-sm opacity-90">
+    <div className="bg-white dark:bg-[#021d22] rounded-2xl overflow-hidden border border-[#ede8e4] dark:border-[#0c3b42] shadow-sm opacity-90">
       {/* Hero gradient */}
       <div className={`h-40 ${vis.gradient} relative`}>
         <div className="absolute inset-0 opacity-10" style={{
           backgroundImage: 'radial-gradient(circle at 30% 40%, rgba(255,255,255,0.6) 0%, transparent 60%), radial-gradient(circle at 80% 70%, rgba(255,255,255,0.3) 0%, transparent 50%)',
         }} />
-        <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-[#00343a] text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
+        <div className="absolute top-3 right-3 bg-white/90 dark:bg-[#08333a]/90 backdrop-blur-sm text-[#00343a] dark:text-[#e0f5f7] text-[10px] font-bold px-2.5 py-1 rounded-full flex items-center gap-1">
           <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           Certified
         </div>
@@ -635,20 +635,20 @@ function SeedProviderCard({ seed, registries, token }: { seed: SeedProvider; reg
           {seed.categoryName}
         </span>
 
-        <h3 className="font-display font-bold text-xl text-[#00343a] mt-3 mb-2 leading-tight">
+        <h3 className="font-display font-bold text-xl text-[#00343a] dark:text-[#e0f5f7] mt-3 mb-2 leading-tight">
           {seed.serviceTitle}
         </h3>
 
-        <p className="text-sm text-[#5a6468] leading-relaxed line-clamp-3 min-h-[63px]">
+        <p className="text-sm text-[#5a6468] dark:text-[#a8c2c6] leading-relaxed line-clamp-3 min-h-[63px]">
           {seed.bio}
         </p>
 
-        <div className="border-t border-[#f0ebe7] my-4" />
+        <div className="border-t border-[#f0ebe7] dark:border-[#0c3b42] my-4" />
 
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-[13px] font-semibold text-[#40484a] truncate">{seed.priceRange}</p>
-            <p className="text-[11px] text-[#8a9da0] mt-0.5">Suggested: {seed.suggestedLabel}</p>
+            <p className="text-[13px] font-semibold text-[#40484a] dark:text-[#d7ebee] truncate">{seed.priceRange}</p>
+            <p className="text-[11px] text-[#8a9da0] dark:text-[#79a0a6] mt-0.5">Suggested: {seed.suggestedLabel}</p>
           </div>
           {added ? (
             <span className="flex-shrink-0 text-xs font-semibold text-[#29676f] flex items-center gap-1">
@@ -660,7 +660,7 @@ function SeedProviderCard({ seed, registries, token }: { seed: SeedProvider; reg
               onClick={() => registries.length > 0 && setModalOpen(true)}
               disabled={registries.length === 0}
               title={registries.length === 0 ? 'Create a registry first' : undefined}
-              className="flex-shrink-0 text-[13px] font-semibold text-[#7d3527] border border-[#c05928]/30 rounded-xl px-4 py-2 hover:bg-[#fdf2ee] hover:border-[#c05928]/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+              className="flex-shrink-0 text-[13px] font-semibold text-[#7d3527] dark:text-[#f1b49f] border border-[#c05928]/30 dark:border-[#7d3527]/50 rounded-xl px-4 py-2 hover:bg-[#fdf2ee] dark:hover:bg-[rgba(125,53,39,0.18)] hover:border-[#c05928]/60 transition-all disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
             >
               + Add to Registry
             </button>
@@ -691,7 +691,6 @@ export default function MotherServicesPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(null)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<ActiveTab>('search')
 
   // Provider search
@@ -742,7 +741,11 @@ export default function MotherServicesPage() {
     setSearching(true)
     setSearchError('')
     try {
-      const qs = location ? `?location=${encodeURIComponent(location)}&limit=20` : '?limit=20'
+      const params = new URLSearchParams()
+      if (location.trim()) {
+        params.set('location', location.trim())
+      }
+      const qs = params.toString() ? `?${params.toString()}` : ''
       const data = await apiRequest<ProviderWithRating[]>(`/catalog/providers${qs}`, { token })
       setProviders(data)
     } catch (err) {
@@ -795,95 +798,17 @@ export default function MotherServicesPage() {
     )
   }
 
-  const initials = (user.firstName?.[0] ?? user.email.charAt(0)).toUpperCase()
-  const displayName = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.fullName || 'there'
-
   return (
-    <div className="h-[calc(100vh-64px)] overflow-hidden bg-[#f7f4f2] dark:bg-[#00141a] font-sans flex">
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-40 lg:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-        </div>
-      )}
-
-      {/* ── Sidebar ───────────────────────────────────────────────────────── */}
-      <aside className={[
-        'fixed top-16 left-0 h-[calc(100vh-64px)] w-64 bg-[#00343a] text-white flex flex-col z-50 transition-transform duration-200',
-        'lg:translate-x-0 lg:static lg:z-auto lg:flex-shrink-0',
-        sidebarOpen ? 'translate-x-0' : '-translate-x-full',
-      ].join(' ')}>
-        <div className="h-16 flex items-center px-5 border-b border-[#054f57]/60">
-          <Link href="/" className="font-serif font-bold text-xl text-white tracking-tight">TRIBE</Link>
-          <span className="ml-2 text-[#95d0d9]/60 text-xs font-semibold uppercase tracking-widest">Mother</span>
-        </div>
-        <nav className="flex-1 overflow-y-auto py-4 px-3">
-          <p className="text-[#95d0d9]/40 text-[10px] font-semibold uppercase tracking-widest px-3 mb-3">Dashboard</p>
-          <ul className="space-y-1">
-            {NAV_ITEMS.map((item) => (
-              <li key={item.id}>
-                <Link
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={[
-                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors',
-                    item.id === 'services'
-                      ? 'bg-white/10 text-white'
-                      : 'text-[#95d0d9]/70 hover:bg-white/5 hover:text-white',
-                  ].join(' ')}
-                >
-                  <span className="flex-shrink-0 opacity-80">{item.icon}</span>
-                  {item.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
-        <div className="p-4 border-t border-[#054f57]/60 space-y-2">
-          <div className="flex items-center gap-2 px-1 mb-3">
-            <div className="w-7 h-7 rounded-full bg-[#29676f] flex items-center justify-center text-xs font-bold text-white flex-shrink-0">{initials}</div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold text-white truncate">{displayName}</p>
-              <p className="text-[10px] text-[#95d0d9]/60 truncate">{user.email}</p>
-            </div>
-          </div>
-          <button
-            onClick={() => { logout(); router.replace('/auth') }}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium text-[#95d0d9]/70 hover:bg-white/5 hover:text-white transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><polyline points="16 17 21 12 16 7" /><line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            Sign out
-          </button>
-        </div>
-      </aside>
-
-      {/* ── Main Content ──────────────────────────────────────────────────── */}
-      <main className="flex-1 overflow-y-auto">
-        {/* Top bar */}
-        <div className="sticky top-0 z-30 h-16 bg-[#f7f4f2]/95 backdrop-blur border-b border-gray-200 flex items-center px-4 gap-3">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-          <h1 className="font-semibold text-gray-900 text-lg">Services</h1>
-        </div>
-
-        <div className="p-6 max-w-[1600px] w-full mx-auto">
+    <div className="p-6 max-w-[1600px] w-full mx-auto">
           {/* Tab switcher */}
-          <div className="flex bg-white rounded-2xl p-1 border border-gray-100 shadow-sm mb-6 max-w-sm">
+          <div className="flex bg-white dark:bg-[#021d22] rounded-2xl p-1 border border-gray-100 dark:border-[#0c3b42] shadow-sm mb-6 max-w-sm">
             <button
               onClick={() => setActiveTab('search')}
               className={[
                 'flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors',
                 activeTab === 'search'
                   ? 'bg-teal-700 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700',
+                  : 'text-gray-500 dark:text-[#79a0a6] hover:text-gray-700 dark:hover:text-[#e0f5f7]',
               ].join(' ')}
             >
               Find Providers
@@ -894,7 +819,7 @@ export default function MotherServicesPage() {
                 'flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors',
                 activeTab === 'custom'
                   ? 'bg-teal-700 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700',
+                  : 'text-gray-500 dark:text-[#79a0a6] hover:text-gray-700 dark:hover:text-[#e0f5f7]',
               ].join(' ')}
             >
               Custom Service
@@ -919,7 +844,7 @@ export default function MotherServicesPage() {
                     onChange={(e) => setLocation(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && searchProviders()}
                     placeholder="Filter by city or zip code…"
-                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 dark:border-[#154850] dark:bg-[#021d22] dark:text-[#e0f5f7] dark:placeholder:text-[#79a0a6] text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                   />
                 </div>
                 <button
@@ -932,7 +857,7 @@ export default function MotherServicesPage() {
               </div>
 
               {searchError && (
-                <p className="text-sm text-red-600 bg-red-50 px-4 py-3 rounded-xl">{searchError}</p>
+                <p className="text-sm text-red-600 bg-red-50 dark:bg-[rgba(122,18,32,0.22)] dark:text-[#ffb4be] px-4 py-3 rounded-xl">{searchError}</p>
               )}
 
               {/* Results */}
@@ -955,20 +880,20 @@ export default function MotherServicesPage() {
                 <div>
                   {/* Sample catalog (local dev fallback when DB has no approved providers) */}
                   <div className="flex items-center gap-2 mb-4">
-                    <div className="h-px flex-1 bg-[#e8e2de]" />
-                    <span className="text-[11px] font-semibold text-[#8a9da0] uppercase tracking-widest px-2">
+                    <div className="h-px flex-1 bg-[#e8e2de] dark:bg-[#0c3b42]" />
+                    <span className="text-[11px] font-semibold text-[#8a9da0] dark:text-[#79a0a6] uppercase tracking-widest px-2">
                       Sample Catalog , run seed script to activate
                     </span>
-                    <div className="h-px flex-1 bg-[#e8e2de]" />
+                    <div className="h-px flex-1 bg-[#e8e2de] dark:bg-[#0c3b42]" />
                   </div>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
                     {SEED_PROVIDERS.map((seed) => (
                       <SeedProviderCard key={seed.id} seed={seed} registries={registries} token={token ?? ''} />
                     ))}
                   </div>
-                  <p className="text-center text-xs text-[#8a9da0] mt-6">
+                  <p className="text-center text-xs text-[#8a9da0] dark:text-[#79a0a6] mt-6">
                     To activate live providers:{' '}
-                    <code className="bg-[#f0ebe7] px-1.5 py-0.5 rounded text-[#5a6468]">
+                    <code className="bg-[#f0ebe7] dark:bg-[#08333a] px-1.5 py-0.5 rounded text-[#5a6468] dark:text-[#a8c2c6]">
                       npx tsx apps/api/src/scripts/seed-providers.ts
                     </code>
                   </p>
@@ -980,14 +905,14 @@ export default function MotherServicesPage() {
           {/* ── TAB: Custom Service Builder ────────────────────────────────── */}
           {activeTab === 'custom' && (
             <div className="max-w-xl">
-              <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                <h2 className="font-semibold text-gray-900 mb-1">Build a Custom Service</h2>
-                <p className="text-sm text-gray-500 mb-5">
+              <div className="bg-white dark:bg-[#021d22] rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-[#0c3b42]">
+                <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-1">Build a Custom Service</h2>
+                <p className="text-sm text-gray-500 dark:text-[#79a0a6] mb-5">
                   Add a service to your registry that isn&apos;t tied to a specific provider.
                 </p>
 
                 {customSuccess && (
-                  <div className="mb-4 bg-teal-50 border border-teal-200 text-teal-700 text-sm px-4 py-3 rounded-xl font-medium">
+                  <div className="mb-4 bg-teal-50 dark:bg-[rgba(41,103,111,0.2)] border border-teal-200 dark:border-[#29676f]/40 text-teal-700 dark:text-[#95d0d9] text-sm px-4 py-3 rounded-xl font-medium">
                     ✓ Service added to your registry!
                   </div>
                 )}
@@ -996,11 +921,11 @@ export default function MotherServicesPage() {
                   {/* Registry selector */}
                   {registries.length > 1 && (
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Add to registry</label>
+                      <label className="block text-xs font-semibold text-gray-600 dark:text-[#a8c2c6] mb-1.5">Add to registry</label>
                       <select
                         value={customTargetRegistry}
                         onChange={(e) => setCustomTargetRegistry(e.target.value)}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full border border-gray-200 dark:border-[#154850] dark:bg-[#021d22] dark:text-[#e0f5f7] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                       >
                         {registries.map((r) => (
                           <option key={r.id} value={r.id}>{r.title}</option>
@@ -1009,7 +934,7 @@ export default function MotherServicesPage() {
                     </div>
                   )}
                   {registries.length === 0 && (
-                    <div className="bg-amber-50 border border-amber-200 text-amber-700 text-xs px-3 py-2.5 rounded-xl">
+                    <div className="bg-amber-50 dark:bg-[rgba(120,80,20,0.18)] border border-amber-200 dark:border-[rgba(245,204,170,0.2)] text-amber-700 dark:text-[#f3d5a3] text-xs px-3 py-2.5 rounded-xl">
                       You don&apos;t have a registry yet.{' '}
                       <Link href="/dashboard/mother" className="font-semibold underline">Create one first.</Link>
                     </div>
@@ -1017,7 +942,7 @@ export default function MotherServicesPage() {
 
                   {/* Service Name */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-[#a8c2c6] mb-1.5">
                       Service Name <span className="text-red-400">*</span>
                     </label>
                     <input
@@ -1026,41 +951,41 @@ export default function MotherServicesPage() {
                       value={customForm.title}
                       onChange={(e) => setCustomForm((f) => ({ ...f, title: e.target.value }))}
                       placeholder="e.g. Postpartum Meal Delivery"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full border border-gray-200 dark:border-[#154850] dark:bg-[#021d22] dark:text-[#e0f5f7] dark:placeholder:text-[#79a0a6] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
                   </div>
 
                   {/* Description */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">Description</label>
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-[#a8c2c6] mb-1.5">Description</label>
                     <textarea
                       rows={2}
                       value={customForm.description}
                       onChange={(e) => setCustomForm((f) => ({ ...f, description: e.target.value }))}
                       placeholder="What does this service cover?"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
+                      className="w-full border border-gray-200 dark:border-[#154850] dark:bg-[#021d22] dark:text-[#e0f5f7] dark:placeholder:text-[#79a0a6] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none"
                     />
                   </div>
 
                   {/* Specific Purpose */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                    <label className="block text-xs font-semibold text-gray-600 dark:text-[#a8c2c6] mb-1.5">
                       Specific Purpose
-                      <span className="ml-1 font-normal text-gray-400">(How will you use it?)</span>
+                      <span className="ml-1 font-normal text-gray-400 dark:text-[#79a0a6]">(How will you use it?)</span>
                     </label>
                     <input
                       type="text"
                       value={customForm.customPurpose}
                       onChange={(e) => setCustomForm((f) => ({ ...f, customPurpose: e.target.value }))}
                       placeholder="e.g. Help with breastfeeding in weeks 1–4"
-                      className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      className="w-full border border-gray-200 dark:border-[#154850] dark:bg-[#021d22] dark:text-[#e0f5f7] dark:placeholder:text-[#79a0a6] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                     />
                   </div>
 
                   {/* Amount + Frequency */}
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                      <label className="block text-xs font-semibold text-gray-600 dark:text-[#a8c2c6] mb-1.5">
                         Target Amount <span className="text-red-400">*</span>
                       </label>
                       <div className="relative">
@@ -1073,16 +998,16 @@ export default function MotherServicesPage() {
                           value={customForm.targetAmountCents}
                           onChange={(e) => setCustomForm((f) => ({ ...f, targetAmountCents: e.target.value }))}
                           placeholder="200"
-                          className="w-full pl-7 pr-3 border border-gray-200 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                          className="w-full pl-7 pr-3 border border-gray-200 dark:border-[#154850] dark:bg-[#021d22] dark:text-[#e0f5f7] dark:placeholder:text-[#79a0a6] rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5">Funding Frequency</label>
+                      <label className="block text-xs font-semibold text-gray-600 dark:text-[#a8c2c6] mb-1.5">Funding Frequency</label>
                       <select
                         value={customForm.fundingFrequency}
                         onChange={(e) => setCustomForm((f) => ({ ...f, fundingFrequency: e.target.value as FundingFrequency }))}
-                        className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        className="w-full border border-gray-200 dark:border-[#154850] dark:bg-[#021d22] dark:text-[#e0f5f7] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
                       >
                         {(Object.keys(FREQUENCY_LABELS) as FundingFrequency[]).map((key) => (
                           <option key={key} value={key}>{FREQUENCY_LABELS[key]}</option>
@@ -1092,7 +1017,7 @@ export default function MotherServicesPage() {
                   </div>
 
                   {customError && (
-                    <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl">{customError}</p>
+                    <p className="text-xs text-red-600 bg-red-50 dark:bg-[rgba(122,18,32,0.22)] dark:text-[#ffb4be] px-3 py-2 rounded-xl">{customError}</p>
                   )}
 
                   <button
@@ -1106,8 +1031,7 @@ export default function MotherServicesPage() {
               </div>
             </div>
           )}
-        </div>
-      </main>
+
     </div>
   )
 }

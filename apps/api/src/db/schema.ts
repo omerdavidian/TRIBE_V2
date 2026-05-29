@@ -5,6 +5,7 @@ import {
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 import { relations } from 'drizzle-orm'
@@ -209,6 +210,26 @@ export const supportPages = pgTable('support_pages', {
     .notNull()
     .defaultNow(),
 })
+
+export const userFavorites = pgTable(
+  'user_favorites',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }),
+    supportPageOwnerId: uuid('support_page_owner_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    userOwnerUnique: uniqueIndex('user_favorites_user_owner_unique').on(
+      table.userId,
+      table.supportPageOwnerId
+    ),
+  })
+)
 
 export const motherProfiles = pgTable('mother_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -549,6 +570,12 @@ export const usersRelations = relations(users, ({ one, many }) => ({
     fields: [users.id],
     references: [supportPages.userId],
   }),
+  favoritedPages: many(userFavorites, {
+    relationName: 'userFavoriteOwner',
+  }),
+  favoritedByUsers: many(userFavorites, {
+    relationName: 'supportPageOwner',
+  }),
   motherProfile: one(motherProfiles, {
     fields: [users.id],
     references: [motherProfiles.userId],
@@ -620,6 +647,19 @@ export const supportPagesRelations = relations(supportPages, ({ one }) => ({
   user: one(users, {
     fields: [supportPages.userId],
     references: [users.id],
+  }),
+}))
+
+export const userFavoritesRelations = relations(userFavorites, ({ one }) => ({
+  user: one(users, {
+    fields: [userFavorites.userId],
+    references: [users.id],
+    relationName: 'userFavoriteOwner',
+  }),
+  supportPageOwner: one(users, {
+    fields: [userFavorites.supportPageOwnerId],
+    references: [users.id],
+    relationName: 'supportPageOwner',
   }),
 }))
 

@@ -23,6 +23,7 @@ import providerRoutes from './routes/provider.js'
 import donationRoutes from './routes/donations.js'
 import paymentRoutes from './routes/payments.js'
 import motherRoutes from './routes/mother.js'
+import favoritesRoutes from './routes/favorites.js'
 import { registerWebhookRoutes } from './routes/webhooks.js'
 import assetRoutes from './routes/assets.js'
 import supportRoutes from './routes/support.js'
@@ -117,6 +118,7 @@ async function bootstrap() {
       await app.register(donationRoutes)
       await app.register(paymentRoutes)
       await app.register(motherRoutes)
+      await app.register(favoritesRoutes)
       await registerWebhookRoutes(app)
       await app.register(assetRoutes)
       await app.register(supportRoutes)

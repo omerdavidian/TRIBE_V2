@@ -1,7 +1,7 @@
 'use client'
 
 import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { Elements, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
+import { Elements, ExpressCheckoutElement, PaymentElement, useElements, useStripe } from '@stripe/react-stripe-js'
 import { loadStripe } from '@stripe/stripe-js'
 
 type EmbeddedPaymentModalProps = {
@@ -25,6 +25,7 @@ function CheckoutForm({ amountCents, onClose, onSuccess }: Omit<EmbeddedPaymentM
   const elements = useElements()
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const amountLabel = `$${(amountCents / 100).toFixed(0)}`
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -55,31 +56,117 @@ function CheckoutForm({ amountCents, onClose, onSuccess }: Omit<EmbeddedPaymentM
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement
-        options={{
-          layout: 'tabs',
-        }}
-      />
+    <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="rounded-2xl border border-[#e7dfda] bg-white/80 shadow-[0_18px_50px_rgba(0,52,58,0.08)] overflow-hidden dark:border-[#0c3b42] dark:bg-[#03262b]">
+        <div className="px-4 py-4 border-b border-[#ece4de] bg-[linear-gradient(135deg,#fff8f5_0%,#f6fbfb_55%,#edf6f6_100%)] dark:border-[#0c3b42] dark:bg-[linear-gradient(180deg,#063037_0%,#03262b_100%)]">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7f8d8f] dark:text-[#72a6ad]">Payment options</p>
+              <h4 className="text-[#00343a] font-semibold text-base mt-1 dark:text-[#e0f5f7]">Fast wallet or secure card</h4>
+            </div>
+            <div className="rounded-2xl bg-[#00343a] text-white px-3 py-2 min-w-[84px] text-right shadow-sm dark:bg-[#0b4d55]">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-white/70">Total</p>
+              <p className="text-lg font-semibold leading-none mt-1">{amountLabel}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-4 space-y-4">
+          <div className="rounded-2xl border border-[#ece4de] bg-[#fffdfc] p-4 dark:border-[#154850] dark:bg-[#052d33]">
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div>
+                <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Wallet checkout</p>
+                <p className="text-xs text-[#7f8d8f] mt-0.5 dark:text-[#79a0a6]">Apple Pay and Google Pay appear automatically on supported devices and verified domains.</p>
+              </div>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#29676f] dark:text-[#95d0d9]">Fastest</span>
+            </div>
+            <ExpressCheckoutElement
+              options={{
+                buttonHeight: 44,
+                layout: {
+                  maxColumns: 2,
+                  maxRows: 1,
+                  overflow: 'auto',
+                },
+                paymentMethods: {
+                  applePay: 'auto',
+                  googlePay: 'auto',
+                  link: 'never',
+                  paypal: 'never',
+                },
+              }}
+              onConfirm={async (event) => {
+                if (!stripe || !elements || submitting) return
+                setSubmitting(true)
+                setError(null)
+                try {
+                  const submitResult = await elements.submit()
+                  if (submitResult.error) {
+                    throw new Error(submitResult.error.message ?? 'Payment details are incomplete')
+                  }
+
+                  const result = await stripe.confirmPayment({
+                    elements,
+                    confirmParams: { return_url: window.location.href },
+                    redirect: 'if_required',
+                  })
+
+                  if (result.error) {
+                    throw new Error(result.error.message ?? 'Payment could not be completed')
+                  }
+
+                  onSuccess()
+                } catch (err) {
+                  setError(err instanceof Error ? err.message : 'Payment could not be completed')
+                } finally {
+                  setSubmitting(false)
+                }
+              }}
+            />
+          </div>
+
+          <div className="relative flex items-center justify-center">
+            <div className="absolute inset-x-0 h-px bg-[#ece4de] dark:bg-[#154850]" />
+            <span className="relative px-3 bg-[#fffdfc] text-[10px] font-semibold uppercase tracking-[0.18em] text-[#91a2a4] dark:bg-[#03262b] dark:text-[#79a0a6]">Or pay with card or bank</span>
+          </div>
+
+          <div className="rounded-2xl border border-[#ece4de] bg-[#fffdfc] p-4 dark:border-[#154850] dark:bg-[#052d33]">
+            <PaymentElement
+              options={{
+                layout: {
+                  type: 'accordion',
+                  defaultCollapsed: false,
+                  radios: 'auto',
+                  spacedAccordionItems: true,
+                },
+                business: {
+                  name: 'TRIBE',
+                },
+                paymentMethodOrder: ['apple_pay', 'google_pay', 'card', 'us_bank_account'],
+              }}
+            />
+          </div>
+        </div>
+      </div>
 
       {error && (
-        <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+        <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-lg dark:bg-[rgba(122,18,32,0.22)] dark:text-[#ffb4be]">{error}</p>
       )}
 
       <div className="flex items-center gap-3 pt-2">
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 border border-[#d7dedd] text-[#4f5f5d] hover:bg-[#f7f5f3] rounded-xl py-3 text-sm font-semibold transition-colors"
+          className="flex-1 border border-[#d7dedd] text-[#4f5f5d] hover:bg-[#f7f5f3] rounded-xl py-3 text-sm font-semibold transition-colors dark:border-[#1b4e56] dark:text-[#95d0d9] dark:hover:bg-[#08333a]"
         >
           Back
         </button>
         <button
           type="submit"
           disabled={!stripe || submitting}
-          className="flex-[1.4] bg-[#00343a] hover:bg-[#004c54] disabled:opacity-60 text-white rounded-xl py-3 text-sm font-semibold transition-colors"
+          className="flex-[1.4] bg-[#00343a] hover:bg-[#004c54] disabled:opacity-60 text-white rounded-xl py-3 text-sm font-semibold transition-colors shadow-[0_12px_24px_rgba(0,52,58,0.18)]"
         >
-          {submitting ? 'Processing…' : `Pay $${(amountCents / 100).toFixed(0)}`}
+          {submitting ? 'Processing…' : `Pay ${amountLabel}`}
         </button>
       </div>
     </form>
@@ -94,39 +181,81 @@ export default function EmbeddedPaymentModal({
   onSuccess,
 }: EmbeddedPaymentModalProps) {
   const [missingKey, setMissingKey] = useState(false)
+  const [isDarkMode, setIsDarkMode] = useState(false)
 
   useEffect(() => {
     setMissingKey(!resolvedPublishableKey)
+
+    const root = document.documentElement
+    const syncTheme = () => setIsDarkMode(root.classList.contains('dark'))
+    syncTheme()
+
+    const observer = new MutationObserver(syncTheme)
+    observer.observe(root, { attributes: true, attributeFilter: ['class'] })
 
     function onKeydown(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
 
     window.addEventListener('keydown', onKeydown)
-    return () => window.removeEventListener('keydown', onKeydown)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('keydown', onKeydown)
+    }
   }, [onClose])
 
   const options = useMemo(
     () => ({
       clientSecret,
       appearance: {
-        theme: 'stripe' as const,
+        theme: isDarkMode ? ('night' as const) : ('stripe' as const),
+        labels: 'floating' as const,
         variables: {
           colorPrimary: '#00343a',
-          colorBackground: '#fcf9f8',
-          colorText: '#1f2a2c',
+          colorBackground: isDarkMode ? '#052d33' : '#fffdfc',
+          colorText: isDarkMode ? '#e0f5f7' : '#1f2a2c',
           colorDanger: '#b42318',
-          borderRadius: '12px',
-          fontFamily: 'Inter, system-ui, sans-serif',
+          colorSuccess: '#157347',
+          colorTextSecondary: isDarkMode ? '#79a0a6' : '#5f7174',
+          borderRadius: '16px',
+          fontFamily: 'Georgia, ui-serif, serif',
+          spacingUnit: '4px',
+        },
+        rules: {
+          '.Tab': {
+            border: `1px solid ${isDarkMode ? '#154850' : '#d8deda'}`,
+            backgroundColor: isDarkMode ? '#052d33' : '#fffdfc',
+            boxShadow: 'none',
+          },
+          '.Tab--selected': {
+            borderColor: '#00343a',
+            boxShadow: isDarkMode ? '0 0 0 1px #95d0d9' : '0 0 0 1px #00343a',
+          },
+          '.Input': {
+            borderColor: isDarkMode ? '#1b4e56' : '#d8deda',
+            boxShadow: 'none',
+            backgroundColor: isDarkMode ? '#07353d' : '#ffffff',
+          },
+          '.Input:focus': {
+            borderColor: '#29676f',
+            boxShadow: '0 0 0 3px rgba(41, 103, 111, 0.14)',
+          },
+          '.Block': {
+            backgroundColor: isDarkMode ? '#052d33' : '#fffdfc',
+          },
+          '.AccordionItem': {
+            borderColor: isDarkMode ? '#154850' : '#ece4de',
+            backgroundColor: isDarkMode ? '#052d33' : '#fffdfc',
+          },
         },
       },
     }),
-    [clientSecret]
+    [clientSecret, isDarkMode]
   )
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 z-[1000] flex items-end sm:items-center justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-label="Complete payment"
@@ -135,20 +264,21 @@ export default function EmbeddedPaymentModal({
       <div className="absolute inset-0 bg-[#001a1e]/70 backdrop-blur-md" />
 
       <div
-        className="relative w-full max-w-xl bg-[#fcf9f8] rounded-2xl shadow-2xl border border-[#e8e1db] overflow-hidden"
+        className="relative flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-[26px] border border-[#e8e1db] bg-[#fcf9f8] shadow-[0_36px_120px_rgba(0,26,30,0.22)] dark:border-[#0c3b42] dark:bg-[#021d22]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-1 bg-gradient-to-r from-[#00343a] via-[#29676f] to-[#95d0d9]" />
 
-        <div className="px-6 py-5 border-b border-[#e8e1db] flex items-start justify-between gap-4">
+        <div className="px-5 py-5 border-b border-[#e8e1db] flex items-start justify-between gap-4 bg-[linear-gradient(180deg,#fffaf7_0%,#fcf9f8_100%)] dark:border-[#0c3b42] dark:bg-[linear-gradient(180deg,#063037_0%,#021d22_100%)]">
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a9da0]">Secure payment</p>
-            <h3 className="font-display text-lg font-bold text-[#00343a] leading-tight mt-1">{itemTitle}</h3>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a9da0] dark:text-[#79a0a6]">Secure payment</p>
+            <h3 className="font-display text-lg font-bold text-[#00343a] leading-tight mt-1 dark:text-[#e0f5f7]">{itemTitle}</h3>
+            <p className="text-sm text-[#6c7a7d] mt-2 max-w-md dark:text-[#79a0a6]">A compact checkout with wallets, card, and ACH only. Wallet buttons appear when Stripe detects a supported browser, device, and verified domain.</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-[#8a9da0] hover:text-[#00343a] p-1 -mr-1"
+            className="text-[#8a9da0] hover:text-[#00343a] p-1 -mr-1 dark:hover:text-[#e0f5f7]"
             aria-label="Close payment modal"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -158,9 +288,9 @@ export default function EmbeddedPaymentModal({
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="flex-1 overflow-y-auto p-5">
           {missingKey ? (
-            <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+            <p className="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2 dark:bg-[rgba(122,18,32,0.22)] dark:border-[rgba(255,180,190,0.25)] dark:text-[#ffb4be]">
               NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is missing.
             </p>
           ) : (
@@ -169,7 +299,7 @@ export default function EmbeddedPaymentModal({
             </Elements>
           )}
 
-          <p className="text-center text-[#8a9da0] text-xs mt-4">Your payment details are encrypted by Stripe.</p>
+          <p className="text-center text-[#8a9da0] text-xs mt-4 dark:text-[#79a0a6]">Your payment details are encrypted by Stripe.</p>
         </div>
       </div>
     </div>

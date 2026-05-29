@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { getApiUrl } from '@/lib/api'
+import { apiRequest, getApiUrl } from '@/lib/api'
+import { getToken } from '@/lib/auth'
 import { useDebounce } from '@/hooks/use-debounce'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -121,7 +122,17 @@ function hasActiveFilters(f: Filters): boolean {
 
 // ─── Mother Tile (square aspect-ratio) ───────────────────────────────────────
 
-function RegistryTile({ r }: { r: SupportPageResult }) {
+function RegistryTile({
+  r,
+  isFavorited,
+  isFavoritePending,
+  onToggleFavorite,
+}: {
+  r: SupportPageResult
+  isFavorited: boolean
+  isFavoritePending: boolean
+  onToggleFavorite: (supportPageOwnerId: string) => void
+}) {
   const pct = fundingPercent(r)
   const due = formatDueDate(r.earliestDueDate)
   const id = shortId(r.userId)
@@ -145,7 +156,7 @@ function RegistryTile({ r }: { r: SupportPageResult }) {
       className="group relative block bg-white dark:bg-[#00272c] border border-[#e8e2de] dark:border-[#054f57] rounded-xl p-4 hover:border-[#29676f] dark:hover:border-[#29676f] hover:shadow-md transition-all duration-150 flex flex-col justify-between min-h-[148px]"
       aria-label={`Support ${name}'s care`}
     >
-      {/* Avatar, top-right corner */}
+      {/* Avatar , top-right corner */}
       <div
         className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#e4f0ee] dark:bg-[#004c54] flex items-center justify-center flex-shrink-0 overflow-hidden"
         aria-hidden
@@ -159,6 +170,28 @@ function RegistryTile({ r }: { r: SupportPageResult }) {
           </span>
         )}
       </div>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          onToggleFavorite(r.userId)
+        }}
+        disabled={isFavoritePending}
+        aria-label={isFavorited ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
+        className={[
+          'absolute top-3 right-12 z-10 h-8 w-8 rounded-full border transition-all duration-200 flex items-center justify-center',
+          isFavorited
+            ? 'bg-[#00343a] border-[#00343a] text-white dark:bg-[#29676f] dark:border-[#29676f]'
+            : 'bg-white/90 border-[#d3dbd8] text-[#5a6468] hover:border-[#29676f] hover:text-[#00343a] dark:bg-[#012b31] dark:border-[#0c535a] dark:text-[#79a0a6] dark:hover:text-[#e8f6f7]',
+          isFavoritePending ? 'opacity-60 cursor-not-allowed' : '',
+        ].join(' ')}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill={isFavorited ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <path d="M12 21s-6.7-4.35-9.2-7.13a5.5 5.5 0 0 1 8.2-7.32L12 7.5l1-0.95a5.5 5.5 0 0 1 8.2 7.32C18.7 16.65 12 21 12 21z" />
+        </svg>
+      </button>
 
       {/* Text stack: flush left, padded right to avoid avatar */}
       <div className="pr-10">
@@ -383,6 +416,8 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [inputVal, setInputVal] = useState(initialQ)
   const [results, setResults] = useState<SupportPageResult[]>([])
+  const [favoriteOwnerIds, setFavoriteOwnerIds] = useState<string[]>([])
+  const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState(initialQ)
@@ -425,6 +460,27 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
   }, [q, filters.dueDateRange, fetchResults])
 
   useEffect(() => {
+    const token = getToken()
+    if (!token) {
+      setFavoriteOwnerIds([])
+      return
+    }
+
+    let cancelled = false
+    apiRequest<string[]>('/favorites/ids', { token })
+      .then((ids) => {
+        if (!cancelled) setFavoriteOwnerIds(ids)
+      })
+      .catch(() => {
+        if (!cancelled) setFavoriteOwnerIds([])
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
     const params = new URLSearchParams(searchParams.toString())
     if (q) params.set('q', q)
     else params.delete('q')
@@ -456,6 +512,48 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
 
   function patchFilters(patch: Partial<Filters>) {
     setFilters((prev) => ({ ...prev, ...patch }))
+  }
+
+  async function toggleFavorite(supportPageOwnerId: string) {
+    const token = getToken()
+    if (!token) {
+      router.push('/auth')
+      return
+    }
+    if (pendingFavoriteIds.includes(supportPageOwnerId)) return
+
+    const wasFavorited = favoriteOwnerIds.includes(supportPageOwnerId)
+    setPendingFavoriteIds((prev) => [...prev, supportPageOwnerId])
+    setFavoriteOwnerIds((prev) => {
+      if (wasFavorited) return prev.filter((id) => id !== supportPageOwnerId)
+      if (prev.includes(supportPageOwnerId)) return prev
+      return [...prev, supportPageOwnerId]
+    })
+
+    try {
+      const res = await apiRequest<{ favorited: boolean }>('/favorites/toggle', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ supportPageOwnerId }),
+      })
+      setFavoriteOwnerIds((prev) => {
+        if (res.favorited) {
+          if (prev.includes(supportPageOwnerId)) return prev
+          return [...prev, supportPageOwnerId]
+        }
+        return prev.filter((id) => id !== supportPageOwnerId)
+      })
+    } catch {
+      setFavoriteOwnerIds((prev) => {
+        if (wasFavorited) {
+          if (prev.includes(supportPageOwnerId)) return prev
+          return [...prev, supportPageOwnerId]
+        }
+        return prev.filter((id) => id !== supportPageOwnerId)
+      })
+    } finally {
+      setPendingFavoriteIds((prev) => prev.filter((id) => id !== supportPageOwnerId))
+    }
   }
 
   return (
@@ -565,7 +663,13 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
                 {filtered.map((r) => (
-                  <RegistryTile key={r.userId} r={r} />
+                  <RegistryTile
+                    key={r.userId}
+                    r={r}
+                    isFavorited={favoriteOwnerIds.includes(r.userId)}
+                    isFavoritePending={pendingFavoriteIds.includes(r.userId)}
+                    onToggleFavorite={toggleFavorite}
+                  />
                 ))}
               </div>
             )}

@@ -11,9 +11,15 @@ export async function apiRequest<T>(
   const { token, ...fetchOptions } = options
   const url = getApiUrl(path)
 
+  const hasBody = fetchOptions.body !== undefined && fetchOptions.body !== null
+  const isFormData = typeof FormData !== 'undefined' && fetchOptions.body instanceof FormData
+
   const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
     ...(fetchOptions.headers as Record<string, string>),
+  }
+
+  if (hasBody && !isFormData && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
   }
 
   if (token) {
@@ -23,7 +29,7 @@ export async function apiRequest<T>(
   const response = await fetch(url, { ...fetchOptions, headers })
 
   if (!response.ok) {
-    // Global 401 handler, expired/invalid session
+    // Global 401 handler , expired/invalid session
     // Skip this when on the login or register pages (handled by the form itself)
     const isAuthRoute = path.includes('/auth/login') || path.includes('/auth/register')
 
@@ -46,7 +52,7 @@ export async function apiRequest<T>(
     throw err
   }
 
-  // 204 No Content, nothing to parse
+  // 204 No Content , nothing to parse
   if (response.status === 204) return null as unknown as T
 
   return response.json() as Promise<T>

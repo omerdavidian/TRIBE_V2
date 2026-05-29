@@ -20,6 +20,20 @@ const connectBankSchema = z.object({
 	routingLast4: z.string().regex(/^\d{4}$/),
 })
 
+function getFrontendOrigin() {
+	const fallbackOrigin = 'http://localhost:3000'
+	try {
+		const raw = env.FRONTEND_URL?.trim() || fallbackOrigin
+		const url = new URL(raw)
+		if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+			throw new Error('Unsupported frontend URL protocol')
+		}
+		return url.origin
+	} catch {
+		return fallbackOrigin
+	}
+}
+
 const paymentRoutes: FastifyPluginAsync = async (fastify) => {
 	fastify.get('/payments/mother/summary', { preHandler: requireRole('mother') }, async (request) => {
 		const motherUserId = request.user!.sub
@@ -119,6 +133,7 @@ const paymentRoutes: FastifyPluginAsync = async (fastify) => {
 
 		const motherUserId = request.user!.sub
 		const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2026-04-22.dahlia' })
+		const frontendOrigin = getFrontendOrigin()
 
 		const [user] = await db
 			.select({ email: users.email, fullName: users.fullName })
@@ -138,51 +153,64 @@ const paymentRoutes: FastifyPluginAsync = async (fastify) => {
 			where: eq(motherPaymentAccounts.motherUserId, motherUserId),
 		})
 
-		let stripeAccountId = paymentAccount?.stripeConnectAccountId ?? null
-		if (!stripeAccountId) {
-			const account = await stripe.accounts.create({
-				type: 'express',
-				country: 'US',
-				email: user.email,
-				business_type: 'individual',
-				metadata: {
+		try {
+			let stripeAccountId = paymentAccount?.stripeConnectAccountId ?? null
+			if (!stripeAccountId) {
+				const account = await stripe.accounts.create({
+					type: 'express',
+					country: 'US',
+					email: user.email,
+					business_type: 'individual',
+					metadata: {
+						motherUserId,
+						source: 'tribe-mother-onboarding',
+					},
+				})
+				stripeAccountId = account.id
+			}
+
+			const [upserted] = await db
+				.insert(motherPaymentAccounts)
+				.values({
 					motherUserId,
-					source: 'tribe-mother-onboarding',
-				},
-			})
-			stripeAccountId = account.id
-		}
-
-		const [upserted] = await db
-			.insert(motherPaymentAccounts)
-			.values({
-				motherUserId,
-				stripeConnectAccountId: stripeAccountId,
-				defaultCurrency: 'usd',
-				updatedAt: new Date(),
-			})
-			.onConflictDoUpdate({
-				target: motherPaymentAccounts.motherUserId,
-				set: {
 					stripeConnectAccountId: stripeAccountId,
+					defaultCurrency: 'usd',
 					updatedAt: new Date(),
-				},
+				})
+				.onConflictDoUpdate({
+					target: motherPaymentAccounts.motherUserId,
+					set: {
+						stripeConnectAccountId: stripeAccountId,
+						updatedAt: new Date(),
+					},
+				})
+				.returning()
+
+			paymentAccount = upserted
+
+			const accountLink = await stripe.accountLinks.create({
+				account: stripeAccountId,
+				type: 'account_onboarding',
+				refresh_url: `${frontendOrigin}/dashboard/mother?section=payment&connect=retry`,
+				return_url: `${frontendOrigin}/dashboard/mother?section=payment&connect=success`,
 			})
-			.returning()
 
-		paymentAccount = upserted
-
-		const accountLink = await stripe.accountLinks.create({
-			account: stripeAccountId,
-			type: 'account_onboarding',
-			refresh_url: `${env.FRONTEND_URL}/dashboard/mother?section=payment&connect=retry`,
-			return_url: `${env.FRONTEND_URL}/dashboard/mother?section=payment&connect=success`,
-		})
-
-		return {
-			accountId: stripeAccountId,
-			onboardingUrl: accountLink.url,
-			onboardingCompleted: paymentAccount?.stripeOnboardingCompleted ?? false,
+			return {
+				accountId: stripeAccountId,
+				onboardingUrl: accountLink.url,
+				onboardingCompleted: paymentAccount?.stripeOnboardingCompleted ?? false,
+			}
+		} catch (error) {
+			fastify.log.error(
+				{ err: error, motherUserId, frontendOrigin, stripeAccountId: paymentAccount?.stripeConnectAccountId ?? null },
+				'Stripe Connect onboarding failed'
+			)
+			const message = error instanceof Error ? error.message : 'Could not start Stripe onboarding'
+			return reply.status(502).send({
+				statusCode: 502,
+				error: 'Payment Gateway Error',
+				message,
+			})
 		}
 	})
 
@@ -209,8 +237,22 @@ const paymentRoutes: FastifyPluginAsync = async (fastify) => {
 		}
 
 		const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: '2026-04-22.dahlia' })
-		const loginLink = await stripe.accounts.createLoginLink(paymentAccount.stripeConnectAccountId)
-		return { dashboardUrl: loginLink.url }
+
+		try {
+			const loginLink = await stripe.accounts.createLoginLink(paymentAccount.stripeConnectAccountId)
+			return { dashboardUrl: loginLink.url }
+		} catch (error) {
+			fastify.log.error(
+				{ err: error, motherUserId, stripeAccountId: paymentAccount.stripeConnectAccountId },
+				'Stripe Connect dashboard link creation failed'
+			)
+			const message = error instanceof Error ? error.message : 'Could not open Stripe dashboard'
+			return reply.status(502).send({
+				statusCode: 502,
+				error: 'Payment Gateway Error',
+				message,
+			})
+		}
 	})
 
 	fastify.post('/payments/mother/connect/paypal', { preHandler: requireRole('mother') }, async (request, reply) => {

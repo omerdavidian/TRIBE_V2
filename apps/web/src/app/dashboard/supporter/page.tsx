@@ -3,11 +3,134 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getStoredUser, logout } from '@/lib/auth'
+import { getStoredUser, getToken, logout } from '@/lib/auth'
+import { apiRequest } from '@/lib/api'
 import ChangePasswordForm from '@/components/change-password-form'
 import type { User } from '@tribe/shared'
 
-type Section = 'home' | 'discover' | 'giving' | 'security'
+type Section = 'home' | 'discover' | 'giving' | 'favorites' | 'security'
+
+type FavoriteUser = {
+  id: string
+  fullName: string | null
+  firstName?: string | null
+  lastName?: string | null
+  avatarUrl: string | null
+}
+
+type FavoriteSupportPage = {
+  userId: string
+  user: FavoriteUser
+  supportPageSlug: string | null
+  registryCount: number
+  totalTargetCents: number
+  totalFundedCents: number
+  earliestDueDate: string | null
+}
+
+function money(cents: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(cents / 100)
+}
+
+function formatDueDate(iso: string | null): string | null {
+  if (!iso) return null
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  }).format(new Date(iso))
+}
+
+function initials(name: string | null): string {
+  if (!name) return '?'
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+function favoriteFundingPercent(row: FavoriteSupportPage): number {
+  if (row.totalTargetCents <= 0) return 0
+  return Math.min(100, Math.round((row.totalFundedCents / row.totalTargetCents) * 100))
+}
+
+function FavoriteTile({ row }: { row: FavoriteSupportPage }) {
+  const due = formatDueDate(row.earliestDueDate)
+  const pct = favoriteFundingPercent(row)
+  const name =
+    row.user.fullName ??
+    [row.user.firstName, row.user.lastName].filter(Boolean).join(' ') ??
+    'Anonymous'
+
+  const barColor =
+    pct === 0
+      ? 'bg-[#c0cfc9]'
+      : pct < 50
+        ? 'bg-[#b25b1a]'
+        : pct < 80
+          ? 'bg-[#29676f]'
+          : 'bg-[#006b3f] dark:bg-[#4caf7d]'
+
+  return (
+    <Link
+      href={row.supportPageSlug ? `/support/${row.supportPageSlug}` : '/search'}
+      className="group relative block bg-white dark:bg-[#00272c] border border-[#e8e2de] dark:border-[#054f57] rounded-xl p-4 hover:border-[#29676f] dark:hover:border-[#29676f] hover:shadow-md transition-all duration-150 flex flex-col justify-between min-h-[148px]"
+      aria-label={`Open ${name}'s support page`}
+    >
+      <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#e4f0ee] dark:bg-[#004c54] flex items-center justify-center flex-shrink-0 overflow-hidden">
+        {row.user.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={row.user.avatarUrl} alt="" className="w-full h-full object-cover" />
+        ) : (
+          <span className="font-display font-bold text-[11px] text-[#00343a] dark:text-[#95d0d9] leading-none select-none">
+            {initials(name)}
+          </span>
+        )}
+      </div>
+
+      <div className="pr-10">
+        <h3 className="font-display font-bold text-[#00343a] dark:text-[#e8f6f7] text-[13px] leading-snug line-clamp-1 group-hover:text-[#29676f] dark:group-hover:text-[#95d0d9] transition-colors">
+          {name}
+        </h3>
+        <p className="text-[11px] text-[#5a6468] dark:text-[#7a9da3] mt-0.5 line-clamp-2 leading-snug">
+          {row.registryCount} {row.registryCount === 1 ? 'registry' : 'registries'}
+          {row.totalTargetCents > 0 && ` · ${money(row.totalTargetCents)} goal`}
+        </p>
+        <div className="flex flex-col gap-0.5 mt-2">
+          {due && (
+            <p className="flex items-center gap-1 text-[10px] text-[#70797a] dark:text-[#4a7880]">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <line x1="16" y1="2" x2="16" y2="6" />
+                <line x1="8" y1="2" x2="8" y2="6" />
+                <line x1="3" y1="10" x2="21" y2="10" />
+              </svg>
+              {due}
+            </p>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-3">
+        <div className="h-1 bg-[#e8e2de] dark:bg-[#012b31] rounded-full overflow-hidden mb-1.5">
+          <div className={`h-full rounded-full transition-all duration-500 ${barColor}`} style={{ width: `${Math.max(pct, pct > 0 ? 3 : 0)}%` }} />
+        </div>
+        <p className="text-[10px] font-semibold tabular-nums text-[#00343a] dark:text-[#95d0d9]">
+          {pct}% funded
+          {row.totalFundedCents > 0 && (
+            <span className="font-normal text-[#70797a] dark:text-[#4a7880]"> {' '}&bull; {money(row.totalFundedCents)} raised</span>
+          )}
+        </p>
+      </div>
+    </Link>
+  )
+}
 
 const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
   {
@@ -23,6 +146,10 @@ const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>,
   },
   {
+    id: 'favorites', label: 'Favorites',
+    icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-6.7-4.35-9.2-7.13a5.5 5.5 0 018.2-7.32L12 7.5l1-0.95a5.5 5.5 0 018.2 7.32C18.7 16.65 12 21 12 21z"/></svg>,
+  },
+  {
     id: 'security', label: 'Security',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
   },
@@ -31,15 +158,41 @@ const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
 export default function SupporterDashboard() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
+  const [token, setToken] = useState<string | null>(null)
   const [section, setSection] = useState<Section>('home')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [favorites, setFavorites] = useState<FavoriteSupportPage[]>([])
+  const [favoritesLoading, setFavoritesLoading] = useState(false)
 
   useEffect(() => {
     const stored = getStoredUser()
+    const authToken = getToken()
     if (!stored) { router.replace('/auth'); return }
     if (stored.role !== 'supporter' && stored.role !== 'business') { router.replace('/dashboard'); return }
     setUser(stored)
+    setToken(authToken)
   }, [router])
+
+  useEffect(() => {
+    if (section !== 'favorites' || !token) return
+
+    let cancelled = false
+    setFavoritesLoading(true)
+    apiRequest<FavoriteSupportPage[]>('/favorites', { token })
+      .then((rows) => {
+        if (!cancelled) setFavorites(rows)
+      })
+      .catch(() => {
+        if (!cancelled) setFavorites([])
+      })
+      .finally(() => {
+        if (!cancelled) setFavoritesLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [section, token])
 
   if (!user) {
     return (
@@ -173,6 +326,41 @@ export default function SupporterDashboard() {
                 <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-2">No donations yet</h2>
                 <p className="text-sm text-gray-500 dark:text-[#70797a]">Your giving history will appear here once you support a registry.</p>
               </div>
+            </div>
+          )}
+
+          {section === 'favorites' && (
+            <div className="space-y-6">
+              <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Favorites</h1>
+
+              {favoritesLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div key={i} className="relative flex flex-col justify-between bg-white dark:bg-[#00272c] border border-[#e8e2de] dark:border-[#054f57] rounded-xl p-4 min-h-[148px]">
+                      <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#e8e2de] dark:bg-[#012b31] animate-pulse" />
+                      <div className="pr-10 space-y-2">
+                        <div className="h-3.5 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse w-3/4" />
+                        <div className="h-3 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse w-full" />
+                        <div className="h-3 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse w-2/5" />
+                      </div>
+                      <div className="mt-3 space-y-1.5">
+                        <div className="h-1 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse" />
+                        <div className="h-2.5 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse w-1/3" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : favorites.length === 0 ? (
+                <div className="bg-white dark:bg-[#001f23] rounded-2xl p-10 border border-[#e8e1db] dark:border-[#054f57]/60 text-center">
+                  <p className="text-sm text-[#70797a] dark:text-[#79a0a6]">No favorited support pages yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                  {favorites.map((row) => (
+                    <FavoriteTile key={row.userId} row={row} />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

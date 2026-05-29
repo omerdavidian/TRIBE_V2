@@ -572,6 +572,36 @@ export async function ensureBaselineSchema() {
       add column if not exists "title" text;
   `)
 
+  // ── user_favorites table ───────────────────────────────────────────────────
+  await db.execute(sql`
+    create table if not exists "user_favorites" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "user_id" uuid,
+      "support_page_owner_id" uuid not null references "users"("id") on delete cascade,
+      "created_at" timestamp with time zone not null default now()
+    );
+  `)
+
+  await db.execute(sql`
+    do $$ begin
+      alter table "user_favorites"
+      add constraint "user_favorites_user_id_users_id_fk"
+      foreign key ("user_id") references "users"("id") on delete cascade;
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  await db.execute(sql`
+    create unique index if not exists "user_favorites_user_owner_unique"
+      on "user_favorites" ("user_id", "support_page_owner_id");
+  `)
+
+  await db.execute(sql`
+    create index if not exists "user_favorites_user_id_idx"
+      on "user_favorites" ("user_id");
+  `)
+
   // ── provider_services: add rich service detail columns ─────────────────────
   await db.execute(sql`
     alter table if exists "provider_services"
