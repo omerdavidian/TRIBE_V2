@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import { apiRequest } from '@/lib/api'
+import { getToken } from '@/lib/auth'
 import ContributionModal from '@/components/contribution-modal'
 import ShareModal from '@/components/share-modal'
 import type { SupportPageData, RegistryPublic, RegistryItemPublic } from './page'
@@ -271,9 +273,32 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
     registryTitle: string
   } | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
+  const [isFavorited, setIsFavorited] = useState(false)
+  const [favoritePending, setFavoritePending] = useState(false)
 
   const name = displayName(page.user)
   const firstName = page.user.firstName ?? name.split(' ')[0] ?? name
+
+  useEffect(() => {
+    const token = getToken()
+    if (!token) {
+      setIsFavorited(false)
+      return
+    }
+
+    let cancelled = false
+    apiRequest<string[]>('/favorites/ids', { token })
+      .then((ids) => {
+        if (!cancelled) setIsFavorited(ids.includes(page.user.id))
+      })
+      .catch(() => {
+        if (!cancelled) setIsFavorited(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [page.user.id])
 
   // Aggregate across all registries for the hero stat bar
   const allItems = page.registries.flatMap((r) => r.items)
@@ -283,6 +308,32 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
 
   function handleFund(item: RegistryItemPublic, registryId: string, registryTitle: string) {
     setFundingItem({ item, registryId, registryTitle })
+  }
+
+  async function handleToggleFavorite() {
+    const token = getToken()
+    if (!token) {
+      window.location.assign('/auth')
+      return
+    }
+    if (favoritePending) return
+
+    const prev = isFavorited
+    setFavoritePending(true)
+    setIsFavorited(!prev)
+
+    try {
+      const res = await apiRequest<{ favorited: boolean }>('/favorites/toggle', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ supportPageOwnerId: page.user.id }),
+      })
+      setIsFavorited(res.favorited)
+    } catch {
+      setIsFavorited(prev)
+    } finally {
+      setFavoritePending(false)
+    }
   }
 
   return (
@@ -348,6 +399,23 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
                   <p className="text-xs text-[#8a9da0] mt-2 line-clamp-2 dark:text-[#79a0a6]">{page.bio}</p>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={handleToggleFavorite}
+                disabled={favoritePending}
+                aria-label={isFavorited ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
+                className={[
+                  'h-10 w-10 flex items-center justify-center rounded-full border transition-all duration-200 flex-shrink-0',
+                  isFavorited
+                    ? 'bg-[#00343a] border-[#00343a] text-white dark:bg-[#29676f] dark:border-[#29676f]'
+                    : 'bg-white border-[#d3dbd8] text-[#5a6468] hover:border-[#29676f] hover:text-[#00343a] dark:bg-[#012b31] dark:border-[#0c535a] dark:text-[#79a0a6] dark:hover:text-[#e8f6f7]',
+                  favoritePending ? 'opacity-60 cursor-not-allowed' : '',
+                ].join(' ')}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill={isFavorited ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M12 21s-6.7-4.35-9.2-7.13a5.5 5.5 0 018.2-7.32L12 7.5l1-0.95a5.5 5.5 0 018.2 7.32C18.7 16.65 12 21 12 21z" />
+                </svg>
+              </button>
             </div>
 
             {/* Registries section */}
