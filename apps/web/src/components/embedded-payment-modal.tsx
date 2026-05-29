@@ -56,33 +56,27 @@ function CheckoutForm({ amountCents, onClose, onSuccess }: Omit<EmbeddedPaymentM
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
-      <div className="rounded-2xl border border-[#e7dfda] bg-white/80 shadow-[0_18px_50px_rgba(0,52,58,0.08)] overflow-hidden dark:border-[#0c3b42] dark:bg-[#03262b]">
-        <div className="px-4 py-4 border-b border-[#ece4de] bg-[linear-gradient(135deg,#fff8f5_0%,#f6fbfb_55%,#edf6f6_100%)] dark:border-[#0c3b42] dark:bg-[linear-gradient(180deg,#063037_0%,#03262b_100%)]">
-          <div className="flex items-start justify-between gap-4">
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="rounded-xl border border-[#dfd8d2] bg-white dark:border-[#0c3b42] dark:bg-[#03262b]">
+        <div className="px-4 py-4 border-b border-[#ece4de] dark:border-[#0c3b42]">
+          <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#7f8d8f] dark:text-[#72a6ad]">Payment options</p>
-              <h4 className="text-[#00343a] font-semibold text-base mt-1 dark:text-[#e0f5f7]">Fast wallet or secure card</h4>
+              <h4 className="text-[#00343a] font-semibold text-base dark:text-[#e0f5f7]">Choose a payment method</h4>
+              <p className="text-xs text-[#7f8d8f] mt-1 dark:text-[#79a0a6]">Use Apple Pay, Google Pay, or pay with your card.</p>
             </div>
-            <div className="rounded-2xl bg-[#00343a] text-white px-3 py-2 min-w-[84px] text-right shadow-sm dark:bg-[#0b4d55]">
-              <p className="text-[10px] uppercase tracking-[0.16em] text-white/70">Total</p>
-              <p className="text-lg font-semibold leading-none mt-1">{amountLabel}</p>
+            <div className="text-right">
+              <p className="text-[11px] uppercase tracking-[0.12em] text-[#7f8d8f] dark:text-[#79a0a6]">Total</p>
+              <p className="text-xl font-semibold text-[#00343a] dark:text-[#e0f5f7]">{amountLabel}</p>
             </div>
           </div>
         </div>
 
         <div className="p-4 space-y-4">
-          <div className="rounded-2xl border border-[#ece4de] bg-[#fffdfc] p-4 dark:border-[#154850] dark:bg-[#052d33]">
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div>
-                <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Wallet checkout</p>
-                <p className="text-xs text-[#7f8d8f] mt-0.5 dark:text-[#79a0a6]">Apple Pay and Google Pay appear automatically on supported devices and verified domains.</p>
-              </div>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#29676f] dark:text-[#95d0d9]">Fastest</span>
-            </div>
+          <div className="rounded-lg border border-[#ece4de] bg-[#fffdfc] p-4 dark:border-[#154850] dark:bg-[#052d33]">
+            <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7] mb-3">Express checkout</p>
             <ExpressCheckoutElement
               options={{
-                buttonHeight: 44,
+                buttonHeight: 42,
                 layout: {
                   maxColumns: 2,
                   maxRows: 1,
@@ -95,7 +89,7 @@ function CheckoutForm({ amountCents, onClose, onSuccess }: Omit<EmbeddedPaymentM
                   paypal: 'never',
                 },
               }}
-              onConfirm={async (event) => {
+              onConfirm={async () => {
                 if (!stripe || !elements || submitting) return
                 setSubmitting(true)
                 setError(null)
@@ -127,22 +121,21 @@ function CheckoutForm({ amountCents, onClose, onSuccess }: Omit<EmbeddedPaymentM
 
           <div className="relative flex items-center justify-center">
             <div className="absolute inset-x-0 h-px bg-[#ece4de] dark:bg-[#154850]" />
-            <span className="relative px-3 bg-[#fffdfc] text-[10px] font-semibold uppercase tracking-[0.18em] text-[#91a2a4] dark:bg-[#03262b] dark:text-[#79a0a6]">Or pay with card or bank</span>
+            <span className="relative px-3 bg-white text-[10px] font-semibold uppercase tracking-[0.18em] text-[#91a2a4] dark:bg-[#03262b] dark:text-[#79a0a6]">Or pay with card</span>
           </div>
 
-          <div className="rounded-2xl border border-[#ece4de] bg-[#fffdfc] p-4 dark:border-[#154850] dark:bg-[#052d33]">
+          <div className="rounded-lg border border-[#ece4de] bg-[#fffdfc] p-4 dark:border-[#154850] dark:bg-[#052d33]">
+            <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7] mb-3">Card details</p>
             <PaymentElement
               options={{
                 layout: {
-                  type: 'accordion',
+                  type: 'tabs',
                   defaultCollapsed: false,
-                  radios: 'auto',
-                  spacedAccordionItems: true,
                 },
                 business: {
                   name: 'TRIBE',
                 },
-                paymentMethodOrder: ['apple_pay', 'google_pay', 'card', 'us_bank_account'],
+                paymentMethodOrder: ['apple_pay', 'google_pay', 'card'],
               }}
             />
           </div>
@@ -164,7 +157,7 @@ function CheckoutForm({ amountCents, onClose, onSuccess }: Omit<EmbeddedPaymentM
         <button
           type="submit"
           disabled={!stripe || submitting}
-          className="flex-[1.4] bg-[#00343a] hover:bg-[#004c54] disabled:opacity-60 text-white rounded-xl py-3 text-sm font-semibold transition-colors shadow-[0_12px_24px_rgba(0,52,58,0.18)]"
+          className="flex-[1.4] bg-[#00343a] hover:bg-[#004c54] disabled:opacity-60 text-white rounded-lg py-3 text-sm font-semibold transition-colors"
         >
           {submitting ? 'Processing…' : `Pay ${amountLabel}`}
         </button>
@@ -217,8 +210,8 @@ export default function EmbeddedPaymentModal({
           colorDanger: '#b42318',
           colorSuccess: '#157347',
           colorTextSecondary: isDarkMode ? '#79a0a6' : '#5f7174',
-          borderRadius: '16px',
-          fontFamily: 'Georgia, ui-serif, serif',
+          borderRadius: '10px',
+          fontFamily: 'system-ui, sans-serif',
           spacingUnit: '4px',
         },
         rules: {
@@ -264,16 +257,14 @@ export default function EmbeddedPaymentModal({
       <div className="absolute inset-0 bg-[#001a1e]/70 backdrop-blur-md" />
 
       <div
-        className="relative flex max-h-[80vh] w-full max-w-md flex-col overflow-hidden rounded-[26px] border border-[#e8e1db] bg-[#fcf9f8] shadow-[0_36px_120px_rgba(0,26,30,0.22)] dark:border-[#0c3b42] dark:bg-[#021d22]"
+        className="relative flex max-h-[80vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#e8e1db] bg-[#fcf9f8] shadow-[0_24px_80px_rgba(0,26,30,0.18)] dark:border-[#0c3b42] dark:bg-[#021d22]"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="h-1 bg-gradient-to-r from-[#00343a] via-[#29676f] to-[#95d0d9]" />
-
-        <div className="px-5 py-5 border-b border-[#e8e1db] flex items-start justify-between gap-4 bg-[linear-gradient(180deg,#fffaf7_0%,#fcf9f8_100%)] dark:border-[#0c3b42] dark:bg-[linear-gradient(180deg,#063037_0%,#021d22_100%)]">
+        <div className="px-5 py-5 border-b border-[#e8e1db] flex items-start justify-between gap-4 dark:border-[#0c3b42]">
           <div>
             <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a9da0] dark:text-[#79a0a6]">Secure payment</p>
-            <h3 className="font-display text-lg font-bold text-[#00343a] leading-tight mt-1 dark:text-[#e0f5f7]">{itemTitle}</h3>
-            <p className="text-sm text-[#6c7a7d] mt-2 max-w-md dark:text-[#79a0a6]">A compact checkout with wallets, card, and ACH only. Wallet buttons appear when Stripe detects a supported browser, device, and verified domain.</p>
+            <h3 className="text-lg font-semibold text-[#00343a] leading-tight mt-1 dark:text-[#e0f5f7]">{itemTitle}</h3>
+            <p className="text-sm text-[#6c7a7d] mt-2 max-w-md dark:text-[#79a0a6]">A simple checkout with wallet buttons on supported devices and standard credit card entry.</p>
           </div>
           <button
             type="button"

@@ -1,11 +1,11 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getApiUrl } from '@/lib/api'
-import RegistryClient from './registry-client'
+import SupportPageClient from '@/app/support/[slug]/support-page-client'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type RegistryItem = {
+export type RegistryItemPublic = {
   id: string
   title: string
   description: string | null
@@ -13,6 +13,12 @@ export type RegistryItem = {
   fundedAmountCents: number
   isFulfilled: boolean
   sortOrder: number
+  customPurpose: string | null
+  fundingFrequency: string
+  paymentType: 'monetary' | 'community'
+  frequencyUnit: 'per_day' | 'per_week' | null
+  quantityRequested: number | null
+  quantityFulfilled: number
   category: {
     id: string
     name: string
@@ -26,7 +32,7 @@ export type RegistryItem = {
   } | null
 }
 
-export type RegistryDetail = {
+export type RegistryPublic = {
   id: string
   slug: string
   title: string
@@ -35,24 +41,37 @@ export type RegistryDetail = {
   coverImageUrl: string | null
   targetAmountCents: number | null
   createdAt: string
+  items: RegistryItemPublic[]
+}
+
+export type SupportPageData = {
+  id: string
+  userId: string
+  slug: string
+  title: string | null
+  bio: string | null
+  heroImageUrl: string | null
+  isActive: boolean
   user: {
     id: string
     fullName: string | null
+    firstName: string | null
+    lastName: string | null
     avatarUrl: string | null
   }
-  items: RegistryItem[]
+  registries: RegistryPublic[]
 }
 
 // ─── Fetch ────────────────────────────────────────────────────────────────────
 
-async function fetchRegistry(slug: string): Promise<RegistryDetail | null> {
+async function fetchSupportPage(slug: string): Promise<SupportPageData | null> {
   try {
-    const res = await fetch(getApiUrl(`/registries/${encodeURIComponent(slug)}`), {
+    const res = await fetch(getApiUrl(`/support/${encodeURIComponent(slug)}`), {
       next: { revalidate: 60 },
     })
     if (res.status === 404) return null
     if (!res.ok) return null
-    return res.json() as Promise<RegistryDetail>
+    return res.json() as Promise<SupportPageData>
   } catch {
     return null
   }
@@ -66,13 +85,21 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
   const { slug } = await params
-  const registry = await fetchRegistry(slug)
-  if (!registry) return { title: 'Registry Not Found' }
+  const page = await fetchSupportPage(slug)
+  if (!page) return { title: 'Not Found , TRIBE' }
+  const name = page.user.firstName
+    ? `${page.user.firstName}'s`
+    : page.user.fullName
+    ? `${page.user.fullName}'s`
+    : 'A'
   return {
-    title: registry.title,
+    title: `${name} Support Page , TRIBE`,
     description:
-      registry.description ??
-      `Support ${registry.user.fullName ?? 'a new mother'} with postpartum care through TRIBE.`,
+      page.bio ??
+      `Support ${page.user.fullName ?? 'a new mother'} through postpartum care on TRIBE.`,
+    openGraph: {
+      images: page.heroImageUrl ? [{ url: page.heroImageUrl }] : [],
+    },
   }
 }
 
@@ -84,8 +111,8 @@ export default async function RegistryPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const registry = await fetchRegistry(slug)
-  if (!registry) notFound()
+  const page = await fetchSupportPage(slug)
+  if (!page) notFound()
 
-  return <RegistryClient registry={registry} />
+  return <SupportPageClient page={page} />
 }

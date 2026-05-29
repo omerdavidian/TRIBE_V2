@@ -43,7 +43,7 @@ const paymentRoutes: FastifyPluginAsync = async (fastify) => {
 			from donations d
 			inner join registries r on r.id = d.registry_id
 			where r.user_id = ${motherUserId}
-				and d.status = 'succeeded'
+				and d.status = 'completed'
 		`)
 		const summary = (summaryRows as unknown as { rows: SummaryRow[] }).rows?.[0]
 

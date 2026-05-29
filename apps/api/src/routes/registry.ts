@@ -1,8 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, and, ilike, desc, gte, lte } from 'drizzle-orm'
+import { eq, and, ilike, desc, gte, lte, asc, sql } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { registries, registryItems, users } from '../db/schema.js'
+import { registries, registryItems, serviceSignups } from '../db/schema.js'
 import { requireAuth, requireRole } from '../plugins/auth.js'
 
 const createRegistrySchema = z.object({
@@ -20,10 +20,45 @@ const updateRegistrySchema = createRegistrySchema.partial().extend({
 const createItemSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().max(1000).optional(),
-  targetAmountCents: z.number().int().positive(),
+  targetAmountCents: z.number().int().nonnegative().default(0),
   categoryId: z.string().uuid().optional(),
   providerProfileId: z.string().uuid().optional(),
   sortOrder: z.number().int().default(0),
+  paymentType: z.enum(['monetary', 'community']).default('monetary'),
+  frequencyUnit: z.enum(['per_day', 'per_week']).optional(),
+  quantityRequested: z.number().int().positive().optional(),
+}).superRefine((data, ctx) => {
+  if (data.paymentType === 'monetary' && data.targetAmountCents <= 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['targetAmountCents'],
+      message: 'Monetary items must have a target amount greater than zero',
+    })
+  }
+
+  if (data.paymentType === 'community') {
+    if (!data.frequencyUnit) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['frequencyUnit'],
+        message: 'Community items must include a frequency unit',
+      })
+    }
+    if (!data.quantityRequested || data.quantityRequested <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['quantityRequested'],
+        message: 'Community items must include a requested quantity',
+      })
+    }
+  }
+})
+
+const createSignupSchema = z.object({
+  scheduledFor: z.string().datetime({ offset: true }),
+  notes: z.string().max(500).optional(),
+  volunteerName: z.string().min(1).max(120).optional(),
+  volunteerEmail: z.string().email().optional(),
 })
 
 function generateSlug(title: string, userId: string): string {
@@ -87,7 +122,7 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // GET /registries/search, public unauthenticated directory search
+  // GET /registries/search , public unauthenticated directory search
   fastify.get('/registries/search', async (request, reply) => {
     const searchQuerySchema = z.object({
       q: z.string().optional().default(''),
@@ -270,6 +305,10 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
           categoryId: body.data.categoryId,
           providerProfileId: body.data.providerProfileId,
           sortOrder: body.data.sortOrder,
+          paymentType: body.data.paymentType,
+          frequencyUnit: body.data.frequencyUnit,
+          quantityRequested: body.data.quantityRequested,
+          quantityFulfilled: 0,
         })
         .returning()
 
@@ -277,7 +316,117 @@ const registryRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // DELETE /registries/:id, permanently delete a registry and all its items
+  // POST /registries/items/:itemId/signups, create a community service signup
+  fastify.post('/registries/items/:itemId/signups', async (request, reply) => {
+    const { itemId } = request.params as { itemId: string }
+    const body = createSignupSchema.safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Validation failed',
+        errors: body.error.flatten().fieldErrors,
+      })
+    }
+
+    const item = await db.query.registryItems.findFirst({
+      where: eq(registryItems.id, itemId),
+      with: {
+        registry: true,
+      },
+    })
+
+    if (!item || !item.registry.isPublished || item.paymentType !== 'community') {
+      return reply.status(404).send({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Community item not found',
+      })
+    }
+
+    const volunteerUserId: string | null = null
+    const volunteerName = body.data.volunteerName ?? null
+    const volunteerEmail = body.data.volunteerEmail ?? null
+
+    if (!volunteerName || !volunteerEmail) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Signups require volunteerName and volunteerEmail',
+      })
+    }
+
+    if (
+      item.quantityRequested !== null &&
+      item.quantityRequested !== undefined &&
+      item.quantityFulfilled >= item.quantityRequested
+    ) {
+      return reply.status(409).send({
+        statusCode: 409,
+        error: 'Conflict',
+        message: 'This community item has already reached its signup target',
+      })
+    }
+
+    const [signup] = await db
+      .insert(serviceSignups)
+      .values({
+        registryId: item.registryId,
+        registryItemId: item.id,
+        motherUserId: item.registry.userId,
+        volunteerUserId,
+        volunteerName,
+        volunteerEmail,
+        scheduledFor: new Date(body.data.scheduledFor),
+        notes: body.data.notes,
+      })
+      .returning()
+
+    await db
+      .update(registryItems)
+      .set({
+        quantityFulfilled: sql`${registryItems.quantityFulfilled} + 1`,
+        isFulfilled:
+          item.quantityRequested !== null &&
+          item.quantityRequested !== undefined &&
+          item.quantityFulfilled + 1 >= item.quantityRequested,
+      })
+      .where(eq(registryItems.id, item.id))
+
+    return reply.status(201).send(signup)
+  })
+
+  // GET /registries/items/:itemId/signups, list signups for a mother's own item
+  fastify.get(
+    '/registries/items/:itemId/signups',
+    { preHandler: requireRole('mother') },
+    async (request, reply) => {
+      const { itemId } = request.params as { itemId: string }
+      const item = await db.query.registryItems.findFirst({
+        where: eq(registryItems.id, itemId),
+        with: {
+          registry: true,
+        },
+      })
+
+      if (!item || item.registry.userId !== request.user!.sub) {
+        return reply.status(404).send({
+          statusCode: 404,
+          error: 'Not Found',
+          message: 'Registry item not found',
+        })
+      }
+
+      const signups = await db.query.serviceSignups.findMany({
+        where: eq(serviceSignups.registryItemId, itemId),
+        orderBy: [asc(serviceSignups.scheduledFor)],
+      })
+
+      return reply.send(signups)
+    }
+  )
+
+  // DELETE /registries/:id , permanently delete a registry and all its items
   fastify.delete(
     '/registries/:id',
     { preHandler: requireRole('mother') },

@@ -70,7 +70,7 @@ export async function generateMetadata({
   if (!svc) return { title: 'Service not found' }
 
   const providerName = svc.providerProfile.businessName ?? svc.providerProfile.user.fullName ?? 'Provider'
-  const title = svc.title ?? `${providerName}, ${svc.category.name}`
+  const title = svc.title ?? `${providerName} , ${svc.category.name}`
 
   return {
     title: `${title} | TRIBE`,
@@ -116,7 +116,7 @@ export default async function ServiceDetailPage({
 
   const provider = svc.providerProfile
   const providerName = provider.businessName ?? provider.user.fullName ?? 'Provider'
-  const pageTitle = svc.title ?? `${providerName}, ${svc.category.name}`
+  const pageTitle = svc.title ?? `${providerName} , ${svc.category.name}`
   const heroImage = svc.imageUrls[0] ?? null
   const galleryImages = svc.imageUrls.slice(1)
 
@@ -137,7 +137,7 @@ export default async function ServiceDetailPage({
             TRIBE
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/search" className="text-sm text-[#70797a] hover:text-[#00343a] transition-colors">
+            <Link href="/registries" className="text-sm text-[#70797a] hover:text-[#00343a] transition-colors">
               Search Registries
             </Link>
             <Link
@@ -343,7 +343,7 @@ export default async function ServiceDetailPage({
               )}
             </div>
 
-            {/* CTA, add to registry */}
+            {/* CTA , add to registry */}
             <div className="bg-gradient-to-br from-[#00343a] to-[#29676f] rounded-2xl p-5 text-center space-y-3">
               <p className="text-white/90 text-sm leading-snug">
                 Want to add this to your postpartum registry?
@@ -355,7 +355,7 @@ export default async function ServiceDetailPage({
                 Add to My Registry
               </Link>
               <Link
-                href="/search"
+                href="/registries"
                 className="block text-xs text-white/60 hover:text-white transition-colors"
               >
                 Browse all registries

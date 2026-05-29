@@ -13,7 +13,7 @@ export default function Footer() {
         <div>
           <p className="text-white font-semibold mb-3 text-xs uppercase tracking-wider">Platform</p>
           <ul className="space-y-2">
-            <li><Link href="/search" className="hover:text-white transition-colors">Find a registry</Link></li>
+            <li><Link href="/registries" className="hover:text-white transition-colors">Find a registry</Link></li>
             <li><Link href="/#how-it-works" className="hover:text-white transition-colors">How it works</Link></li>
             <li><Link href="/auth?tab=register&role=mother" className="hover:text-white transition-colors">Create a registry</Link></li>
             <li><Link href="/auth?tab=register&role=provider" className="hover:text-white transition-colors">Join as a provider</Link></li>

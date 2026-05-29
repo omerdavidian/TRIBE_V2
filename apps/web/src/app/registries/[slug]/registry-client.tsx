@@ -7,9 +7,7 @@ import Image from 'next/image'
 import ShareModal from '@/components/share-modal'
 import ContributionModal from '@/components/contribution-modal'
 import { getApiUrl } from '@/lib/api'
-import type { RegistryDetail, RegistryItem } from '@/app/registries/[slug]/page'
-
-// ─── Supporter type ───────────────────────────────────────────────────────────
+import type { RegistryDetail, RegistryItem } from './page'
 
 type Supporter = {
   amountCents: number
@@ -18,8 +16,6 @@ type Supporter = {
   name: string | null
   avatarUrl: string | null
 }
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function money(cents: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100)
@@ -45,8 +41,6 @@ function initials(name: string | null) {
   if (!name) return '?'
   return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
 }
-
-// ─── Category tints + icons ───────────────────────────────────────────────────
 
 type CategoryConfig = { bg: string; text: string; icon: React.ReactNode }
 
@@ -94,8 +88,6 @@ function categoryConfig(slug: string | null | undefined): CategoryConfig {
   }
 }
 
-// ─── Care Impact Card ─────────────────────────────────────────────────────────
-
 function CareImpactCard({ item, onFund }: { item: RegistryItem; onFund: (item: RegistryItem) => void }) {
   const cfg = categoryConfig(item.category?.slug)
   const fundedPct = pct(item.fundedAmountCents, item.targetAmountCents)
@@ -119,7 +111,6 @@ function CareImpactCard({ item, onFund }: { item: RegistryItem; onFund: (item: R
         </div>
       </div>
 
-      {/* Per-item progress */}
       <div>
         <div className="flex items-center justify-between mb-1">
           <span className={`text-xs font-semibold tabular-nums ${cfg.text}`}>
@@ -156,8 +147,6 @@ function CareImpactCard({ item, onFund }: { item: RegistryItem; onFund: (item: R
   )
 }
 
-// ─── Supporter Row ────────────────────────────────────────────────────────────
-
 function SupporterRow({ supporter }: { supporter: Supporter }) {
   const displayName = supporter.isAnonymous || !supporter.name ? 'Anonymous' : supporter.name
   const color = supporter.isAnonymous ? 'bg-[#e8e2de] dark:bg-[#1a2830]' : 'bg-[#e8f0ee] dark:bg-[#003d30]/60'
@@ -181,8 +170,6 @@ function SupporterRow({ supporter }: { supporter: Supporter }) {
   )
 }
 
-// ─── Payment Toast ────────────────────────────────────────────────────────────
-
 function PaymentToast({ status, onDismiss }: { status: 'success' | 'cancelled'; onDismiss: () => void }) {
   const isSuccess = status === 'success'
   return (
@@ -198,8 +185,6 @@ function PaymentToast({ status, onDismiss }: { status: 'success' | 'cancelled'; 
     </div>
   )
 }
-
-// ─── Main Client Component ────────────────────────────────────────────────────
 
 export default function RegistryClient({ registry }: { registry: RegistryDetail }) {
   const searchParams = useSearchParams()
@@ -230,19 +215,17 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
       const data = await res.json()
       setSupporters(data.supporters ?? [])
       setSupporterCount(data.count ?? 0)
-    } catch { /* non-critical */ }
+    } catch {}
   }, [registry.id])
 
   useEffect(() => { fetchSupporters() }, [fetchSupporters])
 
-  const registryUrl = typeof window !== 'undefined' ? window.location.href : `https://tribewishlist.com/registry/${registry.slug}`
+  const registryUrl = typeof window !== 'undefined' ? window.location.href : `https://tribewishlist.com/registries/${registry.slug}`
 
   return (
     <div className="min-h-screen bg-[#f7f4f2] dark:bg-[#00141a] font-sans">
-
       {paymentStatus && <PaymentToast status={paymentStatus} onDismiss={() => setPaymentStatus(null)} />}
 
-      {/* ── Full-bleed hero ── */}
       <header className="relative w-full h-[240px] sm:h-[360px] overflow-hidden">
         {registry.coverImageUrl ? (
           <Image src={registry.coverImageUrl} alt="" aria-hidden fill priority className="object-cover object-center" sizes="100vw" />
@@ -262,16 +245,13 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
         </div>
       </header>
 
-      {/* ── Two-column grid ── */}
       <div className="max-w-[1200px] mx-auto px-4 sm:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-
-          {/* LEFT: biography + services */}
           <div className="lg:col-span-8 space-y-6">
             {registry.description && (
               <section className="bg-white dark:bg-[#001f23] rounded-2xl p-6 sm:p-8 shadow-sm border border-[#ede8e4] dark:border-[#054f57]/50">
                 <h2 className="font-display font-bold text-2xl text-[#00343a] dark:text-[#e8f6f7] mb-4">
-                  {registry.user.fullName ? `${registry.user.fullName.split(' ')[0]}'s Journey` : "Her Journey"}
+                  {registry.user.fullName ? `${registry.user.fullName.split(' ')[0]}'s Journey` : 'Her Journey'}
                 </h2>
                 <p className="text-[#40484a] dark:text-[#bfc8ca] leading-relaxed text-sm">{registry.description}</p>
               </section>
@@ -287,10 +267,8 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
             )}
           </div>
 
-          {/* RIGHT: sticky funding + supporters */}
           <aside className="lg:col-span-4">
             <div className="sticky top-24 space-y-4">
-
               <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 shadow-sm border border-[#ede8e4] dark:border-[#054f57]/50">
                 <div className="mb-1">
                   <span className="font-display font-bold text-3xl text-[#00343a] dark:text-[#e8f6f7]">{money(totalFunded)}</span>
@@ -344,7 +322,6 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
                   {supporters.slice(0, 5).map((s, i) => <SupporterRow key={i} supporter={s} />)}
                 </div>
               )}
-
             </div>
           </aside>
         </div>

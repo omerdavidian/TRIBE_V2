@@ -80,7 +80,7 @@ export default function HeroSearch() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     setOpen(false)
-    router.push(`/search?q=${encodeURIComponent(query.trim())}`)
+    router.push(`/registries?q=${encodeURIComponent(query.trim())}`)
   }
 
   return (
@@ -95,7 +95,7 @@ export default function HeroSearch() {
             Search for a registry by name
           </label>
 
-          {/* Icon, spinner while debouncing/fetching, magnifier otherwise */}
+          {/* Icon , spinner while debouncing/fetching, magnifier otherwise */}
           <span className="pl-5 pr-2 text-[#70797a] flex-shrink-0" aria-hidden>
             {(isPending || loading) ? (
               <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
@@ -138,7 +138,7 @@ export default function HeroSearch() {
             return (
               <Link
                 key={hit.id}
-                href={`/registry/${hit.slug}`}
+                href={`/registries/${hit.slug}`}
                 onClick={() => setOpen(false)}
                 className={[
                   'flex items-center gap-3 px-4 py-3 hover:bg-[#f0f8f6] dark:hover:bg-[#004c54]/20 transition-colors',
@@ -162,7 +162,7 @@ export default function HeroSearch() {
           })}
           <div
             className="px-4 py-2.5 bg-[#f7f4f2] dark:bg-[#00272c] cursor-pointer hover:bg-[#e8f4f0] dark:hover:bg-[#004c54]/20 transition-colors"
-            onClick={() => { setOpen(false); router.push(`/search?q=${encodeURIComponent(query.trim())}`) }}
+            onClick={() => { setOpen(false); router.push(`/registries?q=${encodeURIComponent(query.trim())}`) }}
           >
             <p className="text-xs font-semibold text-[#00343a] dark:text-[#95d0d9] text-center">
               See all results for &ldquo;{query}&rdquo; →
@@ -172,7 +172,7 @@ export default function HeroSearch() {
       )}
 
       <p className="text-white/60 text-xs mt-3 text-center">
-        Browse public registries, no account needed
+        Browse public registries , no account needed
       </p>
     </div>
   )

@@ -1,8 +1,17 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { and, asc, desc, eq, gte } from 'drizzle-orm'
 import { db } from '../db/client.js'
-import { motherProfiles, users } from '../db/schema.js'
+import {
+	donations,
+	motherPaymentAccounts,
+	motherProfiles,
+	motherPayouts,
+	registries,
+	registryItems,
+	serviceSignups,
+	users,
+} from '../db/schema.js'
 import { requireRole } from '../plugins/auth.js'
 
 const updateMotherProfileSchema = z.object({
@@ -23,6 +32,162 @@ const updateMotherProfileSchema = z.object({
 })
 
 const motherRoutes: FastifyPluginAsync = async (fastify) => {
+	fastify.get('/mother/dashboard-overview', { preHandler: requireRole('mother') }, async (request) => {
+		const motherUserId = request.user!.sub
+
+		const completedDonations = await db
+			.select({
+				amountCents: donations.amountCents,
+				createdAt: donations.createdAt,
+			})
+			.from(donations)
+			.innerJoin(registries, eq(donations.registryId, registries.id))
+			.where(
+				and(
+					eq(registries.userId, motherUserId),
+					eq(donations.status, 'completed')
+				)
+			)
+
+		const totalRaisedCents = completedDonations.reduce(
+			(sum, row) => sum + row.amountCents,
+			0
+		)
+
+		const pendingPayoutRows = await db
+			.select({ netCents: motherPayouts.netCents })
+			.from(motherPayouts)
+			.where(
+				and(
+					eq(motherPayouts.motherUserId, motherUserId),
+					eq(motherPayouts.status, 'pending')
+				)
+			)
+		const pendingPayoutCents = pendingPayoutRows.reduce(
+			(sum, row) => sum + row.netCents,
+			0
+		)
+
+		const today = new Date()
+		const velocity = Array.from({ length: 6 }).map((_, idx) => {
+			const weekStart = new Date(today)
+			weekStart.setDate(today.getDate() - (5 - idx) * 7)
+			weekStart.setHours(0, 0, 0, 0)
+			const weekEnd = new Date(weekStart)
+			weekEnd.setDate(weekStart.getDate() + 6)
+			weekEnd.setHours(23, 59, 59, 999)
+			const amountCents = completedDonations
+				.filter((row) => {
+					const ts = new Date(row.createdAt)
+					return ts >= weekStart && ts <= weekEnd
+				})
+				.reduce((sum, row) => sum + row.amountCents, 0)
+			return {
+				label: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+				amountCents,
+			}
+		})
+
+		const upcomingSignups = await db
+			.select({
+				id: serviceSignups.id,
+				scheduledFor: serviceSignups.scheduledFor,
+				volunteerName: serviceSignups.volunteerName,
+				volunteerEmail: serviceSignups.volunteerEmail,
+				itemTitle: registryItems.title,
+				registryTitle: registries.title,
+			})
+			.from(serviceSignups)
+			.innerJoin(registryItems, eq(serviceSignups.registryItemId, registryItems.id))
+			.innerJoin(registries, eq(serviceSignups.registryId, registries.id))
+			.where(
+				and(
+					eq(serviceSignups.motherUserId, motherUserId),
+					gte(serviceSignups.scheduledFor, new Date())
+				)
+			)
+			.orderBy(asc(serviceSignups.scheduledFor))
+			.limit(5)
+
+		const itemRows = await db
+			.select({
+				paymentType: registryItems.paymentType,
+				targetAmountCents: registryItems.targetAmountCents,
+				fundedAmountCents: registryItems.fundedAmountCents,
+				quantityRequested: registryItems.quantityRequested,
+				quantityFulfilled: registryItems.quantityFulfilled,
+			})
+			.from(registryItems)
+			.innerJoin(registries, eq(registryItems.registryId, registries.id))
+			.where(eq(registries.userId, motherUserId))
+
+		const openCommunityNeeds = itemRows.filter(
+			(row) =>
+				row.paymentType === 'community' &&
+				row.quantityRequested !== null &&
+				row.quantityRequested > row.quantityFulfilled
+		).length
+
+		const underFundedMonetary = itemRows.filter(
+			(row) =>
+				row.paymentType === 'monetary' &&
+				row.fundedAmountCents < row.targetAmountCents
+		).length
+
+		const paidOutRows = await db
+			.select({ netCents: motherPayouts.netCents })
+			.from(motherPayouts)
+			.where(
+				and(
+					eq(motherPayouts.motherUserId, motherUserId),
+					eq(motherPayouts.status, 'paid')
+				)
+			)
+		const totalPaidOutCents = paidOutRows.reduce(
+			(sum, row) => sum + row.netCents,
+			0
+		)
+
+		const paymentAccount = await db.query.motherPaymentAccounts.findFirst({
+			where: eq(motherPaymentAccounts.motherUserId, motherUserId),
+			columns: {
+				stripeOnboardingCompleted: true,
+				paypalConnected: true,
+				bankConnected: true,
+			},
+		})
+
+		const insights: string[] = []
+		if (openCommunityNeeds > 0) {
+			insights.push(
+				`${openCommunityNeeds} community care item${openCommunityNeeds === 1 ? '' : 's'} still need volunteer coverage.`
+			)
+		}
+		if (underFundedMonetary > 0) {
+			insights.push(
+				`${underFundedMonetary} monetary item${underFundedMonetary === 1 ? '' : 's'} are still under-funded.`
+			)
+		}
+		if (
+			!paymentAccount?.stripeOnboardingCompleted &&
+			!paymentAccount?.paypalConnected &&
+			!paymentAccount?.bankConnected
+		) {
+			insights.push('Connect a payout account to unlock faster disbursements.')
+		}
+
+		return {
+			financial: {
+				totalRaisedCents,
+				totalPaidOutCents,
+				pendingPayoutCents,
+				velocity,
+			},
+			communityTimeline: upcomingSignups,
+			insights,
+		}
+	})
+
 	fastify.get('/mother/profile', { preHandler: requireRole('mother') }, async (request) => {
 		const motherUserId = request.user!.sub
 

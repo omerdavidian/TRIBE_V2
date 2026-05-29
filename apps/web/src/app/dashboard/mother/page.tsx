@@ -179,7 +179,7 @@ function SupportPageCanvas() {
           />
           {page && (
             <a
-              href={`/support/${page.slug}`}
+              href={`/registry/${page.slug}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-white/55 text-xs hover:text-white/85 mt-2 transition-colors"
@@ -189,7 +189,7 @@ function SupportPageCanvas() {
                 <polyline points="15 3 21 3 21 9" />
                 <line x1="10" y1="14" x2="21" y2="3" />
               </svg>
-              tribewith.us/support/{page.slug}
+              tribewith.us/registry/{page.slug}
             </a>
           )}
         </div>
@@ -289,6 +289,32 @@ type Section =
 
 type RegistryWithItems = Registry & { items: RegistryItem[] }
 
+type DashboardOverview = {
+  financial: {
+    totalRaisedCents: number
+    totalPaidOutCents: number
+    pendingPayoutCents: number
+    velocity: Array<{ label: string; amountCents: number }>
+  }
+  communityTimeline: Array<{
+    id: string
+    scheduledFor: string
+    volunteerName: string | null
+    volunteerEmail: string | null
+    itemTitle: string
+    registryTitle: string
+  }>
+  insights: string[]
+}
+
+function formatCurrency(cents: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    maximumFractionDigits: 0,
+  }).format(cents / 100)
+}
+
 // ── Registry Preview Modal ─────────────────────────────────────────────────────
 
 function RegistryPreviewModal({ slug, onClose }: { slug: string; onClose: () => void }) {
@@ -314,7 +340,7 @@ function RegistryPreviewModal({ slug, onClose }: { slug: string; onClose: () => 
             <button onClick={() => setDevice('desktop')} className={['text-xs px-3 py-1.5 rounded-md font-medium transition-all', device === 'desktop' ? 'bg-white text-[#00343a]' : 'text-white/70 hover:text-white'].join(' ')}>Desktop</button>
             <button onClick={() => setDevice('mobile')} className={['text-xs px-3 py-1.5 rounded-md font-medium transition-all', device === 'mobile' ? 'bg-white text-[#00343a]' : 'text-white/70 hover:text-white'].join(' ')}>Mobile</button>
           </div>
-          <Link href={`/registry/${slug}`} target="_blank" rel="noopener noreferrer" className="hidden sm:flex items-center gap-1.5 text-xs text-[#95d0d9] hover:text-white font-medium transition-colors ml-2">
+          <Link href={`/registries/${slug}`} target="_blank" rel="noopener noreferrer" className="hidden sm:flex items-center gap-1.5 text-xs text-[#95d0d9] hover:text-white font-medium transition-colors ml-2">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
             Open full page
           </Link>
@@ -328,7 +354,7 @@ function RegistryPreviewModal({ slug, onClose }: { slug: string; onClose: () => 
             style={{ height: device === 'mobile' ? '780px' : 'calc(100vh - 9rem)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <iframe src={`/registry/${slug}`} className="w-full h-full border-0" title="Preview of your registry" />
+            <iframe src={`/registries/${slug}`} className="w-full h-full border-0" title="Preview of your registry" />
           </div>
         </div>
       </div>
@@ -865,7 +891,7 @@ function RegistryManagementPanel({
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const registryUrl = `/registry/${registry.slug}`
+  const registryUrl = `/registries/${registry.slug}`
 
   async function handlePublish() {
     setPublishing(true)
@@ -955,7 +981,7 @@ function RegistryManagementPanel({
           </div>
           <div className="min-w-0">
             <p className="text-xs text-[#70797a] font-medium">Public URL</p>
-            <p className="text-sm font-semibold text-[#00343a] dark:text-[#95d0d9] truncate">tribewishlist.com/registry/<span className="font-bold">{registry.slug}</span></p>
+            <p className="text-sm font-semibold text-[#00343a] dark:text-[#95d0d9] truncate">tribewishlist.com/registries/<span className="font-bold">{registry.slug}</span></p>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -1759,6 +1785,8 @@ function MotherDashboardContent() {
   const [showWizard, setShowWizard] = useState(false)
   const [editingRegistry, setEditingRegistry] = useState<RegistryWithItems | null>(null)
   const [previewSlug, setPreviewSlug] = useState<string | null>(null)
+  const [dashboardOverview, setDashboardOverview] = useState<DashboardOverview | null>(null)
+  const [overviewLoading, setOverviewLoading] = useState(false)
 
   function applyRegistryOrder(items: RegistryWithItems[]): RegistryWithItems[] {
     if (typeof window === 'undefined') return items
@@ -1816,8 +1844,15 @@ function MotherDashboardContent() {
         })
         .catch(() => {})
         .finally(() => setLoadingRegistries(false))
+
+      setOverviewLoading(true)
+      apiRequest<DashboardOverview>('/mother/dashboard-overview', { token })
+        .then((data) => setDashboardOverview(data))
+        .catch(() => setDashboardOverview(null))
+        .finally(() => setOverviewLoading(false))
     } else {
       setLoadingRegistries(false)
+      setOverviewLoading(false)
     }
   }, [router, searchParams])
 
@@ -1906,10 +1941,10 @@ function MotherDashboardContent() {
 
           {/* ── Home ── */}
           {section === 'home' && (
-            <div className="max-w-3xl space-y-6">
+            <div className="max-w-6xl space-y-6">
               <div className="bg-gradient-to-br from-[#00343a] to-[#004c54] rounded-3xl p-8 text-white">
                 <p className="text-[#95d0d9] text-sm font-medium mb-1">Welcome back</p>
-                <h1 className="font-serif text-3xl font-bold mb-2">Hello, {user.firstName ?? displayName} 🌸</h1>
+                <h1 className="font-serif text-3xl font-bold mb-2">Hello, {user.firstName ?? displayName}</h1>
                 <p className="text-[#95d0d9] text-sm mb-5">Your postpartum care dashboard</p>
                 {firstPublished ? (
                   <button onClick={() => setPreviewSlug(firstPublished.slug)} className="inline-flex items-center gap-2 bg-white/15 hover:bg-white/25 text-white text-sm font-semibold px-5 py-2.5 rounded-2xl transition-colors border border-white/20">
@@ -1935,29 +1970,89 @@ function MotherDashboardContent() {
                   </div>
                 ))}
               </div>
-              <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#054f57]/60">
-                <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-4">Quick actions</h2>
-                <div className="grid grid-cols-2 gap-3">
-                  {[
-                    { label: 'My registries', onClick: () => setSection('registry'), icon: '🎁' },
-                    { label: 'Profile settings', onClick: () => setSection('profile'), icon: '👤' },
-                    { label: 'Book a service', onClick: () => setSection('bookings'), icon: '📅' },
-                    { label: 'Payment hub', onClick: () => setSection('payment'), icon: '💳' },
-                    { label: 'Gratitude CRM', onClick: () => setSection('gratitude'), icon: '💌' },
-                    { label: 'Care calendar', onClick: () => setSection('calendar'), icon: '🗓️' },
-                    { label: 'Browse providers', href: '/search', icon: '🔍' },
-                  ].map((a) =>
-                    a.href ? (
-                      <Link key={a.label} href={a.href} className="flex items-center gap-3 p-4 rounded-2xl border border-[#e8e1db] hover:bg-[#f7f4f2] transition-colors text-sm font-medium text-gray-700">
-                        <span className="text-lg">{a.icon}</span>{a.label}
-                      </Link>
-                    ) : (
-                      <button key={a.label} onClick={a.onClick} className="flex items-center gap-3 p-4 rounded-2xl border border-[#e8e1db] hover:bg-[#f7f4f2] transition-colors text-sm font-medium text-gray-700 text-left">
-                        <span className="text-lg">{a.icon}</span>{a.label}
-                      </button>
-                    )
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                <div className="lg:col-span-2 bg-white dark:bg-[#001f23] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#054f57]/60">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7]">Financial Velocity</h2>
+                    <button onClick={() => setSection('payment')} className="text-xs font-semibold text-[#29676f] hover:text-[#00343a] dark:text-[#95d0d9]">Open Payment Hub</button>
+                  </div>
+                  {overviewLoading ? (
+                    <div className="h-32 rounded-xl bg-[#f1ece8] dark:bg-[#002b31] animate-pulse" />
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="rounded-xl bg-[#f0f7f5] dark:bg-[#00272c] p-3">
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-[#8a9da0]">Raised</p>
+                          <p className="text-lg font-bold text-[#00343a] dark:text-[#e8f6f7]">{formatCurrency(dashboardOverview?.financial.totalRaisedCents ?? 0)}</p>
+                        </div>
+                        <div className="rounded-xl bg-[#f5f1ec] dark:bg-[#00272c] p-3">
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-[#8a9da0]">Paid Out</p>
+                          <p className="text-lg font-bold text-[#00343a] dark:text-[#e8f6f7]">{formatCurrency(dashboardOverview?.financial.totalPaidOutCents ?? 0)}</p>
+                        </div>
+                        <div className="rounded-xl bg-[#eef6ef] dark:bg-[#00272c] p-3">
+                          <p className="text-[10px] uppercase tracking-[0.12em] text-[#8a9da0]">Pending</p>
+                          <p className="text-lg font-bold text-[#00343a] dark:text-[#e8f6f7]">{formatCurrency(dashboardOverview?.financial.pendingPayoutCents ?? 0)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-end gap-2 h-20">
+                        {(dashboardOverview?.financial.velocity ?? []).map((point) => {
+                          const maxValue = Math.max(
+                            ...(dashboardOverview?.financial.velocity.map((v) => v.amountCents) ?? [1]),
+                            1
+                          )
+                          const height = Math.max(8, Math.round((point.amountCents / maxValue) * 72))
+                          return (
+                            <div key={point.label} className="flex-1 text-center">
+                              <div className="rounded-md bg-gradient-to-t from-[#00343a] to-[#95d0d9] mx-auto w-full" style={{ height }} />
+                              <p className="mt-1 text-[10px] text-[#70797a] dark:text-[#79a0a6]">{point.label}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </>
                   )}
                 </div>
+
+                <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#054f57]/60">
+                  <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-4">Community Care Timeline</h2>
+                  {overviewLoading ? (
+                    <div className="space-y-2">
+                      <div className="h-10 rounded-lg bg-[#f1ece8] dark:bg-[#002b31] animate-pulse" />
+                      <div className="h-10 rounded-lg bg-[#f1ece8] dark:bg-[#002b31] animate-pulse" />
+                    </div>
+                  ) : (dashboardOverview?.communityTimeline.length ?? 0) === 0 ? (
+                    <p className="text-sm text-[#70797a] dark:text-[#79a0a6]">No upcoming volunteer signups yet.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {dashboardOverview?.communityTimeline.map((event) => (
+                        <div key={event.id} className="rounded-lg border border-[#e8e1db] dark:border-[#054f57]/50 px-3 py-2">
+                          <p className="text-xs font-semibold text-[#00343a] dark:text-[#e0f5f7]">{event.itemTitle}</p>
+                          <p className="text-[11px] text-[#70797a] dark:text-[#79a0a6]">
+                            {new Date(event.scheduledFor).toLocaleString()} · {event.volunteerName ?? event.volunteerEmail ?? 'Volunteer'}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#054f57]/60">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7]">Registry Optimization Insights</h2>
+                  <Link href="/registries" className="text-xs font-semibold text-[#29676f] hover:text-[#00343a] dark:text-[#95d0d9]">Browse registries</Link>
+                </div>
+                {(dashboardOverview?.insights.length ?? 0) === 0 ? (
+                  <p className="text-sm text-[#70797a] dark:text-[#79a0a6]">Your registry setup looks healthy. Keep sharing your page for momentum.</p>
+                ) : (
+                  <ul className="space-y-2">
+                    {dashboardOverview?.insights.map((insight) => (
+                      <li key={insight} className="text-sm text-[#40484a] dark:text-[#bfc8ca] rounded-lg bg-[#f7f4f2] dark:bg-[#00272c] px-3 py-2">
+                        {insight}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
           )}
@@ -1965,7 +2060,7 @@ function MotherDashboardContent() {
           {/* ── Registry ── */}
           {section === 'registry' && (
             showWizard ? (
-              <div className="max-w-3xl space-y-6">
+              <div className="max-w-6xl space-y-6">
                 <h1 className="font-serif text-2xl font-bold text-[#00343a]">{editingRegistry ? 'Edit Registry' : 'Create Registry'}</h1>
                 <CreateRegistryWizard
                   existingRegistry={editingRegistry ?? undefined}
@@ -1974,7 +2069,7 @@ function MotherDashboardContent() {
                 />
               </div>
             ) : (
-              <div className="max-w-3xl space-y-8">
+              <div className="max-w-6xl space-y-8">
 
                 {/* ── Block 1: Global Support Page Config ── */}
                 <SupportPageCanvas />
@@ -2014,41 +2109,41 @@ function MotherDashboardContent() {
 
           {/* ── Profile ── */}
           {section === 'profile' && (
-            <div className="max-w-4xl">
+            <div className="max-w-6xl">
               <ProfileSection user={user} onUserUpdate={handleUserUpdate} />
             </div>
           )}
 
           {/* ── Payment ── */}
           {section === 'payment' && (
-            <div className="max-w-5xl">
+            <div className="max-w-6xl">
               <PaymentSection />
             </div>
           )}
 
           {/* ── Gratitude ── */}
           {section === 'gratitude' && (
-            <div className="max-w-5xl">
+            <div className="max-w-6xl">
               <GratitudeSection />
             </div>
           )}
 
           {/* ── Care Calendar ── */}
           {section === 'calendar' && (
-            <div className="max-w-5xl">
+            <div className="max-w-6xl">
               <CareCalendarSection />
             </div>
           )}
 
           {/* ── Bookings ── */}
           {section === 'bookings' && (
-            <div className="max-w-3xl space-y-6">
+            <div className="max-w-6xl space-y-6">
               <h1 className="font-serif text-2xl font-bold text-[#00343a]">Bookings</h1>
               <div className="bg-white dark:bg-[#001f23] rounded-2xl p-12 border border-[#e8e1db] dark:border-[#054f57]/60 flex flex-col items-center justify-center text-center">
                 <div className="text-5xl mb-4">📅</div>
                 <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-2">No bookings yet</h2>
                 <p className="text-sm text-gray-500 dark:text-[#70797a] mb-6 max-w-sm">Browse our provider network and book the postpartum support you deserve.</p>
-                <Link href="/search" className="bg-[#00343a] text-white px-6 py-3 rounded-2xl font-semibold text-sm hover:bg-[#004c54] transition-colors">Browse providers</Link>
+                <Link href="/registries" className="bg-[#00343a] text-white px-6 py-3 rounded-2xl font-semibold text-sm hover:bg-[#004c54] transition-colors">Browse providers</Link>
               </div>
             </div>
           )}

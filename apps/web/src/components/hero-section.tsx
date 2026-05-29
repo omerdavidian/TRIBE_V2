@@ -39,8 +39,8 @@ export default function HeroSection() {
           {...fadeUp(0.1)}
           className="font-display text-4xl sm:text-5xl lg:text-6xl xl:text-[4rem] font-bold leading-[1.1] text-[#1F4A45] dark:text-[#d4eff2] mb-5 text-balance"
         >
-          Your village,{' '}
-          <span className="text-[#A63D55] dark:text-[#f4a4b5]">organized</span>{' '}
+          A Community,{' '}
+          <span className="text-[#A63D55] dark:text-[#f4a4b5]">Built</span>{' '}
           to care for you.
         </motion.h1>
 
@@ -61,7 +61,7 @@ export default function HeroSection() {
         >
           {/* Primary — Support a loved one */}
           <Link
-            href="/search"
+            href="/registries"
             className={[
               'inline-flex items-center justify-center gap-2',
               'bg-[#1F4A45] dark:bg-[#29676f] text-white',

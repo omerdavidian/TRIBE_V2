@@ -517,10 +517,112 @@ export async function ensureBaselineSchema() {
     end $$;
   `)
 
+  // ── payment_type enum ────────────────────────────────────────────────────
+  await db.execute(sql`
+    do $$ begin
+      create type "public"."payment_type" as enum ('monetary', 'community');
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  await db.execute(sql`
+    do $$ begin
+      alter type "public"."payment_type" add value if not exists 'monetary';
+      alter type "public"."payment_type" add value if not exists 'community';
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  // ── frequency_unit enum ──────────────────────────────────────────────────
+  await db.execute(sql`
+    do $$ begin
+      create type "public"."frequency_unit" as enum ('per_day', 'per_week');
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  await db.execute(sql`
+    do $$ begin
+      alter type "public"."frequency_unit" add value if not exists 'per_day';
+      alter type "public"."frequency_unit" add value if not exists 'per_week';
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
   // ── provider_services: add billing_frequency column ────────────────────────
   await db.execute(sql`
     alter table if exists "provider_services"
       add column if not exists "billing_frequency" "public"."billing_frequency" not null default 'flat';
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "payment_type" "public"."payment_type" not null default 'monetary';
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "frequency_unit" "public"."frequency_unit";
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "quantity_requested" integer;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "quantity_fulfilled" integer not null default 0;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "registry_items"
+      add column if not exists "payment_type" "public"."payment_type" not null default 'monetary';
+  `)
+
+  await db.execute(sql`
+    alter table if exists "registry_items"
+      add column if not exists "frequency_unit" "public"."frequency_unit";
+  `)
+
+  await db.execute(sql`
+    alter table if exists "registry_items"
+      add column if not exists "quantity_requested" integer;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "registry_items"
+      add column if not exists "quantity_fulfilled" integer not null default 0;
+  `)
+
+  await db.execute(sql`
+    create table if not exists "service_signups" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "registry_id" uuid not null references "registries"("id") on delete cascade,
+      "registry_item_id" uuid not null references "registry_items"("id") on delete cascade,
+      "mother_user_id" uuid not null references "users"("id") on delete cascade,
+      "volunteer_user_id" uuid references "users"("id") on delete set null,
+      "volunteer_name" text,
+      "volunteer_email" text,
+      "scheduled_for" timestamp with time zone not null,
+      "notes" text,
+      "status" text not null default 'confirmed',
+      "created_at" timestamp with time zone not null default now()
+    );
+  `)
+
+  await db.execute(sql`
+    create index if not exists "service_signups_registry_item_idx"
+      on "service_signups" ("registry_item_id", "scheduled_for");
+  `)
+
+  await db.execute(sql`
+    create index if not exists "service_signups_mother_idx"
+      on "service_signups" ("mother_user_id", "scheduled_for");
   `)
 
   // ── provider_operating_hours table ─────────────────────────────────────────

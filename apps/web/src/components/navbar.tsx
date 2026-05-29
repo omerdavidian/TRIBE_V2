@@ -53,7 +53,7 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 bg-cream-100/95 dark:bg-[#001a1e]/95 backdrop-blur border-b border-cream-200 dark:border-[#054f57]/40">
       <div className="max-w-6xl mx-auto px-6 h-16 grid grid-cols-[1fr_auto_1fr] items-center gap-4">
-        {/* Left, brand */}
+        {/* Left , brand */}
         <Link
           href="/"
           className="font-display font-bold text-2xl text-teal-700 dark:text-[#95d0d9] tracking-tight justify-self-start"
@@ -61,7 +61,7 @@ export default function Navbar() {
           TRIBE
         </Link>
 
-        {/* Center, nav links (always perfectly centered via grid) */}
+        {/* Center , nav links (always perfectly centered via grid) */}
         <div className="hidden md:flex items-center gap-6 text-sm font-medium text-[#40484a] dark:text-[#95d0d9]/80">
           <Link href="/#how-it-works" className="hover:text-teal-600 dark:hover:text-[#95d0d9] transition-colors">
             How it works
@@ -72,12 +72,12 @@ export default function Navbar() {
           <Link href="/#testimonials" className="hover:text-teal-600 dark:hover:text-[#95d0d9] transition-colors">
             Testimonials
           </Link>
-          <Link href="/search" className="font-semibold text-coral-500 dark:text-coral-400 hover:text-coral-600 dark:hover:text-coral-300 transition-colors">
+          <Link href="/registries" className="font-semibold text-coral-500 dark:text-coral-400 hover:text-coral-600 dark:hover:text-coral-300 transition-colors">
             Search Registries
           </Link>
         </div>
 
-        {/* Right, auth-aware actions */}
+        {/* Right , auth-aware actions */}
         <div className="flex items-center gap-3 justify-self-end">
           <ThemeToggle />
 

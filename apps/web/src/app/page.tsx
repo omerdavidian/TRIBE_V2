@@ -46,12 +46,10 @@ export default function LandingPage() {
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <div>
               <h2 className="font-display text-4xl md:text-5xl font-bold leading-tight mb-6">
-                Baby showers were designed for the baby, not for you.
+                Dedicated support for the woman behind the mother.
               </h2>
               <p className="text-teal-100 text-lg leading-relaxed">
-                New mothers need physical recovery support, mental health care, nutritious meals, 
-                and sleep, not more receiving blankets. Yet $2.4B is spent on baby gifts every 
-                year while postpartum care remains underfunded and overlooked.
+                Motherhood is a profound transition that deserves the same focus and care as the new life you are nurturing. We believe that your recovery, mental health, and wellness are just as essential as the nursery essentials. Build a support network that honors you, prioritizes your restoration, and surrounds you with the care you need to truly thrive.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">

@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getStoredUser, getToken, logout } from '@/lib/auth'
@@ -79,7 +79,7 @@ function FavoriteTile({ row }: { row: FavoriteSupportPage }) {
 
   return (
     <Link
-      href={row.supportPageSlug ? `/support/${row.supportPageSlug}` : '/search'}
+      href={row.supportPageSlug ? `/registry/${row.supportPageSlug}` : '/registries'}
       className="group relative block bg-white dark:bg-[#00272c] border border-[#e8e2de] dark:border-[#054f57] rounded-xl p-4 hover:border-[#29676f] dark:hover:border-[#29676f] hover:shadow-md transition-all duration-150 flex flex-col justify-between min-h-[148px]"
       aria-label={`Open ${name}'s support page`}
     >
@@ -146,7 +146,7 @@ const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode }[] = [
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>,
   },
   {
-    id: 'favorites', label: 'Favorites',
+    id: 'favorites', label: 'My Favorites',
     icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 21s-6.7-4.35-9.2-7.13a5.5 5.5 0 018.2-7.32L12 7.5l1-0.95a5.5 5.5 0 018.2 7.32C18.7 16.65 12 21 12 21z"/></svg>,
   },
   {
@@ -164,6 +164,18 @@ export default function SupporterDashboard() {
   const [favorites, setFavorites] = useState<FavoriteSupportPage[]>([])
   const [favoritesLoading, setFavoritesLoading] = useState(false)
 
+  const loadFavorites = useCallback(async (authToken: string) => {
+    setFavoritesLoading(true)
+    try {
+      const rows = await apiRequest<FavoriteSupportPage[]>('/favorites', { token: authToken })
+      setFavorites(rows)
+    } catch {
+      setFavorites([])
+    } finally {
+      setFavoritesLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     const stored = getStoredUser()
     const authToken = getToken()
@@ -171,28 +183,34 @@ export default function SupporterDashboard() {
     if (stored.role !== 'supporter' && stored.role !== 'business') { router.replace('/dashboard'); return }
     setUser(stored)
     setToken(authToken)
+
+    const params = typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams()
+    const sectionParam = params.get('section')
+    if (
+      sectionParam === 'home' ||
+      sectionParam === 'discover' ||
+      sectionParam === 'giving' ||
+      sectionParam === 'favorites' ||
+      sectionParam === 'security'
+    ) {
+      setSection(sectionParam)
+    }
   }, [router])
 
   useEffect(() => {
-    if (section !== 'favorites' || !token) return
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('section') === section) return
+    params.set('section', section)
+    router.replace(`/dashboard/supporter?${params.toString()}`, { scroll: false })
+  }, [section, router])
 
-    let cancelled = false
-    setFavoritesLoading(true)
-    apiRequest<FavoriteSupportPage[]>('/favorites', { token })
-      .then((rows) => {
-        if (!cancelled) setFavorites(rows)
-      })
-      .catch(() => {
-        if (!cancelled) setFavorites([])
-      })
-      .finally(() => {
-        if (!cancelled) setFavoritesLoading(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [section, token])
+  useEffect(() => {
+    if (!token || (section !== 'home' && section !== 'favorites')) return
+    loadFavorites(token).catch(() => {})
+  }, [section, token, loadFavorites])
 
   if (!user) {
     return (
@@ -264,7 +282,7 @@ export default function SupporterDashboard() {
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 
           {section === 'home' && (
-            <div className="max-w-3xl space-y-6">
+            <div className="max-w-6xl space-y-6">
               <div className="bg-gradient-to-br from-[#00343a] to-[#004c54] rounded-3xl p-8 text-white">
                 <p className="text-[#95d0d9] text-sm font-medium mb-1">{isBusiness ? 'Business dashboard' : 'Supporter dashboard'}</p>
                 <h1 className="font-serif text-3xl font-bold mb-2">Welcome, {user.firstName ?? displayName} 💛</h1>
@@ -288,7 +306,8 @@ export default function SupporterDashboard() {
                   {[
                     { label: 'Find a registry', onClick: () => setSection('discover'), icon: '🔍' },
                     { label: 'My giving history', onClick: () => setSection('giving'), icon: '💛' },
-                    { label: 'Browse providers', href: '/search', icon: '🌿' },
+                    { label: 'My favorites', onClick: () => setSection('favorites'), icon: '❤' },
+                    { label: 'Browse providers', href: '/registries', icon: '🌿' },
                     { label: 'Security settings', onClick: () => setSection('security'), icon: '🔐' },
                   ].map((a) =>
                     a.href ? (
@@ -303,23 +322,57 @@ export default function SupporterDashboard() {
                   )}
                 </div>
               </div>
+
+              <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#054f57]/60">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <div>
+                    <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7]">My Favorites</h2>
+                    <p className="text-sm text-[#70797a] dark:text-[#79a0a6] mt-1">Quick access to the registries you&apos;ve saved.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSection('favorites')}
+                    className="text-sm font-semibold text-[#29676f] dark:text-[#95d0d9] hover:text-[#00343a]"
+                  >
+                    View all
+                  </button>
+                </div>
+
+                {favoritesLoading ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {Array.from({ length: 3 }).map((_, idx) => (
+                      <div key={idx} className="h-[148px] rounded-xl bg-[#f3eeea] dark:bg-[#012b31] animate-pulse" />
+                    ))}
+                  </div>
+                ) : favorites.length === 0 ? (
+                  <div className="rounded-xl border border-dashed border-[#d7cfca] dark:border-[#054f57] px-5 py-8 text-center">
+                    <p className="text-sm text-[#70797a] dark:text-[#79a0a6]">No saved registries yet. Tap the heart on a registry page to add one here.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {favorites.slice(0, 3).map((row) => (
+                      <FavoriteTile key={row.userId} row={row} />
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
           {section === 'discover' && (
-            <div className="max-w-3xl space-y-6">
+            <div className="max-w-6xl space-y-6">
               <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Discover Registries</h1>
               <div className="bg-white dark:bg-[#001f23] rounded-2xl p-12 border border-[#e8e1db] dark:border-[#054f57]/60 flex flex-col items-center justify-center text-center">
                 <div className="text-5xl mb-4">🔍</div>
                 <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-2">Enter a registry link</h2>
                 <p className="text-sm text-gray-500 dark:text-[#70797a] mb-6 max-w-sm">Share the direct link to support a mother&apos;s registry.</p>
-                <Link href="/search" className="bg-[#00343a] text-white px-6 py-3 rounded-2xl font-semibold text-sm hover:bg-[#004c54] transition-colors">Browse registries</Link>
+                <Link href="/registries" className="bg-[#00343a] text-white px-6 py-3 rounded-2xl font-semibold text-sm hover:bg-[#004c54] transition-colors">Browse registries</Link>
               </div>
             </div>
           )}
 
           {section === 'giving' && (
-            <div className="max-w-3xl space-y-6">
+            <div className="max-w-6xl space-y-6">
               <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">My Giving History</h1>
               <div className="bg-white dark:bg-[#001f23] rounded-2xl p-12 border border-[#e8e1db] dark:border-[#054f57]/60 flex flex-col items-center justify-center text-center">
                 <div className="text-5xl mb-4">💛</div>
@@ -331,7 +384,7 @@ export default function SupporterDashboard() {
 
           {section === 'favorites' && (
             <div className="space-y-6">
-              <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Favorites</h1>
+              <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">My Favorites</h1>
 
               {favoritesLoading ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
@@ -365,7 +418,7 @@ export default function SupporterDashboard() {
           )}
 
           {section === 'security' && (
-            <div className="max-w-2xl space-y-6">
+            <div className="max-w-5xl space-y-6">
               <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Security</h1>
               <ChangePasswordForm />
             </div>

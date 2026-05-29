@@ -71,6 +71,16 @@ export const billingFrequencyEnum = pgEnum('billing_frequency', [
   'weekly',
 ])
 
+export const paymentTypeEnum = pgEnum('payment_type', [
+  'monetary',
+  'community',
+])
+
+export const frequencyUnitEnum = pgEnum('frequency_unit', [
+  'per_day',
+  'per_week',
+])
+
 export const thankYouStatusEnum = pgEnum('thank_you_status', [
   'draft',
   'sent',
@@ -175,6 +185,10 @@ export const providerServices = pgTable('provider_services', {
   priceMinCents: integer('price_min_cents'),
   priceMaxCents: integer('price_max_cents'),
   billingFrequency: billingFrequencyEnum('billing_frequency').notNull().default('flat'),
+  paymentType: paymentTypeEnum('payment_type').notNull().default('monetary'),
+  frequencyUnit: frequencyUnitEnum('frequency_unit'),
+  quantityRequested: integer('quantity_requested'),
+  quantityFulfilled: integer('quantity_fulfilled').notNull().default(0),
   description: text('description'),
   imageUrls: text('image_urls').array().notNull().default([]),
   locationCity: text('location_city'),
@@ -291,6 +305,34 @@ export const registryItems = pgTable('registry_items', {
   sortOrder: integer('sort_order').notNull().default(0),
   customPurpose: text('custom_purpose'),
   fundingFrequency: fundingFrequencyEnum('funding_frequency').notNull().default('one_time'),
+  paymentType: paymentTypeEnum('payment_type').notNull().default('monetary'),
+  frequencyUnit: frequencyUnitEnum('frequency_unit'),
+  quantityRequested: integer('quantity_requested'),
+  quantityFulfilled: integer('quantity_fulfilled').notNull().default(0),
+})
+
+export const serviceSignups = pgTable('service_signups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  registryId: uuid('registry_id')
+    .notNull()
+    .references(() => registries.id, { onDelete: 'cascade' }),
+  registryItemId: uuid('registry_item_id')
+    .notNull()
+    .references(() => registryItems.id, { onDelete: 'cascade' }),
+  motherUserId: uuid('mother_user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  volunteerUserId: uuid('volunteer_user_id').references(() => users.id, {
+    onDelete: 'set null',
+  }),
+  volunteerName: text('volunteer_name'),
+  volunteerEmail: text('volunteer_email'),
+  scheduledFor: timestamp('scheduled_for', { withTimezone: true }).notNull(),
+  notes: text('notes'),
+  status: text('status').notNull().default('confirmed'),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 })
 
 export const vouchers = pgTable('vouchers', {
@@ -596,6 +638,12 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   motherPayouts: many(motherPayouts),
   motherBookings: many(bookings, { relationName: 'motherBookings' }),
   providerBookings: many(bookings, { relationName: 'providerBookings' }),
+  serviceSignupsAsMother: many(serviceSignups, {
+    relationName: 'serviceSignupsMother',
+  }),
+  serviceSignupsAsVolunteer: many(serviceSignups, {
+    relationName: 'serviceSignupsVolunteer',
+  }),
   createdInvitations: many(betaInvitations),
   receivedAllocations: many(passItForwardAllocations),
   adminActionLogs: many(adminActionLogs),
@@ -676,6 +724,7 @@ export const registriesRelations = relations(registries, ({ one, many }) => ({
     references: [users.id],
   }),
   items: many(registryItems),
+  serviceSignups: many(serviceSignups),
   donations: many(donations),
   vouchers: many(vouchers),
 }))
@@ -693,7 +742,29 @@ export const registryItemsRelations = relations(registryItems, ({ one, many }) =
     fields: [registryItems.providerProfileId],
     references: [providerProfiles.id],
   }),
+  serviceSignups: many(serviceSignups),
   vouchers: many(vouchers),
+}))
+
+export const serviceSignupsRelations = relations(serviceSignups, ({ one }) => ({
+  registry: one(registries, {
+    fields: [serviceSignups.registryId],
+    references: [registries.id],
+  }),
+  registryItem: one(registryItems, {
+    fields: [serviceSignups.registryItemId],
+    references: [registryItems.id],
+  }),
+  mother: one(users, {
+    fields: [serviceSignups.motherUserId],
+    references: [users.id],
+    relationName: 'serviceSignupsMother',
+  }),
+  volunteer: one(users, {
+    fields: [serviceSignups.volunteerUserId],
+    references: [users.id],
+    relationName: 'serviceSignupsVolunteer',
+  }),
 }))
 
 export const donationsRelations = relations(donations, ({ one }) => ({

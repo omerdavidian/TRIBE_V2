@@ -5,8 +5,9 @@ import Image from 'next/image'
 import { apiRequest } from '@/lib/api'
 import { getToken } from '@/lib/auth'
 import ContributionModal from '@/components/contribution-modal'
+import CommunitySignupModal from '@/components/community-signup-modal'
 import ShareModal from '@/components/share-modal'
-import type { SupportPageData, RegistryPublic, RegistryItemPublic } from './page'
+import type { SupportPageData, RegistryPublic, RegistryItemPublic } from '@/app/registry/[slug]/page'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -84,15 +85,21 @@ function CareItemCard({
   registryId,
   registryTitle,
   onFund,
+  onCommunitySignup,
 }: {
   item: RegistryItemPublic
   registryId: string
   registryTitle: string
   onFund: (item: RegistryItemPublic, registryId: string, registryTitle: string) => void
+  onCommunitySignup: (item: RegistryItemPublic) => void
 }) {
   const cfg = catConfig(item.category?.slug)
   const fundedPct = pct(item.fundedAmountCents, item.targetAmountCents)
   const remaining = item.targetAmountCents - item.fundedAmountCents
+  const isCommunity = item.paymentType === 'community'
+  const requested = item.quantityRequested ?? 0
+  const fulfilled = item.quantityFulfilled
+  const remainingShifts = Math.max(requested - fulfilled, 0)
 
   return (
     <article className={`${cfg.bg} border ${cfg.border} rounded-xl p-5 flex flex-col gap-4 dark:bg-[#03252a] dark:border-[#154850]`}>
@@ -126,28 +133,62 @@ function CareItemCard({
       </div>
 
       {/* Progress */}
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <span className={`text-xs font-semibold tabular-nums ${cfg.text} dark:text-[#e0f5f7]`}>
-            {money(item.fundedAmountCents)}
-            <span className="font-normal text-[#70797a] dark:text-[#79a0a6]"> of {money(item.targetAmountCents)}</span>
-          </span>
-          <span className={`text-xs font-bold ${cfg.text} dark:text-[#95d0d9]`}>{fundedPct}%</span>
+      {isCommunity ? (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-xs font-semibold ${cfg.text} dark:text-[#e0f5f7]`}>
+              {fulfilled} of {requested} volunteer slots covered
+            </span>
+            <span className={`text-xs font-bold ${cfg.text} dark:text-[#95d0d9]`}>
+              {requested > 0 ? Math.min(100, Math.round((fulfilled / requested) * 100)) : 0}%
+            </span>
+          </div>
+          <div className="h-2 bg-black/10 rounded-full overflow-hidden dark:bg-[#0b3940]">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${item.isFulfilled ? 'bg-emerald-500' : 'bg-current opacity-60'} ${cfg.text}`}
+              style={{
+                width: `${Math.max(requested > 0 ? Math.round((fulfilled / requested) * 100) : 0, fulfilled > 0 ? 2 : 0)}%`,
+              }}
+            />
+          </div>
+          {item.frequencyUnit && (
+            <p className="mt-1 text-[11px] text-[#70797a] dark:text-[#79a0a6]">
+              Needed: {requested}x {item.frequencyUnit === 'per_day' ? 'per day' : 'per week'}
+            </p>
+          )}
         </div>
-        <div className="h-2 bg-black/10 rounded-full overflow-hidden dark:bg-[#0b3940]">
-          <div
-            className={`h-full rounded-full transition-all duration-700 ${item.isFulfilled ? 'bg-emerald-500' : 'bg-current opacity-60'} ${cfg.text}`}
-            style={{ width: `${Math.max(fundedPct, fundedPct > 0 ? 2 : 0)}%` }}
-          />
+      ) : (
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <span className={`text-xs font-semibold tabular-nums ${cfg.text} dark:text-[#e0f5f7]`}>
+              {money(item.fundedAmountCents)}
+              <span className="font-normal text-[#70797a] dark:text-[#79a0a6]"> of {money(item.targetAmountCents)}</span>
+            </span>
+            <span className={`text-xs font-bold ${cfg.text} dark:text-[#95d0d9]`}>{fundedPct}%</span>
+          </div>
+          <div className="h-2 bg-black/10 rounded-full overflow-hidden dark:bg-[#0b3940]">
+            <div
+              className={`h-full rounded-full transition-all duration-700 ${item.isFulfilled ? 'bg-emerald-500' : 'bg-current opacity-60'} ${cfg.text}`}
+              style={{ width: `${Math.max(fundedPct, fundedPct > 0 ? 2 : 0)}%` }}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* CTA */}
       {item.isFulfilled ? (
         <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-[#88e0b0]">
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12" /></svg>
-          Fully funded , Thank you!
+          {isCommunity ? 'Fully covered , Thank you!' : 'Fully funded , Thank you!'}
         </div>
+      ) : isCommunity ? (
+        <button
+          type="button"
+          onClick={() => onCommunitySignup(item)}
+          className={`w-full text-xs font-semibold py-2.5 rounded-lg border-2 transition-all hover:opacity-90 active:scale-[0.98] ${cfg.text} border-current bg-white/50 dark:bg-[#08333a] dark:text-[#e0f5f7]`}
+        >
+          Sign Up to Help · {remainingShifts} open
+        </button>
       ) : (
         <button
           type="button"
@@ -166,9 +207,11 @@ function CareItemCard({
 function RegistryBlock({
   registry,
   onFund,
+  onCommunitySignup,
 }: {
   registry: RegistryPublic
   onFund: (item: RegistryItemPublic, registryId: string, registryTitle: string) => void
+  onCommunitySignup: (item: RegistryItemPublic) => void
 }) {
   const { totalTarget, totalFunded, percent } = registryStats(registry)
   const due = formatDue(registry.dueDate)
@@ -248,6 +291,7 @@ function RegistryBlock({
                   registryId={registry.id}
                   registryTitle={registry.title}
                   onFund={onFund}
+                  onCommunitySignup={onCommunitySignup}
                 />
               ))}
             </div>
@@ -273,6 +317,7 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
     registryTitle: string
   } | null>(null)
   const [shareOpen, setShareOpen] = useState(false)
+  const [communitySignupItem, setCommunitySignupItem] = useState<RegistryItemPublic | null>(null)
   const [isFavorited, setIsFavorited] = useState(false)
   const [favoritePending, setFavoritePending] = useState(false)
 
@@ -437,6 +482,7 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
                       key={registry.id}
                       registry={registry}
                       onFund={handleFund}
+                      onCommunitySignup={setCommunitySignupItem}
                     />
                   ))}
                 </div>
@@ -510,6 +556,18 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
           registryItemId={fundingItem.item.id}
           itemTitle={fundingItem.item.title}
           onClose={() => setFundingItem(null)}
+        />
+      )}
+
+      {communitySignupItem && (
+        <CommunitySignupModal
+          itemId={communitySignupItem.id}
+          itemTitle={communitySignupItem.title}
+          onClose={() => setCommunitySignupItem(null)}
+          onSuccess={() => {
+            setCommunitySignupItem(null)
+            window.location.reload()
+          }}
         />
       )}
 

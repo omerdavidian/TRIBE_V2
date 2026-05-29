@@ -152,7 +152,7 @@ function RegistryTile({
 
   return (
     <Link
-      href={r.supportPageSlug ? `/support/${r.supportPageSlug}` : `/search`}
+      href={r.supportPageSlug ? `/registry/${r.supportPageSlug}` : `/registries`}
       className="group relative block bg-white dark:bg-[#00272c] border border-[#e8e2de] dark:border-[#054f57] rounded-xl p-4 hover:border-[#29676f] dark:hover:border-[#29676f] hover:shadow-md transition-all duration-150 flex flex-col justify-between min-h-[148px]"
       aria-label={`Support ${name}'s care`}
     >
@@ -484,7 +484,7 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
     const params = new URLSearchParams(searchParams.toString())
     if (q) params.set('q', q)
     else params.delete('q')
-    router.replace(`/search?${params.toString()}`, { scroll: false })
+    router.replace(`/registries?${params.toString()}`, { scroll: false })
   }, [q, router, searchParams])
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -586,11 +586,11 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
               <label htmlFor="search-input" className="sr-only">Search mothers by name</label>
               <input
                 id="search-input"
-                type="search"
+                type="text"
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 placeholder="Search mothers by name"
-                className="flex-1 min-w-0 py-2.5 bg-transparent text-sm text-[#00343a] dark:text-[#fcf9f8] outline-none placeholder:text-[#8a9da0]"
+                className="flex-1 min-w-0 py-2.5 bg-transparent text-sm text-[#00343a] dark:text-[#fcf9f8] outline-none placeholder:text-[#8a9da0] appearance-none"
                 autoComplete="off"
                 aria-label="Search mothers"
               />
