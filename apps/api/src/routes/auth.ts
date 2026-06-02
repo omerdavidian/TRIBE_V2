@@ -418,6 +418,74 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ message: 'Password reset successfully' })
   })
 
+  // POST /auth/add-role — add an additional workspace/role to an existing account
+  fastify.post('/auth/add-role', { preHandler: requireAuth }, async (request, reply) => {
+    const body = z.object({
+      role: z.enum(['mother', 'supporter', 'provider']),
+    }).safeParse(request.body)
+
+    if (!body.success) {
+      return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: body.error.flatten().fieldErrors })
+    }
+
+    const userId = request.user!.sub
+    const newRole = body.data.role
+
+    const [user] = await db.select(authSelect).from(users).where(eq(users.id, userId)).limit(1)
+    if (!user) return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'User not found' })
+
+    // Check not already held
+    const allRoles = [user.role, ...(user.additionalRoles ?? [])]
+    if (allRoles.includes(newRole)) {
+      return reply.status(409).send({ statusCode: 409, error: 'Conflict', message: `You already have the '${newRole}' workspace.` })
+    }
+
+    const updatedAdditionalRoles = [...(user.additionalRoles ?? []), newRole]
+
+    await db.update(users)
+      .set({ additionalRoles: updatedAdditionalRoles, updatedAt: new Date() })
+      .where(eq(users.id, userId))
+
+    // Bootstrap required profile rows for the new role
+    if (newRole === 'provider') {
+      const existingProfile = await db.query.providerProfiles.findFirst({
+        where: eq(providerProfiles.userId, userId),
+      })
+      if (!existingProfile) {
+        await db.insert(providerProfiles)
+          .values({ userId, applicationStatus: 'draft' })
+          .onConflictDoNothing()
+      }
+    }
+
+    // Issue a fresh JWT with the updated additionalRoles so it takes effect immediately
+    const accessToken = await signJwt({
+      sub: userId,
+      email: user.email,
+      role: user.role,
+      additionalRoles: updatedAdditionalRoles,
+    })
+
+    return reply.send({
+      accessToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        additionalRoles: updatedAdditionalRoles,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        avatarUrl: user.avatarUrl,
+        authProvider: user.authProvider,
+        emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+        lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+        createdAt: user.createdAt.toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+    })
+  })
+
   // POST /auth/change-password , requires authentication
   fastify.post('/auth/change-password', { preHandler: requireAuth }, async (request, reply) => {
     const changePasswordSchema = z.object({

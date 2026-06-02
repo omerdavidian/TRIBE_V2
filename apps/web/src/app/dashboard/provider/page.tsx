@@ -206,7 +206,7 @@ function PricingConfigForm({
 
       {/* Price inputs */}
       {isRange ? (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div>
             <label className={lbl}>Min Rate ($)</label>
             <div className="relative">
@@ -351,7 +351,7 @@ function SectionProfile({ profile, token, onSaved }: { profile: ProviderProfile;
   ]
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="w-full space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Profile Settings</h1>
         <button
@@ -376,30 +376,32 @@ function SectionProfile({ profile, token, onSaved }: { profile: ProviderProfile;
       {/* Business Profile — public-facing */}
       {activeTab === 'business' && (
         <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 p-6 space-y-5">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#29676f] bg-[#e8f4f0] dark:bg-[#004c54]/30 px-2 py-0.5 rounded-full">Public</span>
             <p className="text-xs text-[#70797a]">Visible to families browsing the platform</p>
           </div>
-          <div>
-            <label className={lbl}>Business Name</label>
-            <input value={form.businessName} onChange={(e) => setForm((f) => ({ ...f, businessName: e.target.value }))} placeholder="Your business or practice name" className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Business Address <span className="font-normal text-[#70797a]">(optional)</span></label>
-            <input value={form.businessAddress} onChange={(e) => setForm((f) => ({ ...f, businessAddress: e.target.value }))} placeholder="123 Main St, Brooklyn, NY 11201" className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Public Phone</label>
-            <input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+1 (555) 000-0000" className={inp} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div>
+              <label className={lbl}>Business Name</label>
+              <input value={form.businessName} onChange={(e) => setForm((f) => ({ ...f, businessName: e.target.value }))} placeholder="Your business or practice name" className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Public Phone</label>
+              <input type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+1 (555) 000-0000" className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Business Address <span className="font-normal text-[#70797a]">(optional)</span></label>
+              <input value={form.businessAddress} onChange={(e) => setForm((f) => ({ ...f, businessAddress: e.target.value }))} placeholder="123 Main St, Brooklyn, NY 11201" className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Service Areas <span className="font-normal text-[#70797a]">(comma-separated)</span></label>
+              <input value={form.serviceAreas} onChange={(e) => setForm((f) => ({ ...f, serviceAreas: e.target.value }))} placeholder="Brooklyn, Manhattan, 11201, Jersey City…" className={inp} />
+            </div>
           </div>
           <div>
             <label className={lbl}>Bio / Description</label>
-            <textarea rows={5} value={form.bio} onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} placeholder="Describe your services, approach, and what makes you unique…" className={`${inp} resize-none`} />
+            <textarea rows={4} value={form.bio} onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))} placeholder="Describe your services, approach, and what makes you unique…" className={`${inp} resize-none`} />
             <p className="text-[10px] text-[#70797a] mt-1">{form.bio.length} / 2000 characters</p>
-          </div>
-          <div>
-            <label className={lbl}>Service Areas <span className="font-normal text-[#70797a]">(comma-separated)</span></label>
-            <input value={form.serviceAreas} onChange={(e) => setForm((f) => ({ ...f, serviceAreas: e.target.value }))} placeholder="Brooklyn, Manhattan, 11201, Jersey City…" className={inp} />
           </div>
         </div>
       )}
@@ -411,17 +413,19 @@ function SectionProfile({ profile, token, onSaved }: { profile: ProviderProfile;
             <span className="text-[10px] font-bold uppercase tracking-widest text-[#c05928] bg-[#fef3ed] dark:bg-[#2a1510] px-2 py-0.5 rounded-full">Private</span>
             <p className="text-xs text-[#70797a]">Shared only with platform admins — never shown publicly</p>
           </div>
-          <div>
-            <label className={lbl}>Owner / Contact Name</label>
-            <input value={form.ownerName} onChange={(e) => setForm((f) => ({ ...f, ownerName: e.target.value }))} placeholder="Your legal or preferred name" className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Direct Email</label>
-            <input type="email" value={form.ownerDirectEmail} onChange={(e) => setForm((f) => ({ ...f, ownerDirectEmail: e.target.value }))} placeholder="you@example.com" className={inp} />
-          </div>
-          <div>
-            <label className={lbl}>Direct Phone</label>
-            <input type="tel" value={form.ownerDirectPhone} onChange={(e) => setForm((f) => ({ ...f, ownerDirectPhone: e.target.value }))} placeholder="+1 (555) 000-0000" className={inp} />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div>
+              <label className={lbl}>Owner / Contact Name</label>
+              <input value={form.ownerName} onChange={(e) => setForm((f) => ({ ...f, ownerName: e.target.value }))} placeholder="Your legal or preferred name" className={inp} />
+            </div>
+            <div>
+              <label className={lbl}>Direct Phone</label>
+              <input type="tel" value={form.ownerDirectPhone} onChange={(e) => setForm((f) => ({ ...f, ownerDirectPhone: e.target.value }))} placeholder="+1 (555) 000-0000" className={inp} />
+            </div>
+            <div className="lg:col-span-2">
+              <label className={lbl}>Direct Email</label>
+              <input type="email" value={form.ownerDirectEmail} onChange={(e) => setForm((f) => ({ ...f, ownerDirectEmail: e.target.value }))} placeholder="you@example.com" className={inp} />
+            </div>
           </div>
         </div>
       )}
@@ -432,7 +436,7 @@ function SectionProfile({ profile, token, onSaved }: { profile: ProviderProfile;
           <div>
             <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7] mb-1">Specializations & Attributes</p>
             <p className="text-xs text-[#70797a] mb-4">Select all that apply. These appear on your public profile.</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
               {PROVIDER_ATTRIBUTES.map((attr) => (
                 <button
                   key={attr} type="button" onClick={() => toggleAttr(attr)}
@@ -465,10 +469,12 @@ function SectionProfile({ profile, token, onSaved }: { profile: ProviderProfile;
       {/* Links & Contact */}
       {activeTab === 'links' && (
         <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 p-6 space-y-5">
-          <div><label className={lbl}>Website URL</label><input type="url" value={form.websiteUrl} onChange={(e) => setForm((f) => ({ ...f, websiteUrl: e.target.value }))} placeholder="https://yourbusiness.com" className={inp} /></div>
-          <div><label className={lbl}>Google Reviews URL</label><input type="url" value={form.googleReviewUrl} onChange={(e) => setForm((f) => ({ ...f, googleReviewUrl: e.target.value }))} placeholder="https://g.page/your-business/review" className={inp} /></div>
-          <div><label className={lbl}>Instagram</label><input type="url" value={form.instagramUrl} onChange={(e) => setForm((f) => ({ ...f, instagramUrl: e.target.value }))} placeholder="https://instagram.com/yourbusiness" className={inp} /></div>
-          <div><label className={lbl}>Facebook</label><input type="url" value={form.facebookUrl} onChange={(e) => setForm((f) => ({ ...f, facebookUrl: e.target.value }))} placeholder="https://facebook.com/yourbusiness" className={inp} /></div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            <div><label className={lbl}>Website URL</label><input type="url" value={form.websiteUrl} onChange={(e) => setForm((f) => ({ ...f, websiteUrl: e.target.value }))} placeholder="https://yourbusiness.com" className={inp} /></div>
+            <div><label className={lbl}>Google Reviews URL</label><input type="url" value={form.googleReviewUrl} onChange={(e) => setForm((f) => ({ ...f, googleReviewUrl: e.target.value }))} placeholder="https://g.page/your-business/review" className={inp} /></div>
+            <div><label className={lbl}>Instagram</label><input type="url" value={form.instagramUrl} onChange={(e) => setForm((f) => ({ ...f, instagramUrl: e.target.value }))} placeholder="https://instagram.com/yourbusiness" className={inp} /></div>
+            <div><label className={lbl}>Facebook</label><input type="url" value={form.facebookUrl} onChange={(e) => setForm((f) => ({ ...f, facebookUrl: e.target.value }))} placeholder="https://facebook.com/yourbusiness" className={inp} /></div>
+          </div>
         </div>
       )}
 
@@ -667,7 +673,7 @@ function SectionServices({ profile, token }: {
   const selectedCount = services.length
 
   return (
-    <div className="max-w-4xl space-y-5">
+    <div className="w-full space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -760,7 +766,7 @@ function SectionHours({ profile, token }: { profile: ProviderProfile; token: str
   })
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="w-full max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Operating Hours</h1>
         <button onClick={save} disabled={saving} className="px-5 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">
@@ -1033,7 +1039,7 @@ function SectionPayments({ profile, token }: { profile: ProviderProfile; token: 
   const isConnected = stripeStatus.onboardingCompleted && stripeStatus.chargesEnabled
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="w-full space-y-6">
       <div>
         <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Payments & Payouts</h1>
         <p className="text-sm text-[#70797a] mt-1">Connect your bank account via Stripe to receive payouts from bookings.</p>
@@ -1132,7 +1138,7 @@ function SectionPayments({ profile, token }: { profile: ProviderProfile; token: 
       <DocumentUploadSection token={token} />
 
       {/* Info cards */}
-      <div className="grid sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { icon: '⚡', title: 'Weekly Payouts', desc: 'Earnings are transferred to your bank every Friday.' },
           { icon: '🔒', title: 'Secure & Encrypted', desc: 'Bank details and documents are held by Stripe and never stored on our servers.' },
@@ -1324,7 +1330,7 @@ function ProviderDashboardContent() {
             const isRejected = status === 'rejected'
 
             return (
-              <div className="max-w-3xl space-y-6">
+              <div className="w-full space-y-6">
                 <div className="bg-gradient-to-br from-[#00343a] to-[#29676f] rounded-3xl p-8 text-white">
                   <p className="text-[#95d0d9] text-sm font-medium mb-1">Provider dashboard</p>
                   <h1 className="font-serif text-3xl font-bold mb-2">Welcome, {user.firstName ?? displayName} &#127807;</h1>
@@ -1461,7 +1467,7 @@ function ProviderDashboardContent() {
           {section === 'payments' && (loadingProfile ? <LoadingSection /> : profile ? <SectionPayments profile={profile} token={token} /> : <NoProfile />)}
 
           {section === 'bookings' && (
-            <div className="max-w-3xl space-y-6">
+            <div className="w-full space-y-6">
               <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Bookings</h1>
               <div className="bg-white dark:bg-[#001f23] rounded-2xl p-12 border border-[#e8e1db] dark:border-[#054f57]/60 flex flex-col items-center justify-center text-center">
                 <div className="text-5xl mb-4">📅</div>
@@ -1472,7 +1478,7 @@ function ProviderDashboardContent() {
           )}
 
           {section === 'earnings' && (
-            <div className="max-w-3xl space-y-6">
+            <div className="w-full space-y-6">
               <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Earnings</h1>
               <div className="bg-white dark:bg-[#001f23] rounded-2xl p-12 border border-[#e8e1db] dark:border-[#054f57]/60 flex flex-col items-center justify-center text-center">
                 <div className="text-5xl mb-4">💰</div>
@@ -1483,7 +1489,7 @@ function ProviderDashboardContent() {
           )}
 
           {section === 'security' && (
-            <div className="max-w-2xl space-y-6">
+            <div className="w-full max-w-xl space-y-6">
               <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Security</h1>
               <ChangePasswordForm />
             </div>
