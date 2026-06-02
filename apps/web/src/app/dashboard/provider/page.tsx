@@ -483,17 +483,135 @@ function SectionProfile({ profile, token, onSaved }: { profile: ProviderProfile;
   )
 }
 
-// ── Section: Services & Pricing ───────────────────────────────────────────────
+// ── Service tile colours (matches homepage aesthetic) ─────────────────────────
 
-// ── Section: Services & Pricing (granular flat matrix) ───────────────────────
-//
-// Each of the 32 postpartum service catalog items is rendered as its own
-// selectable card. Checking a card instantly reveals an independent pricing
-// form so providers can configure Flat / Hourly / Daily / Weekly / Range
-// rates — and see their real-time take-home — per service.
+const TILE_PALETTE = [
+  { bg: 'bg-[#e8f4f2]', border: 'border-[#a8d5cc]', dark: 'dark:bg-[#0d2b30]' },
+  { bg: 'bg-[#fdf0f3]', border: 'border-[#f4c0ce]', dark: 'dark:bg-[#2d1520]' },
+  { bg: 'bg-[#fdf6ee]', border: 'border-[#f0d9b5]', dark: 'dark:bg-[#2a1f0d]' },
+  { bg: 'bg-[#f0f7f5]', border: 'border-[#c5dfd9]', dark: 'dark:bg-[#0d2a26]' },
+  { bg: 'bg-[#eef5f7]', border: 'border-[#b5d5df]', dark: 'dark:bg-[#0d2230]' },
+  { bg: 'bg-[#f5f0fc]', border: 'border-[#d0b5f4]', dark: 'dark:bg-[#1e142d]' },
+]
+
+function tileColor(idx: number) {
+  return TILE_PALETTE[idx % TILE_PALETTE.length]!
+}
+
+// ── Custom Service Form ───────────────────────────────────────────────────────
+
+function CustomServiceModal({ token, onClose, onCreated }: {
+  token: string; onClose: () => void; onCreated: () => void
+}) {
+  const [form, setForm] = useState({
+    customName: '',
+    description: '',
+    billingFrequency: 'flat' as 'flat' | 'hourly' | 'daily' | 'weekly',
+    priceMin: '',
+    priceMax: '',
+  })
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!form.customName.trim()) { setErr('Service name is required'); return }
+    setSaving(true); setErr('')
+    try {
+      await apiRequest('/provider/custom-services', {
+        method: 'POST', token,
+        body: JSON.stringify({
+          customName: form.customName.trim(),
+          description: form.description.trim() || null,
+          billingFrequency: form.billingFrequency,
+          priceMinCents: form.priceMin ? Math.round(parseFloat(form.priceMin) * 100) : null,
+          priceMaxCents: form.priceMax ? Math.round(parseFloat(form.priceMax) * 100) : null,
+        }),
+      })
+      onCreated(); onClose()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to submit')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white dark:bg-[#001f23] rounded-2xl shadow-2xl border border-[#e0ebe9] dark:border-[#054f57]/60">
+        <div className="px-6 py-4 border-b border-[#e0ebe9] dark:border-[#054f57]/40 flex items-center justify-between">
+          <div>
+            <h2 className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Add Custom Service</h2>
+            <p className="text-xs text-[#70797a] mt-0.5">Submitted for admin approval before going live</p>
+          </div>
+          <button onClick={onClose} className="text-[#70797a] hover:text-[#00343a] p-1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <form onSubmit={submit} className="p-6 space-y-4">
+          <div>
+            <label className={lbl}>Service Name <span className="text-red-500">*</span></label>
+            <input value={form.customName} onChange={e => setForm(f => ({ ...f, customName: e.target.value }))}
+              placeholder="e.g. Postpartum Reiki, Birth Trauma EMDR…" className={inp} required />
+          </div>
+          <div>
+            <label className={lbl}>Description</label>
+            <textarea rows={3} value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              placeholder="Describe this service — what it is, who it's for, and what you bring to it…"
+              className={`${inp} resize-none`} />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={lbl}>Min Price ($) <span className="font-normal text-[#70797a]">optional</span></label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#70797a]">$</span>
+                <input type="number" min="0" step="0.01" value={form.priceMin}
+                  onChange={e => setForm(f => ({ ...f, priceMin: e.target.value }))}
+                  placeholder="0.00" className={`${inp} pl-7`} />
+              </div>
+            </div>
+            <div>
+              <label className={lbl}>Max Price ($) <span className="font-normal text-[#70797a]">optional</span></label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[#70797a]">$</span>
+                <input type="number" min="0" step="0.01" value={form.priceMax}
+                  onChange={e => setForm(f => ({ ...f, priceMax: e.target.value }))}
+                  placeholder="0.00" className={`${inp} pl-7`} />
+              </div>
+            </div>
+          </div>
+          <div>
+            <label className={lbl}>Billing Structure</label>
+            <div className="flex gap-2 flex-wrap">
+              {BILLING_STRUCTURES.filter(b => b.id !== 'range').map(b => (
+                <button key={b.id} type="button" onClick={() => setForm(f => ({ ...f, billingFrequency: b.id as 'flat'|'hourly'|'daily'|'weekly' }))}
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-all ${form.billingFrequency === b.id ? 'bg-[#00343a] text-white border-[#00343a]' : 'border-[#b0ccc8] text-[#40484a] hover:border-[#29676f]'}`}>
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl">{err}</p>}
+          <div className="flex items-center gap-3 pt-1">
+            <button type="submit" disabled={saving}
+              className="flex-1 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">
+              {saving ? 'Submitting…' : 'Submit for Review'}
+            </button>
+            <button type="button" onClick={onClose} className="px-4 py-2.5 text-sm text-[#70797a] hover:text-[#00343a]">Cancel</button>
+          </div>
+          <p className="text-[10px] text-[#70797a] text-center">
+            Custom services are reviewed by our team within 1–2 business days.
+          </p>
+        </form>
+      </div>
+    </div>
+  )
+}
+
+// ── ServiceCard — visual tile ─────────────────────────────────────────────────
 
 function ServiceCard({
-  cat, isSelected, service, commissionRate, onToggle, onUpdate,
+  cat, isSelected, service, commissionRate, onToggle, onUpdate, tileIndex,
 }: {
   cat: CategoryOption
   isSelected: boolean
@@ -501,10 +619,11 @@ function ServiceCard({
   commissionRate: number
   onToggle: () => void
   onUpdate: (patch: Partial<ServiceEntry>) => void
+  tileIndex: number
 }) {
   const [expanded, setExpanded] = useState(false)
+  const { bg, border, dark } = tileColor(tileIndex)
 
-  // Collapse when deselected
   useEffect(() => { if (!isSelected) setExpanded(false) }, [isSelected])
 
   const priceLabel = (() => {
@@ -521,85 +640,77 @@ function ServiceCard({
   const structureLabel = service ? BILLING_STRUCTURES.find(b => b.id === service.billingStructure)?.label : null
 
   return (
-    // overflow-visible is intentional: tooltips must escape the card boundary.
-    // The rounded border still renders correctly without overflow-hidden.
-    <div className={`border rounded-2xl transition-all duration-150 ${
+    <div className={`rounded-2xl border-2 transition-all duration-150 ${
       isSelected
-        ? 'border-[#29676f] shadow-sm shadow-[#29676f]/10'
-        : 'border-[#e0ebe9] dark:border-[#054f57]/50 hover:border-[#29676f]/50'
-    } bg-white dark:bg-[#001f23]`}>
-      {/* Card header — always visible */}
-      <div className="flex items-center gap-3 px-4 py-3.5">
-        {/* Checkbox */}
-        <button
-          type="button"
-          onClick={() => { onToggle(); if (!isSelected) setExpanded(true) }}
-          className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
-            isSelected ? 'bg-[#29676f] border-[#29676f]' : 'border-[#b0ccc8] dark:border-[#054f57] hover:border-[#29676f]'
-          }`}
-          aria-checked={isSelected}
-          role="checkbox"
-        >
+        ? 'border-[#29676f] shadow-md'
+        : `${border} hover:border-[#29676f]/60`
+    }`}>
+      {/* Tile header — always visible, click to select */}
+      <button
+        type="button"
+        onClick={() => { onToggle(); if (!isSelected) setExpanded(true) }}
+        className={`w-full text-left rounded-t-2xl px-5 py-5 flex items-start gap-4 transition-colors ${
+          isSelected ? 'bg-[#e8f4f0] dark:bg-[#004c54]/20' : `${bg} ${dark}`
+        }`}
+      >
+        {/* Emoji icon */}
+        {cat.iconName && (
+          <span className="text-3xl flex-shrink-0 mt-0.5">{cat.iconName}</span>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-bold text-[#00343a] dark:text-[#e0f5f7] leading-snug">{cat.name}</span>
+            {cat.description && <Tooltip text={cat.description} />}
+          </div>
+          {cat.description && (
+            <p className="text-xs text-[#70797a] leading-relaxed line-clamp-2">{cat.description}</p>
+          )}
+          {isSelected && priceLabel && (
+            <span className="inline-block mt-2 text-[10px] font-semibold text-[#29676f] bg-white dark:bg-[#001f23] px-2 py-0.5 rounded-full border border-[#29676f]/30">
+              {priceLabel}{structureLabel ? ` · ${structureLabel}` : ''}
+            </span>
+          )}
+        </div>
+        {/* Selection checkmark */}
+        <div className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+          isSelected ? 'bg-[#29676f] border-[#29676f]' : 'border-[#b0ccc8] dark:border-[#054f57] bg-white dark:bg-[#001f23]'
+        }`}>
           {isSelected && (
             <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           )}
-        </button>
-
-        {/* Icon + Name + Tooltip */}
-        <div className="flex-1 flex items-center gap-2 min-w-0">
-          {cat.iconName && <span className="text-base flex-shrink-0">{cat.iconName}</span>}
-          <span className={`text-sm font-semibold truncate ${isSelected ? 'text-[#00343a] dark:text-[#e0f5f7]' : 'text-[#40484a] dark:text-[#95d0d9]'}`}>
-            {cat.name}
-          </span>
-          {cat.description && <Tooltip text={cat.description} />}
         </div>
+      </button>
 
-        {/* Price badge + expand chevron */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {isSelected && priceLabel && (
-            <span className="hidden sm:inline text-[10px] font-semibold text-[#29676f] bg-[#e8f4f0] dark:bg-[#004c54]/30 px-2 py-0.5 rounded-full whitespace-nowrap">
-              {priceLabel}{structureLabel ? ` · ${structureLabel}` : ''}
-            </span>
+      {/* Expand / collapse pricing when selected */}
+      {isSelected && (
+        <>
+          <button type="button" onClick={() => setExpanded(e => !e)}
+            className="w-full flex items-center justify-between px-5 py-2.5 text-xs font-semibold text-[#29676f] hover:bg-[#f0faf8] dark:hover:bg-[#004c54]/10 transition-colors border-t border-[#e0ebe9] dark:border-[#054f57]/40">
+            <span>{expanded ? 'Hide pricing configuration' : 'Configure pricing'}</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+              className={`transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}>
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+          </button>
+
+          {expanded && service && (
+            <div className="px-5 pb-5 pt-1 border-t border-[#e0ebe9] dark:border-[#054f57]/40 space-y-4 bg-white dark:bg-[#001f23] rounded-b-2xl">
+              <PricingConfigForm service={service} commissionRate={commissionRate} onChange={onUpdate} />
+              <div>
+                <label className={lbl}>
+                  Your Service Description / Specialization Narrative
+                  <span className="font-normal text-[#70797a] ml-1">optional</span>
+                </label>
+                <textarea rows={3} value={service.description}
+                  onChange={(e) => onUpdate({ description: e.target.value })}
+                  placeholder="Describe your approach — training, methodology, session format, what makes your offering unique…"
+                  className={`${inp} resize-none`} />
+              </div>
+            </div>
           )}
-          {isSelected && (
-            <button
-              type="button"
-              onClick={() => setExpanded(e => !e)}
-              className="p-0.5 text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7] transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                className={`transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}>
-                <polyline points="6 9 12 15 18 9"/>
-              </svg>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Pricing form — shown when selected and expanded */}
-      {isSelected && expanded && service && (
-        <div className="px-4 pb-4 pt-1 border-t border-[#e0ebe9] dark:border-[#054f57]/40 space-y-4">
-          <PricingConfigForm
-            service={service}
-            commissionRate={commissionRate}
-            onChange={onUpdate}
-          />
-          <div>
-            <label className={lbl}>
-              Your Service Description / Specialization Narrative
-              <span className="font-normal text-[#70797a] ml-1">optional</span>
-            </label>
-            <textarea
-              rows={3}
-              value={service.description}
-              onChange={(e) => onUpdate({ description: e.target.value })}
-              placeholder="Describe your approach to this service — your training, methodology, session format, what makes your offering unique, and any specializations that set you apart…"
-              className={`${inp} resize-none`}
-            />
-          </div>
-        </div>
+        </>
       )}
     </div>
   )
@@ -611,10 +722,10 @@ function SectionServices({ profile, token }: {
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [commissionRate, setCommissionRate] = useState(0.05)
   const [services, setServices] = useState<ServiceEntry[]>(() =>
-    profile.services.map((s) => {
+    profile.services.filter(s => s.categoryId).map((s) => {
       const hasRange = s.priceMinCents !== null && s.priceMaxCents !== null && s.priceMinCents !== s.priceMaxCents
       return {
-        categoryId: s.categoryId,
+        categoryId: s.categoryId!,
         billingStructure: (hasRange ? 'range' : s.billingFrequency) as BillingStructure,
         priceMinCents: s.priceMinCents,
         priceMaxCents: s.priceMaxCents,
@@ -623,17 +734,25 @@ function SectionServices({ profile, token }: {
       }
     })
   )
+  const [customServices, setCustomServices] = useState<Array<{id:string;customName:string|null;customStatus:string|null}>>([])
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState('')
+  const [showCustomModal, setShowCustomModal] = useState(false)
+
+  const loadCustomServices = useCallback(async () => {
+    try {
+      const data = await apiRequest<Array<{id:string;customName:string|null;customStatus:string|null}>>('/provider/custom-services', { token })
+      setCustomServices(data)
+    } catch { /* non-fatal */ }
+  }, [token])
 
   useEffect(() => {
     if (!token) return
     apiRequest<CategoryOption[]>('/catalog/categories', { token }).then(setCategories).catch(() => {})
-    apiRequest<{ rate: number }>('/provider/commission-rate', { token })
-      .then((d) => setCommissionRate(d.rate))
-      .catch(() => {})
-  }, [token])
+    apiRequest<{ rate: number }>('/provider/commission-rate', { token }).then((d) => setCommissionRate(d.rate)).catch(() => {})
+    void loadCustomServices()
+  }, [token, loadCustomServices])
 
   function isSelected(catId: string) { return services.some((s) => s.categoryId === catId) }
 
@@ -672,58 +791,97 @@ function SectionServices({ profile, token }: {
 
   const selectedCount = services.length
 
+  const customStatusBadge = (status: string | null) => {
+    if (status === 'approved') return { label: 'Approved', cls: 'bg-[#e8f4f0] text-[#29676f]' }
+    if (status === 'rejected') return { label: 'Rejected', cls: 'bg-red-50 text-red-600' }
+    return { label: 'Pending Review', cls: 'bg-amber-50 text-amber-700' }
+  }
+
   return (
     <div className="w-full space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Services & Pricing</h1>
           <p className="text-sm text-[#70797a] mt-0.5">
             {selectedCount > 0
-              ? `${selectedCount} service${selectedCount !== 1 ? 's' : ''} selected · expand any card to configure pricing`
+              ? `${selectedCount} service${selectedCount !== 1 ? 's' : ''} selected · tap any tile to configure pricing`
               : 'Select the services you offer below'}
           </p>
         </div>
-        <button
-          onClick={save}
-          disabled={saving || services.length === 0}
-          className="flex-shrink-0 px-5 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors"
-        >
-          {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button onClick={() => setShowCustomModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 border-2 border-[#29676f] text-[#29676f] text-sm font-semibold rounded-xl hover:bg-[#e8f4f0] transition-colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Custom Service
+          </button>
+          <button onClick={save} disabled={saving || services.length === 0}
+            className="px-5 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">
+            {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
+          </button>
+        </div>
       </div>
 
       {/* Commission banner */}
       <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-[#f7f4f2] dark:bg-[#004c54]/10 border border-[#e0ebe9] dark:border-[#054f57]/40 text-xs text-[#70797a]">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Platform commission is{' '}
-        <strong className="text-[#00343a] dark:text-[#e0f5f7]">{(commissionRate * 100).toFixed(0)}%</strong>
-        {' '}— expand any selected service to see your real-time take-home.
+        Platform commission is <strong className="text-[#00343a] dark:text-[#e0f5f7]">{(commissionRate * 100).toFixed(0)}%</strong>
+        {' '}— tap a selected tile to configure pricing and see your take-home.
       </div>
 
-      {/* Service matrix */}
-      {categories.length === 0 ? (
-        <div className="flex items-center gap-2.5 py-8 justify-center text-sm text-[#70797a]">
-          <div className="w-4 h-4 border-2 border-[#29676f] border-t-transparent rounded-full animate-spin" />
-          Loading service catalog…
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
-          {categories.map((cat) => (
-            <ServiceCard
-              key={cat.id}
-              cat={cat}
-              isSelected={isSelected(cat.id)}
-              service={services.find((s) => s.categoryId === cat.id) ?? null}
-              commissionRate={commissionRate}
-              onToggle={() => toggleCategory(cat)}
-              onUpdate={(patch) => updateService(cat.id, patch)}
-            />
-          ))}
+      {/* Custom service submissions */}
+      {customServices.length > 0 && (
+        <div>
+          <p className="text-xs font-bold uppercase tracking-widest text-[#70797a] mb-2">Custom Services</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+            {customServices.map((cs) => {
+              const badge = customStatusBadge(cs.customStatus)
+              return (
+                <div key={cs.id} className="flex items-center gap-3 px-4 py-3.5 rounded-2xl border border-dashed border-[#b0ccc8] dark:border-[#054f57] bg-white dark:bg-[#001f23]">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#70797a" strokeWidth="2" className="flex-shrink-0"><path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21H3v-4L16.5 3.5z"/></svg>
+                  <span className="flex-1 text-sm font-medium text-[#00343a] dark:text-[#e0f5f7] truncate">{cs.customName}</span>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${badge.cls}`}>{badge.label}</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
+      {/* Catalog service tiles */}
+      <div>
+        {categories.length === 0 ? (
+          <div className="flex items-center gap-2.5 py-8 justify-center text-sm text-[#70797a]">
+            <div className="w-4 h-4 border-2 border-[#29676f] border-t-transparent rounded-full animate-spin" />
+            Loading service catalog…
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {categories.map((cat, idx) => (
+              <ServiceCard
+                key={cat.id}
+                cat={cat}
+                isSelected={isSelected(cat.id)}
+                service={services.find((s) => s.categoryId === cat.id) ?? null}
+                commissionRate={commissionRate}
+                onToggle={() => toggleCategory(cat)}
+                onUpdate={(patch) => updateService(cat.id, patch)}
+                tileIndex={idx}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
       {err && <p className="text-xs text-red-600 bg-red-50 px-4 py-3 rounded-xl">{err}</p>}
+
+      {showCustomModal && (
+        <CustomServiceModal
+          token={token}
+          onClose={() => setShowCustomModal(false)}
+          onCreated={() => void loadCustomServices()}
+        />
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { z } from 'zod'
-import { eq, desc } from 'drizzle-orm'
+import { and, eq, desc } from 'drizzle-orm'
 import Stripe from 'stripe'
 import { db } from '../db/client.js'
 import {
@@ -269,6 +269,64 @@ const providerRoutes: FastifyPluginAsync = async (fastify) => {
       : []
 
     return reply.send(inserted)
+  })
+
+  // ─── Custom services ──────────────────────────────────────────────────────
+
+  /** POST /provider/custom-services — submit a custom (non-catalog) service for admin review */
+  fastify.post('/provider/custom-services', { preHandler: providerOnly }, async (request, reply) => {
+    const body = z.object({
+      customName: z.string().min(2).max(200),
+      description: z.string().max(2000).optional().nullable(),
+      billingFrequency: z.enum(['flat', 'hourly', 'daily', 'weekly']).default('flat'),
+      priceMinCents: z.number().int().nonnegative().nullable().optional(),
+      priceMaxCents: z.number().int().nonnegative().nullable().optional(),
+    }).safeParse(request.body)
+
+    if (!body.success) {
+      return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: body.error.flatten().fieldErrors })
+    }
+
+    const profile = await db.query.providerProfiles.findFirst({
+      where: eq(providerProfiles.userId, request.user!.sub),
+    })
+
+    if (!profile) {
+      return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Provider profile not found' })
+    }
+
+    const [inserted] = await db.insert(providerServices).values({
+      providerProfileId: profile.id,
+      categoryId: null,
+      isCustom: true,
+      customName: body.data.customName,
+      customStatus: 'pending',
+      billingFrequency: body.data.billingFrequency,
+      description: body.data.description ?? null,
+      priceMinCents: body.data.priceMinCents ?? null,
+      priceMaxCents: body.data.priceMaxCents ?? null,
+    }).returning()
+
+    return reply.status(201).send(inserted)
+  })
+
+  /** GET /provider/custom-services — list provider's custom service submissions */
+  fastify.get('/provider/custom-services', { preHandler: providerOnly }, async (request, reply) => {
+    const profile = await db.query.providerProfiles.findFirst({
+      where: eq(providerProfiles.userId, request.user!.sub),
+    })
+
+    if (!profile) {
+      return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Provider profile not found' })
+    }
+
+    const customs = await db
+      .select()
+      .from(providerServices)
+      .where(and(eq(providerServices.providerProfileId, profile.id), eq(providerServices.isCustom, true)))
+      .orderBy(desc(providerServices.id))
+
+    return reply.send(customs)
   })
 
   // ─── Application submission ───────────────────────────────────────────────

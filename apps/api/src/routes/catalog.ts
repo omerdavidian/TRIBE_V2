@@ -73,6 +73,83 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     })))
   })
 
+  /**
+   * GET /catalog/service-directory
+   *
+   * Returns every active service category enriched with live provider data:
+   * - providerCount   — number of approved providers who offer this service
+   * - priceMinCents   — lowest min price across those providers
+   * - priceMaxCents   — highest max price across those providers
+   * - serviceAreas    — deduplicated set of areas (up to 6)
+   *
+   * Used by the public /services directory page.
+   */
+  fastify.get('/catalog/service-directory', async (_request, reply) => {
+    const categories = await db.query.serviceCategories.findMany({
+      where: eq(serviceCategories.isActive, true),
+      orderBy: (t, { asc }) => [asc(t.sortOrder), asc(t.name)],
+    })
+
+    if (categories.length === 0) return reply.send([])
+
+    // Single query: join services → approved providers, aggregate per category
+    const stats = await db.execute(sql`
+      select
+        ps.category_id,
+        count(distinct pp.id)::int                       as provider_count,
+        min(ps.price_min_cents)                          as price_min_cents,
+        max(ps.price_max_cents)                          as price_max_cents,
+        array_agg(distinct sa.area order by sa.area)     as service_areas
+      from provider_services ps
+      join provider_profiles pp
+        on pp.id = ps.provider_profile_id
+        and pp.application_status = 'approved'
+      cross join lateral unnest(pp.service_areas) as sa(area)
+      where ps.category_id = any(${categories.map((c) => c.id)})
+      group by ps.category_id
+    `)
+
+    type StatsRow = {
+      category_id: string
+      provider_count: number
+      price_min_cents: number | null
+      price_max_cents: number | null
+      service_areas: string[]
+    }
+
+    const statsMap = new Map<string, StatsRow>()
+    for (const row of (stats as unknown as { rows: StatsRow[] }).rows) {
+      statsMap.set(row.category_id, row)
+    }
+
+    return reply.send(
+      categories.map((c) => {
+        const s = statsMap.get(c.id)
+        const areas = (s?.service_areas ?? []).filter(Boolean).slice(0, 6)
+
+        let priceRange = 'Contact for pricing'
+        if (s?.price_min_cents && s?.price_max_cents) {
+          const lo = Math.round(s.price_min_cents / 100)
+          const hi = Math.round(s.price_max_cents / 100)
+          priceRange = lo === hi ? `$${lo}` : `$${lo}–$${hi}`
+        } else if (s?.price_max_cents) {
+          priceRange = `$${Math.round(s.price_max_cents / 100)}`
+        }
+
+        return {
+          id: c.id,
+          slug: c.slug,
+          name: c.name,
+          description: c.description,
+          iconName: c.iconName,
+          providerCount: s?.provider_count ?? 0,
+          priceRange,
+          serviceAreas: areas,
+        }
+      })
+    )
+  })
+
   // GET /catalog/providers, list approved providers
   fastify.get('/catalog/providers', async (request, reply) => {
     const query = request.query as Record<string, string>
@@ -173,7 +250,7 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     })
   })
 
-  // POST /catalog/providers/:id/reviews, mothers only
+  // POST /catalog/providers/:id/reviews , mothers only
   fastify.post(
     '/catalog/providers/:id/reviews',
     { preHandler: [requireRole('mother')] },
@@ -223,7 +300,7 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // GET /catalog/services/:id, public service detail page
+  // GET /catalog/services/:id , public service detail page
   fastify.get('/catalog/services/:id', async (request, reply) => {
     const { id } = request.params as { id: string }
 
@@ -271,7 +348,7 @@ const catalogRoutes: FastifyPluginAsync = async (fastify) => {
     })
   })
 
-  // PATCH /catalog/services/:id, provider updates their own service
+  // PATCH /catalog/services/:id , provider updates their own service
   fastify.patch(
     '/catalog/services/:id',
     { preHandler: [requireRole('provider')] },

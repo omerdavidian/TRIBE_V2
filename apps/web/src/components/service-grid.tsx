@@ -1,5 +1,5 @@
 ﻿/**
- * ServiceGrid, server component.
+ * ServiceGrid , server component.
  * 8 featured postpartum service tiles in responsive 4-column grid.
  * Each card: text left (title, description), image right (fading into text).
  * Full-width container with max-width and generous x-padding.
@@ -108,7 +108,7 @@ function ServiceTileCard({ service }: { service: ServiceTile }) {
         aria-hidden
       />
 
-      {/* Seamless fade overlay, solid bg on left, transparent on right */}
+      {/* Seamless fade overlay , solid bg on left, transparent on right */}
       <div
         aria-hidden
         className="absolute inset-0 pointer-events-none dark:hidden"
@@ -136,7 +136,7 @@ function ServiceTileCard({ service }: { service: ServiceTile }) {
         style={{ background: `linear-gradient(135deg, ${service.darkFrom} 0%, ${service.darkTo} 100%)`, opacity: 0.3 }}
       />
 
-      {/* Text content, left half, above overlays */}
+      {/* Text content , left half, above overlays */}
       <div className="relative z-10 flex flex-col justify-between gap-3 p-5 w-3/5">
         <h3 className="font-display text-base font-bold leading-snug text-[#1F4A45] dark:text-[#d4eff2]">
           {service.name}
@@ -172,7 +172,7 @@ export default function ServiceGrid() {
 
       <div className="relative w-full px-6 sm:px-8 md:px-10 lg:px-12">
         <div className="mx-auto" style={{ maxWidth: '1400px' }}>
-        {/* Section header, centered */}
+        {/* Section header , centered */}
         <div className="mb-14 flex flex-col items-center text-center">
           <h2
             id="services-heading"
@@ -181,12 +181,12 @@ export default function ServiceGrid() {
             Real support for every part of recovery.
           </h2>
           <p className="text-[#4b6869] dark:text-[#6aabb5] text-lg leading-relaxed max-w-2xl">
-            Your village can fund exactly what you need, from overnight care to
+            Your village can fund exactly what you need , from overnight care to
             clean meals to the therapist who specialises in new mothers.
           </p>
         </div>
 
-        {/* 4-column responsive grid, centered */}
+        {/* 4-column responsive grid , centered */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 mx-auto" style={{ maxWidth: '1400px' }}>
           {SERVICES.map((service) => (
             <ServiceTileCard key={service.slug} service={service} />

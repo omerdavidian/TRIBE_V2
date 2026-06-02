@@ -192,14 +192,23 @@ export const serviceCategories = pgTable('service_categories', {
   isActive: boolean('is_active').notNull().default(true),
 })
 
+export const customServiceStatusEnum = pgEnum('custom_service_status', [
+  'pending',
+  'approved',
+  'rejected',
+])
+
 export const providerServices = pgTable('provider_services', {
   id: uuid('id').primaryKey().defaultRandom(),
   providerProfileId: uuid('provider_profile_id')
     .notNull()
     .references(() => providerProfiles.id, { onDelete: 'cascade' }),
   categoryId: uuid('category_id')
-    .notNull()
-    .references(() => serviceCategories.id),
+    .references(() => serviceCategories.id),   // nullable for custom services
+  // Custom service fields (isCustom=true means provider-defined, not from catalog)
+  isCustom: boolean('is_custom').notNull().default(false),
+  customName: text('custom_name'),
+  customStatus: customServiceStatusEnum('custom_status'),
   title: text('title'),
   priceMinCents: integer('price_min_cents'),
   priceMaxCents: integer('price_max_cents'),

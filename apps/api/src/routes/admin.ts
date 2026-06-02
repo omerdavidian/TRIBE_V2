@@ -1032,6 +1032,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
 
     const maxByCategory = new Map<string, number>()
     for (const row of serviceRows) {
+      if (!row.categoryId) continue
       const current = maxByCategory.get(row.categoryId) ?? 0
       const next = row.priceMaxCents ?? 0
       maxByCategory.set(row.categoryId, Math.max(current, next))

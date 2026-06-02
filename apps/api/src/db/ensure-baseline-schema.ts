@@ -1006,6 +1006,27 @@ export async function ensureBaselineSchema() {
     on conflict ("key") do nothing;
   `)
 
+  // ── custom_service_status enum + custom service columns ──────────────────────
+  await db.execute(sql`
+    do $$ begin
+      create type "public"."custom_service_status" as enum ('pending', 'approved', 'rejected');
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      alter column "category_id" drop not null;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_services"
+      add column if not exists "is_custom" boolean not null default false,
+      add column if not exists "custom_name" text,
+      add column if not exists "custom_status" "public"."custom_service_status";
+  `)
+
   // ── Service catalog seed (32 postpartum services, idempotent upsert) ────────
   // This runs on every startup so the catalog is always populated without
   // requiring a manual seed script invocation.
