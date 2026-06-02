@@ -1,7 +1,6 @@
 'use client'
 
 import { createPortal } from 'react-dom'
-import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import { apiRequest } from '@/lib/api'
 import { getToken } from '@/lib/auth'

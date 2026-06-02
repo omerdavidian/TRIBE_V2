@@ -308,7 +308,7 @@ function SectionProfile({ profile, token, onSaved }: { profile: ProviderProfile;
   function toggleAttr(attr: string) {
     setAttributes((prev) => {
       const n = new Set(prev)
-      n.has(attr) ? n.delete(attr) : n.add(attr)
+      if (n.has(attr)) { n.delete(attr) } else { n.add(attr) }
       return n
     })
   }
@@ -888,7 +888,7 @@ function DocumentUploadSection({ token }: { token: string }) {
     <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 overflow-hidden">
       <div className="px-6 py-5 border-b border-[#e8e1db] dark:border-[#054f57]/40">
         <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">Business Verification Documents</h2>
-        <p className="text-xs text-[#70797a] mt-0.5">Upload EIN certificates, IRS letters, W-2s, or government ID for account verification. Files are transmitted directly to Stripe's secure storage.</p>
+        <p className="text-xs text-[#70797a] mt-0.5">Upload EIN certificates, IRS letters, W-2s, or government ID for account verification. Files are transmitted directly to Stripe&apos;s secure storage.</p>
       </div>
 
       {/* Upload form */}
@@ -1315,6 +1315,7 @@ function ProviderDashboardContent() {
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="w-full max-w-[1400px] mx-auto">
 
           {section === 'home' && (() => {
             const hasServices = (profile?.services?.length ?? 0) > 0 && profile?.services?.some(s => (s.priceMaxCents ?? 0) > 0)
@@ -1495,6 +1496,7 @@ function ProviderDashboardContent() {
             </div>
           )}
 
+          </div>
         </main>
       </div>
     </div>

@@ -1893,12 +1893,14 @@ function AdminDashboardContent() {
           <button onClick={() => void fetchData()} className="text-sm text-[#40484a] dark:text-[#95d0d9] border border-[#b0ccc8] dark:border-[#054f57] px-3 py-1.5 rounded-full hover:bg-[#e8f4f0] dark:hover:bg-[#004c54]/20 transition-colors">Refresh</button>
         </header>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          {activeTab === 'overview' && <TabOverview overview={overview} loading={loading} />}
-          {activeTab === 'users' && <TabUsers vetting={vetting} onVetting={handleVetting} loadingVetting={loading} token={getToken() ?? ''} />}
-          {activeTab === 'financials' && <TabFinancials overview={overview} token={getToken() ?? ''} />}
-          {activeTab === 'security' && <TabSecurity />}
-          {activeTab === 'integrations' && <TabIntegrations token={getToken() ?? ''} />}
-          {activeTab === 'vendors' && <TabVendors token={getToken() ?? ''} />}
+          <div className="w-full max-w-[1400px] mx-auto">
+            {activeTab === 'overview' && <TabOverview overview={overview} loading={loading} />}
+            {activeTab === 'users' && <TabUsers vetting={vetting} onVetting={handleVetting} loadingVetting={loading} token={getToken() ?? ''} />}
+            {activeTab === 'financials' && <TabFinancials overview={overview} token={getToken() ?? ''} />}
+            {activeTab === 'security' && <TabSecurity />}
+            {activeTab === 'integrations' && <TabIntegrations token={getToken() ?? ''} />}
+            {activeTab === 'vendors' && <TabVendors token={getToken() ?? ''} />}
+          </div>
         </main>
       </div>
     </div>
