@@ -36,12 +36,17 @@ type VettingRow = {
 
 type VendorRow = {
   id: string
-  applicationStatus: 'pending' | 'approved' | 'rejected' | 'info_requested'
+  applicationStatus: 'draft' | 'pending' | 'approved' | 'rejected' | 'info_requested'
   businessName: string | null
   bio: string | null
+  businessAddress: string | null
   serviceAreas: string[]
+  phone: string | null
   reviewNote: string | null
   infoRequestMessage: string | null
+  ownerName: string | null
+  ownerDirectEmail: string | null
+  ownerDirectPhone: string | null
   createdAt: string
   user: {
     id: string
@@ -53,7 +58,18 @@ type VendorRow = {
   }
   services: Array<{
     id: string
+    priceMinCents: number | null
+    priceMaxCents: number | null
+    billingFrequency: string
+    description: string | null
     category: { id: string; name: string; slug: string }
+  }>
+  documents: Array<{
+    id: string
+    documentType: string
+    originalFilename: string
+    stripeFileId: string | null
+    createdAt: string
   }>
 }
 
@@ -1227,18 +1243,50 @@ function TabIntegrations({ token }: { token: string }) {
 
 // --- Vendor helpers -----------------------------------------------------------
 
-function VendorStatusBadge({ status }: { status: 'pending' | 'approved' | 'rejected' | 'info_requested' }) {
+function VendorStatusBadge({ status }: { status: 'draft' | 'pending' | 'approved' | 'rejected' | 'info_requested' }) {
   const cfg = {
+    draft: 'bg-[#f7f4f2] text-[#70797a]',
     pending: 'bg-amber-100 text-amber-700',
     approved: 'bg-[#e8f4f0] text-[#29676f]',
     rejected: 'bg-red-50 text-red-600',
     info_requested: 'bg-blue-50 text-blue-600',
   }
-  const label = { pending: 'Pending', approved: 'Approved', rejected: 'Denied', info_requested: 'Info Requested' }
-  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg[status]}`}>{label[status]}</span>
+  const label: Record<string, string> = { draft: 'Draft', pending: 'Pending', approved: 'Approved', rejected: 'Denied', info_requested: 'Info Requested' }
+  return <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${cfg[status] ?? cfg.pending}`}>{label[status] ?? status}</span>
 }
 
 // --- Vendor Detail Drawer -----------------------------------------------------
+
+const BILLING_FREQ_LABELS: Record<string, string> = {
+  flat: 'Flat Rate', hourly: 'Per Hour', daily: 'Per Day', weekly: 'Per Week',
+}
+
+const DOC_TYPE_LABELS: Record<string, string> = {
+  ein_certificate: 'EIN Certificate', irs_letter: 'IRS Letter', w2: 'W-2',
+  identity_front: 'ID Front', identity_back: 'ID Back', other: 'Other',
+}
+
+function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="space-y-2">
+      <p className="text-[10px] font-bold uppercase tracking-widest text-[#70797a]">{title}</p>
+      {children}
+    </div>
+  )
+}
+
+function InfoGrid({ rows }: { rows: Array<{ label: string; value: React.ReactNode }> }) {
+  return (
+    <div className="bg-[#f7f4f2] dark:bg-[#00272c]/60 rounded-xl divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30 overflow-hidden">
+      {rows.map(({ label, value }) => value ? (
+        <div key={label} className="px-4 py-3 flex items-start justify-between gap-4">
+          <p className="text-xs text-[#70797a] flex-shrink-0 mt-0.5">{label}</p>
+          <p className="text-sm text-[#00343a] dark:text-[#e0f5f7] text-right break-all">{value}</p>
+        </div>
+      ) : null)}
+    </div>
+  )
+}
 
 function VendorDetailDrawer({
   vendor, token, onClose, onUpdated,
@@ -1253,7 +1301,7 @@ function VendorDetailDrawer({
   const [infoMessage, setInfoMessage] = useState('')
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
-  const ownerName = [vendor.user.firstName, vendor.user.lastName].filter(Boolean).join(' ') || vendor.user.fullName || vendor.user.email
+  const accountOwner = [vendor.user.firstName, vendor.user.lastName].filter(Boolean).join(' ') || vendor.user.fullName || vendor.user.email
 
   async function submitAction(status: 'approved' | 'rejected' | 'info_requested') {
     setSaving(true); setErr('')
@@ -1268,54 +1316,119 @@ function VendorDetailDrawer({
     } finally { setSaving(false) }
   }
 
+  function priceBadge(s: VendorRow['services'][0]) {
+    const hasMin = (s.priceMinCents ?? 0) > 0
+    const hasMax = (s.priceMaxCents ?? 0) > 0
+    if (!hasMin && !hasMax) return '—'
+    const freq = BILLING_FREQ_LABELS[s.billingFrequency] ?? s.billingFrequency
+    if (hasMin && hasMax && s.priceMinCents !== s.priceMaxCents) {
+      return `$${((s.priceMinCents ?? 0) / 100).toFixed(0)} – $${((s.priceMaxCents ?? 0) / 100).toFixed(0)} · ${freq}`
+    }
+    return `$${((s.priceMaxCents ?? 0) / 100).toFixed(0)} · ${freq}`
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative ml-auto w-full max-w-lg bg-white dark:bg-[#001f23] h-full overflow-y-auto shadow-2xl flex flex-col">
+      <div className="relative ml-auto w-full max-w-xl bg-white dark:bg-[#001f23] h-full overflow-y-auto shadow-2xl flex flex-col">
+
+        {/* Header */}
         <div className="sticky top-0 bg-white dark:bg-[#001f23] border-b border-[#e0ebe9] dark:border-[#054f57]/40 px-6 py-4 flex items-center justify-between z-10">
           <div>
-            <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">{vendor.businessName ?? ownerName}</h2>
-            <p className="text-xs text-[#70797a] mt-0.5">Provider Application</p>
+            <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">{vendor.businessName ?? accountOwner}</h2>
+            <div className="flex items-center gap-2 mt-1">
+              <VendorStatusBadge status={vendor.applicationStatus} />
+              <span className="text-xs text-[#70797a]">Submitted {new Date(vendor.createdAt).toLocaleDateString()}</span>
+            </div>
           </div>
           <button onClick={onClose} className="text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7] p-1">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
-        <div className="flex-1 p-6 space-y-5">
-          <div className="flex items-center gap-3">
-            <VendorStatusBadge status={vendor.applicationStatus} />
-            <span className="text-xs text-[#70797a]">Applied {new Date(vendor.createdAt).toLocaleDateString()}</span>
-          </div>
-          <div className="bg-[#f7f4f2] dark:bg-[#00272c]/60 rounded-xl p-4">
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Account Details</p>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div><p className="text-[#70797a] text-xs">Owner</p><p className="font-medium text-[#00343a] dark:text-[#e0f5f7]">{ownerName}</p></div>
-              <div><p className="text-[#70797a] text-xs">Email</p><p className="font-medium text-[#00343a] dark:text-[#e0f5f7] break-all">{vendor.user.email}</p></div>
-            </div>
-          </div>
-          {(vendor.businessName || vendor.bio || vendor.serviceAreas.length > 0) && (
-            <div className="bg-[#f7f4f2] dark:bg-[#00272c]/60 rounded-xl p-4 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Business Profile</p>
-              {vendor.businessName && <div><p className="text-[#70797a] text-xs">Business Name</p><p className="text-sm font-medium text-[#00343a] dark:text-[#e0f5f7]">{vendor.businessName}</p></div>}
-              {vendor.bio && <div><p className="text-[#70797a] text-xs mb-1">Bio</p><p className="text-sm text-[#40484a] dark:text-[#95d0d9] leading-relaxed">{vendor.bio}</p></div>}
-              {vendor.serviceAreas.length > 0 && (
-                <div>
-                  <p className="text-[#70797a] text-xs mb-1">Service Areas</p>
-                  <div className="flex flex-wrap gap-1">
-                    {vendor.serviceAreas.map(a => <span key={a} className="text-xs bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#29676f] px-2 py-0.5 rounded-full">{a}</span>)}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-          {vendor.services.length > 0 && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-2">Service Categories</p>
-              <div className="flex flex-wrap gap-1.5">
-                {vendor.services.map(s => <span key={s.id} className="text-xs bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/40 text-[#40484a] dark:text-[#95d0d9] px-2.5 py-1 rounded-full">{s.category.name}</span>)}
+
+        {/* Body */}
+        <div className="flex-1 p-6 space-y-6">
+
+          {/* Business Profile */}
+          <DrawerSection title="Business Profile">
+            <InfoGrid rows={[
+              { label: 'Business Name', value: vendor.businessName },
+              { label: 'Address', value: vendor.businessAddress },
+              { label: 'Phone', value: vendor.phone },
+              { label: 'Service Areas', value: vendor.serviceAreas.length > 0 ? vendor.serviceAreas.join(', ') : null },
+              { label: 'Website', value: vendor.bio ? null : null }, // bio shown below
+            ]} />
+            {vendor.bio && (
+              <div className="bg-[#f7f4f2] dark:bg-[#00272c]/60 rounded-xl px-4 py-3">
+                <p className="text-xs text-[#70797a] mb-1">Bio</p>
+                <p className="text-sm text-[#40484a] dark:text-[#95d0d9] leading-relaxed">{vendor.bio}</p>
               </div>
+            )}
+          </DrawerSection>
+
+          {/* Personal / Owner Contacts (private) */}
+          <DrawerSection title="Owner Contacts (private)">
+            <div className="bg-[#fef3ed] dark:bg-[#2a1510] rounded-xl overflow-hidden divide-y divide-[#e0b89a]/30">
+              {[
+                { label: 'Owner Name', value: vendor.ownerName },
+                { label: 'Direct Email', value: vendor.ownerDirectEmail
+                  ? <a href={`mailto:${vendor.ownerDirectEmail}`} className="text-[#29676f] hover:underline">{vendor.ownerDirectEmail}</a>
+                  : null },
+                { label: 'Direct Phone', value: vendor.ownerDirectPhone },
+                { label: 'Account Email', value: vendor.user.email },
+              ].map(({ label, value }) => value ? (
+                <div key={label} className="px-4 py-3 flex items-center justify-between gap-4">
+                  <p className="text-xs text-[#70797a] flex-shrink-0">{label}</p>
+                  <p className="text-sm text-[#00343a] dark:text-[#e0f5f7] text-right">{value}</p>
+                </div>
+              ) : null)}
             </div>
+          </DrawerSection>
+
+          {/* Services + Pricing */}
+          {vendor.services.length > 0 && (
+            <DrawerSection title={`Services & Pricing (${vendor.services.length})`}>
+              <div className="bg-white dark:bg-[#001f23] rounded-xl border border-[#e0ebe9] dark:border-[#054f57]/40 overflow-hidden divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30">
+                {vendor.services.map((s) => (
+                  <div key={s.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-[#00343a] dark:text-[#e0f5f7] truncate">{s.category.name}</p>
+                    <span className="text-xs text-[#70797a] flex-shrink-0 font-mono">{priceBadge(s)}</span>
+                  </div>
+                ))}
+              </div>
+            </DrawerSection>
           )}
+
+          {/* Verification Documents */}
+          {vendor.documents?.length > 0 && (
+            <DrawerSection title={`Verification Documents (${vendor.documents.length})`}>
+              <div className="bg-white dark:bg-[#001f23] rounded-xl border border-[#e0ebe9] dark:border-[#054f57]/40 overflow-hidden divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30">
+                {vendor.documents.map((doc) => (
+                  <div key={doc.id} className="px-4 py-3 flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-[#e8f4f0] dark:bg-[#004c54]/30 flex items-center justify-center flex-shrink-0">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#29676f" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-[#00343a] dark:text-[#e0f5f7] truncate">{doc.originalFilename}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-[10px] font-semibold uppercase tracking-wider bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#29676f] px-1.5 py-0.5 rounded">
+                          {DOC_TYPE_LABELS[doc.documentType] ?? doc.documentType}
+                        </span>
+                        {doc.stripeFileId && (
+                          <span className="text-[10px] text-[#70797a] font-mono truncate">
+                            {doc.stripeFileId}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-[#70797a] flex-shrink-0">{new Date(doc.createdAt).toLocaleDateString()}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[10px] text-[#70797a]">Documents are stored in Stripe. Use Stripe Dashboard to view or download files.</p>
+            </DrawerSection>
+          )}
+
           {vendor.infoRequestMessage && (
             <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-700/30 rounded-xl p-4">
               <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-1">Info Previously Requested</p>
@@ -1324,37 +1437,41 @@ function VendorDetailDrawer({
           )}
           {vendor.reviewNote && (
             <div className="bg-[#f7f4f2] dark:bg-[#00272c]/60 rounded-xl p-3">
-              <p className="text-xs font-semibold text-[#70797a] mb-1">Review Note</p>
+              <p className="text-xs font-semibold text-[#70797a] mb-1">Previous Review Note</p>
               <p className="text-sm text-[#40484a] dark:text-[#95d0d9]">{vendor.reviewNote}</p>
             </div>
           )}
         </div>
+
+        {/* Action footer */}
         <div className="sticky bottom-0 bg-white dark:bg-[#001f23] border-t border-[#e0ebe9] dark:border-[#054f57]/40 p-5 space-y-3">
           {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl">{err}</p>}
           {actionMode === null && (
             <div className="flex gap-2">
-              <button onClick={() => setActionMode('approve')} className="flex-1 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] transition-colors">Approve</button>
-              <button onClick={() => setActionMode('deny')} className="flex-1 py-2.5 border-2 border-red-200 text-red-600 text-sm font-semibold rounded-xl hover:bg-red-50 transition-colors">Deny</button>
-              <button onClick={() => setActionMode('info')} className="flex-1 py-2.5 border-2 border-blue-200 text-blue-600 text-sm font-semibold rounded-xl hover:bg-blue-50 transition-colors">Request Info</button>
+              <button onClick={() => setActionMode('approve')} className="flex-1 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] transition-colors">Approve Vendor</button>
+              <button onClick={() => setActionMode('deny')} className="flex-1 py-2.5 border-2 border-red-200 text-red-600 text-sm font-semibold rounded-xl hover:bg-red-50 transition-colors">Reject Application</button>
+              <button onClick={() => setActionMode('info')} className="py-2.5 px-4 border border-[#b0ccc8] dark:border-[#054f57] text-sm font-semibold rounded-xl hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-[#40484a] dark:text-[#95d0d9]">Info</button>
             </div>
           )}
           {actionMode === 'approve' && (
             <div className="space-y-3">
-              <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Approve this provider?</p>
+              <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Approve this vendor?</p>
+              <p className="text-xs text-[#70797a]">Their profile will go live and they&#39;ll receive a confirmation email.</p>
               <textarea rows={2} value={note} onChange={e => setNote(e.target.value)} placeholder="Optional internal note…" className="w-full text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl px-3 py-2 bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none" />
               <div className="flex gap-2">
                 <button disabled={saving} onClick={() => submitAction('approved')} className="flex-1 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">{saving ? 'Saving…' : 'Confirm Approval'}</button>
-                <button onClick={() => { setActionMode(null); setNote('') }} className="px-4 text-sm text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7]">Cancel</button>
+                <button onClick={() => { setActionMode(null); setNote('') }} className="px-4 text-sm text-[#70797a]">Cancel</button>
               </div>
             </div>
           )}
           {actionMode === 'deny' && (
             <div className="space-y-3">
-              <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Deny this application?</p>
-              <textarea rows={2} value={note} onChange={e => setNote(e.target.value)} placeholder="Reason for denial (sent to provider)…" className="w-full text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl px-3 py-2 bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none" />
+              <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Reject this application?</p>
+              <p className="text-xs text-[#70797a]">This reason will be sent to the provider by email.</p>
+              <textarea rows={2} value={note} onChange={e => setNote(e.target.value)} placeholder="Reason for rejection (sent to provider)…" className="w-full text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl px-3 py-2 bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none" />
               <div className="flex gap-2">
-                <button disabled={saving} onClick={() => submitAction('rejected')} className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 disabled:opacity-60 transition-colors">{saving ? 'Saving…' : 'Confirm Denial'}</button>
-                <button onClick={() => { setActionMode(null); setNote('') }} className="px-4 text-sm text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7]">Cancel</button>
+                <button disabled={saving} onClick={() => submitAction('rejected')} className="flex-1 py-2.5 bg-red-600 text-white text-sm font-semibold rounded-xl hover:bg-red-700 disabled:opacity-60 transition-colors">{saving ? 'Saving…' : 'Reject Application'}</button>
+                <button onClick={() => { setActionMode(null); setNote('') }} className="px-4 text-sm text-[#70797a]">Cancel</button>
               </div>
             </div>
           )}
@@ -1364,7 +1481,7 @@ function VendorDetailDrawer({
               <textarea rows={3} value={infoMessage} onChange={e => setInfoMessage(e.target.value)} placeholder="Describe what additional documents or details are required…" className="w-full text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl px-3 py-2 bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] resize-none" />
               <div className="flex gap-2">
                 <button disabled={saving || !infoMessage.trim()} onClick={() => submitAction('info_requested')} className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl hover:bg-blue-700 disabled:opacity-60 transition-colors">{saving ? 'Sending…' : 'Send Request'}</button>
-                <button onClick={() => { setActionMode(null); setInfoMessage('') }} className="px-4 text-sm text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7]">Cancel</button>
+                <button onClick={() => { setActionMode(null); setInfoMessage('') }} className="px-4 text-sm text-[#70797a]">Cancel</button>
               </div>
             </div>
           )}

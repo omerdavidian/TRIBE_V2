@@ -837,6 +837,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
             },
           },
         },
+        documents: true,
       },
     })
 

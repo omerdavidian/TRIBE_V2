@@ -56,6 +56,7 @@ interface ProviderProfile {
   ownerName: string | null
   ownerDirectEmail: string | null
   ownerDirectPhone: string | null
+  reviewNote: string | null
   services: Array<{
     id: string
     categoryId: string
@@ -100,29 +101,37 @@ const lbl = 'block text-xs font-semibold text-[#40484a] dark:text-[#95d0d9] mb-1
 
 function Tooltip({ text }: { text: string }) {
   const [visible, setVisible] = useState(false)
-  const ref = useRef<HTMLSpanElement>(null)
+  const [pos, setPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  function showTooltip() {
+    if (btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect()
+      setPos({ top: r.top - 8, left: r.left + r.width / 2 })
+    }
+    setVisible(true)
+  }
 
   return (
-    <span
-      ref={ref}
-      className="relative inline-flex items-center"
-      onMouseEnter={() => setVisible(true)}
-      onMouseLeave={() => setVisible(false)}
-      onFocus={() => setVisible(true)}
-      onBlur={() => setVisible(false)}
-    >
+    <span className="relative inline-flex items-center flex-shrink-0">
       <button
+        ref={btnRef}
         type="button"
         aria-label="More info"
         tabIndex={0}
-        className="w-4 h-4 rounded-full border border-[#b0ccc8] dark:border-[#054f57] text-[#70797a] text-[10px] font-bold flex items-center justify-center hover:border-[#29676f] hover:text-[#29676f] transition-colors flex-shrink-0"
+        onMouseEnter={showTooltip}
+        onMouseLeave={() => setVisible(false)}
+        onFocus={showTooltip}
+        onBlur={() => setVisible(false)}
+        className="w-4 h-4 rounded-full border border-[#b0ccc8] dark:border-[#054f57] text-[#70797a] text-[10px] font-bold flex items-center justify-center hover:border-[#29676f] hover:text-[#29676f] transition-colors"
       >
         i
       </button>
       {visible && (
         <span
           role="tooltip"
-          className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 w-56 px-3 py-2 rounded-xl bg-[#00343a] text-white text-xs leading-relaxed shadow-xl pointer-events-none"
+          style={{ top: pos.top, left: pos.left, transform: 'translate(-50%, -100%)' }}
+          className="fixed z-[9999] w-56 px-3 py-2 rounded-xl bg-[#00343a] text-white text-xs leading-relaxed shadow-xl pointer-events-none"
         >
           {text}
           <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#00343a]" />
@@ -470,7 +479,129 @@ function SectionProfile({ profile, token, onSaved }: { profile: ProviderProfile;
 
 // ── Section: Services & Pricing ───────────────────────────────────────────────
 
-function SectionServices({ profile, token }: { profile: ProviderProfile; token: string }) {
+// ── Section: Services & Pricing (granular flat matrix) ───────────────────────
+//
+// Each of the 32 postpartum service catalog items is rendered as its own
+// selectable card. Checking a card instantly reveals an independent pricing
+// form so providers can configure Flat / Hourly / Daily / Weekly / Range
+// rates — and see their real-time take-home — per service.
+
+function ServiceCard({
+  cat, isSelected, service, commissionRate, onToggle, onUpdate,
+}: {
+  cat: CategoryOption
+  isSelected: boolean
+  service: ServiceEntry | null
+  commissionRate: number
+  onToggle: () => void
+  onUpdate: (patch: Partial<ServiceEntry>) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  // Collapse when deselected
+  useEffect(() => { if (!isSelected) setExpanded(false) }, [isSelected])
+
+  const priceLabel = (() => {
+    if (!service) return null
+    if (service.billingStructure === 'range' && (service.priceMinCents ?? 0) > 0 && (service.priceMaxCents ?? 0) > 0) {
+      return `$${((service.priceMinCents ?? 0) / 100).toFixed(0)} – $${((service.priceMaxCents ?? 0) / 100).toFixed(0)}`
+    }
+    if ((service.priceMaxCents ?? 0) > 0) {
+      return `$${((service.priceMaxCents ?? 0) / 100).toFixed(0)}`
+    }
+    return null
+  })()
+
+  const structureLabel = service ? BILLING_STRUCTURES.find(b => b.id === service.billingStructure)?.label : null
+
+  return (
+    // overflow-visible is intentional: tooltips must escape the card boundary.
+    // The rounded border still renders correctly without overflow-hidden.
+    <div className={`border rounded-2xl transition-all duration-150 ${
+      isSelected
+        ? 'border-[#29676f] shadow-sm shadow-[#29676f]/10'
+        : 'border-[#e0ebe9] dark:border-[#054f57]/50 hover:border-[#29676f]/50'
+    } bg-white dark:bg-[#001f23]`}>
+      {/* Card header — always visible */}
+      <div className="flex items-center gap-3 px-4 py-3.5">
+        {/* Checkbox */}
+        <button
+          type="button"
+          onClick={() => { onToggle(); if (!isSelected) setExpanded(true) }}
+          className={`flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors cursor-pointer ${
+            isSelected ? 'bg-[#29676f] border-[#29676f]' : 'border-[#b0ccc8] dark:border-[#054f57] hover:border-[#29676f]'
+          }`}
+          aria-checked={isSelected}
+          role="checkbox"
+        >
+          {isSelected && (
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          )}
+        </button>
+
+        {/* Icon + Name + Tooltip */}
+        <div className="flex-1 flex items-center gap-2 min-w-0">
+          {cat.iconName && <span className="text-base flex-shrink-0">{cat.iconName}</span>}
+          <span className={`text-sm font-semibold truncate ${isSelected ? 'text-[#00343a] dark:text-[#e0f5f7]' : 'text-[#40484a] dark:text-[#95d0d9]'}`}>
+            {cat.name}
+          </span>
+          {cat.description && <Tooltip text={cat.description} />}
+        </div>
+
+        {/* Price badge + expand chevron */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {isSelected && priceLabel && (
+            <span className="hidden sm:inline text-[10px] font-semibold text-[#29676f] bg-[#e8f4f0] dark:bg-[#004c54]/30 px-2 py-0.5 rounded-full whitespace-nowrap">
+              {priceLabel}{structureLabel ? ` · ${structureLabel}` : ''}
+            </span>
+          )}
+          {isSelected && (
+            <button
+              type="button"
+              onClick={() => setExpanded(e => !e)}
+              className="p-0.5 text-[#70797a] hover:text-[#00343a] dark:hover:text-[#e0f5f7] transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                className={`transition-transform duration-150 ${expanded ? 'rotate-180' : ''}`}>
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Pricing form — shown when selected and expanded */}
+      {isSelected && expanded && service && (
+        <div className="px-4 pb-4 pt-1 border-t border-[#e0ebe9] dark:border-[#054f57]/40 space-y-4">
+          <PricingConfigForm
+            service={service}
+            commissionRate={commissionRate}
+            onChange={onUpdate}
+          />
+          <div>
+            <label className={lbl}>
+              Your Service Description / Specialization Narrative
+              <span className="font-normal text-[#70797a] ml-1">optional</span>
+            </label>
+            <textarea
+              rows={3}
+              value={service.description}
+              onChange={(e) => onUpdate({ description: e.target.value })}
+              placeholder="Describe your approach to this service — your training, methodology, session format, what makes your offering unique, and any specializations that set you apart…"
+              className={`${inp} resize-none`}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SectionServices({ profile, token }: {
+  profile: ProviderProfile; token: string
+}) {
   const [categories, setCategories] = useState<CategoryOption[]>([])
   const [commissionRate, setCommissionRate] = useState(0.05)
   const [services, setServices] = useState<ServiceEntry[]>(() =>
@@ -489,7 +620,6 @@ function SectionServices({ profile, token }: { profile: ProviderProfile; token: 
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState('')
-  const [expandedCat, setExpandedCat] = useState<string | null>(null)
 
   useEffect(() => {
     if (!token) return
@@ -506,7 +636,6 @@ function SectionServices({ profile, token }: { profile: ProviderProfile; token: 
       if (prev.some((s) => s.categoryId === cat.id)) return prev.filter((s) => s.categoryId !== cat.id)
       return [...prev, { categoryId: cat.id, billingStructure: 'flat', priceMinCents: null, priceMaxCents: null, billingFrequency: 'flat', description: '' }]
     })
-    setExpandedCat(cat.id)
   }
 
   function updateService(catId: string, patch: Partial<ServiceEntry>) {
@@ -535,97 +664,55 @@ function SectionServices({ profile, token }: { profile: ProviderProfile; token: 
     } finally { setSaving(false) }
   }
 
-  const selectedServices = services.map((s) => ({ ...s, cat: categories.find((c) => c.id === s.categoryId) })).filter((s) => s.cat)
+  const selectedCount = services.length
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-4xl space-y-5">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Services & Pricing</h1>
-        <button onClick={save} disabled={saving || services.length === 0}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">
+        <div>
+          <h1 className="font-serif text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7]">Services & Pricing</h1>
+          <p className="text-sm text-[#70797a] mt-0.5">
+            {selectedCount > 0
+              ? `${selectedCount} service${selectedCount !== 1 ? 's' : ''} selected · expand any card to configure pricing`
+              : 'Select the services you offer below'}
+          </p>
+        </div>
+        <button
+          onClick={save}
+          disabled={saving || services.length === 0}
+          className="flex-shrink-0 px-5 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors"
+        >
           {saving ? 'Saving…' : saved ? '✓ Saved' : 'Save changes'}
         </button>
       </div>
 
-      {/* Commission rate info banner */}
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-[#f7f4f2] dark:bg-[#004c54]/10 border border-[#e0ebe9] dark:border-[#054f57]/40 text-xs text-[#70797a]">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        Platform commission is <strong className="text-[#00343a] dark:text-[#e0f5f7]">{(commissionRate * 100).toFixed(0)}%</strong> — pricing inputs below show your take-home in real time.
+      {/* Commission banner */}
+      <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-[#f7f4f2] dark:bg-[#004c54]/10 border border-[#e0ebe9] dark:border-[#054f57]/40 text-xs text-[#70797a]">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Platform commission is{' '}
+        <strong className="text-[#00343a] dark:text-[#e0f5f7]">{(commissionRate * 100).toFixed(0)}%</strong>
+        {' '}— expand any selected service to see your real-time take-home.
       </div>
 
-      {/* Category selector */}
-      <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 p-6">
-        <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7] mb-1">Select your service categories</p>
-        <p className="text-xs text-[#70797a] mb-4">Choose everything you offer. Hover the <strong>(i)</strong> icon for a description of each service.</p>
-        {categories.length === 0 ? (
-          <div className="flex items-center gap-2 text-sm text-[#70797a]">
-            <div className="w-4 h-4 border-2 border-[#29676f] border-t-transparent rounded-full animate-spin" />
-            Loading categories…
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {categories.map((cat) => (
-              <div key={cat.id} className="flex items-center gap-2">
-                <button
-                  type="button" onClick={() => toggleCategory(cat)}
-                  className={`flex items-center gap-2.5 flex-1 px-3 py-2.5 rounded-xl border text-sm font-medium transition-all text-left ${isSelected(cat.id) ? 'border-[#29676f] bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#00343a] dark:text-[#e0f5f7]' : 'border-[#e0ebe9] dark:border-[#054f57] text-[#40484a] dark:text-[#95d0d9] hover:border-[#29676f]/60'}`}
-                >
-                  <span className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center ${isSelected(cat.id) ? 'bg-[#29676f]' : 'border-2 border-[#b0ccc8] dark:border-[#054f57]'}`}>
-                    {isSelected(cat.id) && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg>}
-                  </span>
-                  <span className="truncate">{cat.iconName && <span className="mr-1">{cat.iconName}</span>}{cat.name}</span>
-                </button>
-                {cat.description && <Tooltip text={cat.description} />}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Pricing config per selected service */}
-      {selectedServices.length > 0 && (
-        <div className="space-y-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#70797a]">Pricing Configuration</p>
-          {selectedServices.map((s) => (
-            <div key={s.categoryId} className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setExpandedCat(expandedCat === s.categoryId ? null : s.categoryId)}
-                className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/10 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-base">{s.cat?.iconName}</span>
-                  <span className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">{s.cat?.name}</span>
-                  {(s.priceMinCents ?? s.priceMaxCents) && (
-                    <span className="text-xs text-[#70797a] bg-[#f0f9f0] dark:bg-[#004c54]/20 px-2 py-0.5 rounded-full">
-                      {s.billingStructure === 'range'
-                        ? `$${((s.priceMinCents ?? 0) / 100).toFixed(0)} – $${((s.priceMaxCents ?? 0) / 100).toFixed(0)}`
-                        : `$${((s.priceMaxCents ?? 0) / 100).toFixed(0)}`}
-                      {' · '}{BILLING_STRUCTURES.find((b) => b.id === s.billingStructure)?.label}
-                    </span>
-                  )}
-                </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`text-[#70797a] transition-transform ${expandedCat === s.categoryId ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              {expandedCat === s.categoryId && (
-                <div className="px-5 pb-5 border-t border-[#e8e1db] dark:border-[#054f57]/40 pt-4 space-y-4">
-                  <PricingConfigForm
-                    service={s}
-                    commissionRate={commissionRate}
-                    onChange={(patch) => updateService(s.categoryId, patch)}
-                  />
-                  <div>
-                    <label className={lbl}>Description <span className="font-normal text-[#70797a]">optional</span></label>
-                    <textarea
-                      rows={2} value={s.description}
-                      onChange={(e) => updateService(s.categoryId, { description: e.target.value })}
-                      placeholder="What's included, session length, special notes…"
-                      className={`${inp} resize-none`}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
+      {/* Service matrix */}
+      {categories.length === 0 ? (
+        <div className="flex items-center gap-2.5 py-8 justify-center text-sm text-[#70797a]">
+          <div className="w-4 h-4 border-2 border-[#29676f] border-t-transparent rounded-full animate-spin" />
+          Loading service catalog…
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          {categories.map((cat) => (
+            <ServiceCard
+              key={cat.id}
+              cat={cat}
+              isSelected={isSelected(cat.id)}
+              service={services.find((s) => s.categoryId === cat.id) ?? null}
+              commissionRate={commissionRate}
+              onToggle={() => toggleCategory(cat)}
+              onUpdate={(patch) => updateService(cat.id, patch)}
+            />
           ))}
         </div>
       )}
@@ -711,32 +798,224 @@ function SectionHours({ profile, token }: { profile: ProviderProfile; token: str
 
 // ── Section: Payments (Stripe Connect) ────────────────────────────────────────
 
+// ── Document type options ─────────────────────────────────────────────────────
+
+const DOC_TYPES = [
+  { value: 'ein_certificate', label: 'EIN Certificate', hint: 'IRS-issued Employer Identification Number letter' },
+  { value: 'irs_letter', label: 'IRS Letter', hint: '147C letter or similar IRS confirmation' },
+  { value: 'w2', label: 'W-2', hint: 'Annual wage and tax statement' },
+  { value: 'identity_front', label: 'ID — Front', hint: 'Driver\'s license or government ID (front)' },
+  { value: 'identity_back', label: 'ID — Back', hint: 'Driver\'s license or government ID (back)' },
+  { value: 'other', label: 'Other', hint: 'Any additional verification document' },
+] as const
+
+type ProviderDoc = {
+  id: string
+  documentType: string
+  documentTypeLabel: string
+  originalFilename: string
+  fileSizeBytes: number | null
+  mimeType: string
+  stripeFileId: string | null
+  createdAt: string
+}
+
+function formatBytes(bytes: number | null): string {
+  if (!bytes) return ''
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+// ── Document upload sub-section ───────────────────────────────────────────────
+
+function DocumentUploadSection({ token }: { token: string }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [docType, setDocType] = useState<string>('ein_certificate')
+  const [uploading, setUploading] = useState(false)
+  const [uploadErr, setUploadErr] = useState('')
+  const [docs, setDocs] = useState<ProviderDoc[]>([])
+  const [loadingDocs, setLoadingDocs] = useState(true)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  useEffect(() => {
+    apiRequest<ProviderDoc[]>('/provider/documents', { token })
+      .then(setDocs)
+      .catch(() => {})
+      .finally(() => setLoadingDocs(false))
+  }, [token])
+
+  async function upload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setUploading(true); setUploadErr('')
+
+    const form = new FormData()
+    form.append('file', file)
+    form.append('type', docType)
+
+    try {
+      const { apiRequest: rawFetch } = await import('@/lib/api')
+      const doc = await rawFetch<ProviderDoc>('/provider/documents/upload', {
+        method: 'POST',
+        token,
+        body: form,
+      })
+      setDocs((prev) => [doc, ...prev])
+    } catch (err) {
+      setUploadErr(err instanceof Error ? err.message : 'Upload failed — please try again')
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  async function remove(id: string) {
+    setDeleting(id)
+    try {
+      await apiRequest(`/provider/documents/${id}`, { method: 'DELETE', token })
+      setDocs((prev) => prev.filter((d) => d.id !== id))
+    } catch { /* non-fatal */ } finally { setDeleting(null) }
+  }
+
+  return (
+    <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 overflow-hidden">
+      <div className="px-6 py-5 border-b border-[#e8e1db] dark:border-[#054f57]/40">
+        <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">Business Verification Documents</h2>
+        <p className="text-xs text-[#70797a] mt-0.5">Upload EIN certificates, IRS letters, W-2s, or government ID for account verification. Files are transmitted directly to Stripe's secure storage.</p>
+      </div>
+
+      {/* Upload form */}
+      <div className="px-6 py-5 space-y-4 border-b border-[#e8e1db] dark:border-[#054f57]/40">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label className={lbl}>Document Type</label>
+            <select
+              value={docType}
+              onChange={(e) => setDocType(e.target.value)}
+              className={inp}
+            >
+              {DOC_TYPES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label}</option>
+              ))}
+            </select>
+            <p className="text-[10px] text-[#70797a] mt-1">
+              {DOC_TYPES.find((t) => t.value === docType)?.hint}
+            </p>
+          </div>
+          <div>
+            <label className={lbl}>File <span className="font-normal text-[#70797a]">(PDF, JPEG, PNG — max 10 MB)</span></label>
+            <label className={`${inp} flex items-center gap-2 cursor-pointer text-[#70797a] hover:border-[#29676f] transition-colors ${uploading ? 'opacity-50 pointer-events-none' : ''}`}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              {uploading ? 'Uploading…' : 'Choose file to upload'}
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.webp"
+                className="sr-only"
+                onChange={upload}
+                disabled={uploading}
+              />
+            </label>
+          </div>
+        </div>
+        {uploadErr && (
+          <p className="text-xs text-red-600 bg-red-50 dark:bg-red-900/10 px-3 py-2 rounded-xl">{uploadErr}</p>
+        )}
+      </div>
+
+      {/* Document list */}
+      {loadingDocs ? (
+        <div className="px-6 py-4 space-y-2">
+          {[1, 2].map((i) => <div key={i} className="h-12 rounded-xl bg-[#f7f4f2] dark:bg-[#004c54]/20 animate-pulse" />)}
+        </div>
+      ) : docs.length === 0 ? (
+        <div className="px-6 py-8 text-center">
+          <p className="text-sm text-[#70797a]">No documents uploaded yet.</p>
+        </div>
+      ) : (
+        <ul className="divide-y divide-[#e8e1db] dark:divide-[#054f57]/30">
+          {docs.map((doc) => (
+            <li key={doc.id} className="px-6 py-3.5 flex items-center gap-4">
+              <div className="w-8 h-8 rounded-lg bg-[#e8f4f0] dark:bg-[#004c54]/30 flex items-center justify-center flex-shrink-0">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#29676f" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-[#00343a] dark:text-[#e0f5f7] truncate">{doc.originalFilename}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] font-semibold uppercase tracking-wider bg-[#e8f4f0] dark:bg-[#004c54]/30 text-[#29676f] px-1.5 py-0.5 rounded">
+                    {doc.documentTypeLabel}
+                  </span>
+                  {doc.fileSizeBytes && <span className="text-[10px] text-[#70797a]">{formatBytes(doc.fileSizeBytes)}</span>}
+                  {doc.stripeFileId && <span className="text-[10px] text-[#70797a]">· Stripe: {doc.stripeFileId.slice(0, 16)}…</span>}
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <span className="text-[10px] text-[#70797a]">{new Date(doc.createdAt).toLocaleDateString()}</span>
+                <button
+                  onClick={() => remove(doc.id)}
+                  disabled={deleting === doc.id}
+                  className="p-1.5 rounded-lg text-[#70797a] hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors disabled:opacity-40"
+                  aria-label="Remove document"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a1 1 0 011-1h4a1 1 0 011 1v2"/></svg>
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+// ── Section: Payments (Stripe Connect + Documents) ────────────────────────────
+
 function SectionPayments({ profile, token }: { profile: ProviderProfile; token: string }) {
   const [stripeStatus, setStripeStatus] = useState({
     accountId: profile.stripeAccountId,
     onboardingCompleted: profile.stripeOnboardingCompleted,
     chargesEnabled: false,
     payoutsEnabled: false,
+    detailsSubmitted: false,
   })
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
   const [openingDashboard, setOpeningDashboard] = useState(false)
   const [err, setErr] = useState('')
+  const [stripeConfigured, setStripeConfigured] = useState(true)
 
   useEffect(() => {
     apiRequest<{ stripe: typeof stripeStatus }>('/provider/stripe/connect/status', { token })
       .then((d) => setStripeStatus(d.stripe))
-      .catch(() => {})
+      .catch((e) => {
+        const status = (e as { status?: number }).status
+        if (status === 503) {
+          setStripeConfigured(false)
+        } else {
+          setErr(e instanceof Error ? e.message : 'Could not reach Stripe status endpoint')
+        }
+      })
       .finally(() => setLoading(false))
   }, [token])
 
   async function startOnboarding() {
     setConnecting(true); setErr('')
     try {
-      const data = await apiRequest<{ url: string }>('/provider/stripe/connect', { method: 'POST', token })
-      window.location.href = data.url
+      const data = await apiRequest<{ url: string }>('/provider/stripe/connect', {
+        method: 'POST',
+        token,
+      })
+      // Redirect directly — this navigates away to Stripe's hosted onboarding
+      window.location.assign(data.url)
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Failed to start Stripe onboarding')
+      const status = (e as { status?: number }).status
+      if (status === 503) {
+        setStripeConfigured(false)
+        setErr('Stripe is not configured on this server. Contact the platform admin.')
+      } else {
+        setErr(e instanceof Error ? e.message : 'Failed to start Stripe onboarding — please try again')
+      }
       setConnecting(false)
     }
   }
@@ -760,6 +1039,28 @@ function SectionPayments({ profile, token }: { profile: ProviderProfile; token: 
         <p className="text-sm text-[#70797a] mt-1">Connect your bank account via Stripe to receive payouts from bookings.</p>
       </div>
 
+      {/* Stripe not configured — shown when API returns 503 */}
+      {!stripeConfigured && (
+        <div className="flex items-start gap-3 px-5 py-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-700/30">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#92400e" strokeWidth="2" className="flex-shrink-0 mt-0.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Stripe is not configured</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+              <code className="font-mono">STRIPE_SECRET_KEY</code> is missing from the API environment. Contact your platform admin to add it before connecting a bank account.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Global error banner */}
+      {err && (
+        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-700/30 text-xs text-red-700 dark:text-red-300">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          {err}
+        </div>
+      )}
+
+      {/* Stripe Connect status card */}
       {loading ? (
         <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 p-8 flex items-center gap-3 text-[#70797a]">
           <div className="w-5 h-5 border-2 border-[#29676f] border-t-transparent rounded-full animate-spin" />
@@ -767,7 +1068,6 @@ function SectionPayments({ profile, token }: { profile: ProviderProfile; token: 
         </div>
       ) : (
         <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 overflow-hidden">
-          {/* Status header */}
           <div className={`px-6 py-5 border-b border-[#e8e1db] dark:border-[#054f57]/40 flex items-center justify-between ${isConnected ? 'bg-[#e8f4f0] dark:bg-[#004c54]/10' : ''}`}>
             <div className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-full flex-shrink-0 ${isConnected ? 'bg-[#29676f]' : stripeStatus.accountId ? 'bg-amber-400' : 'bg-[#b0ccc8]'}`} />
@@ -791,12 +1091,11 @@ function SectionPayments({ profile, token }: { profile: ProviderProfile; token: 
             )}
           </div>
 
-          {/* Details */}
           <div className="px-6 py-5 space-y-5">
             {stripeStatus.accountId && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: 'Account ID', value: stripeStatus.accountId.replace('acct_', 'acct_····') },
+                  { label: 'Account ID', value: stripeStatus.accountId.replace('acct_', 'acct_·') },
                   { label: 'Charges', value: stripeStatus.chargesEnabled ? 'Enabled' : 'Pending', ok: stripeStatus.chargesEnabled },
                   { label: 'Payouts', value: stripeStatus.payoutsEnabled ? 'Enabled' : 'Pending', ok: stripeStatus.payoutsEnabled },
                   { label: 'Onboarding', value: stripeStatus.onboardingCompleted ? 'Complete' : 'Incomplete', ok: stripeStatus.onboardingCompleted },
@@ -811,22 +1110,16 @@ function SectionPayments({ profile, token }: { profile: ProviderProfile; token: 
 
             <div className="flex flex-col sm:flex-row gap-3">
               {!isConnected && (
-                <button
-                  onClick={startOnboarding} disabled={connecting}
-                  className="flex items-center justify-center gap-2 flex-1 py-3 px-5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors"
-                >
-                  {connecting ? (
-                    <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Redirecting to Stripe…</>
-                  ) : (
-                    <>{stripeStatus.accountId ? 'Continue Onboarding' : 'Connect Bank Account'}</>
-                  )}
+                <button onClick={startOnboarding} disabled={connecting}
+                  className="flex items-center justify-center gap-2 flex-1 py-3 px-5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-60 transition-colors">
+                  {connecting
+                    ? <><div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />Redirecting to Stripe…</>
+                    : <>{stripeStatus.accountId ? 'Continue Onboarding' : 'Connect Bank Account'}</>}
                 </button>
               )}
               {stripeStatus.accountId && (
-                <button
-                  onClick={openDashboard} disabled={openingDashboard}
-                  className="flex items-center justify-center gap-2 flex-1 py-3 px-5 border-2 border-[#b0ccc8] dark:border-[#054f57] text-sm font-semibold rounded-xl hover:bg-[#e8f4f0] dark:hover:bg-[#004c54]/20 transition-colors text-[#00343a] dark:text-[#95d0d9]"
-                >
+                <button onClick={openDashboard} disabled={openingDashboard}
+                  className="flex items-center justify-center gap-2 flex-1 py-3 px-5 border-2 border-[#b0ccc8] dark:border-[#054f57] text-sm font-semibold rounded-xl hover:bg-[#e8f4f0] dark:hover:bg-[#004c54]/20 transition-colors text-[#00343a] dark:text-[#95d0d9]">
                   {openingDashboard ? 'Opening…' : 'Open Stripe Dashboard ↗'}
                 </button>
               )}
@@ -835,11 +1128,14 @@ function SectionPayments({ profile, token }: { profile: ProviderProfile; token: 
         </div>
       )}
 
-      {/* Payout info cards */}
+      {/* Business verification documents */}
+      <DocumentUploadSection token={token} />
+
+      {/* Info cards */}
       <div className="grid sm:grid-cols-3 gap-4">
         {[
           { icon: '⚡', title: 'Weekly Payouts', desc: 'Earnings are transferred to your bank every Friday.' },
-          { icon: '🔒', title: 'Secure & Encrypted', desc: 'Bank details are held by Stripe and never stored on our servers.' },
+          { icon: '🔒', title: 'Secure & Encrypted', desc: 'Bank details and documents are held by Stripe and never stored on our servers.' },
           { icon: '📊', title: 'Full Visibility', desc: 'View your full payout history in the Stripe Express dashboard.' },
         ].map((card) => (
           <div key={card.title} className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 p-5">
@@ -849,8 +1145,6 @@ function SectionPayments({ profile, token }: { profile: ProviderProfile; token: 
           </div>
         ))}
       </div>
-
-      {err && <p className="text-xs text-red-600 bg-red-50 px-4 py-3 rounded-xl">{err}</p>}
     </div>
   )
 }
@@ -878,6 +1172,9 @@ function ProviderDashboardContent() {
   const [section, setSection] = useState<Section>('home')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [loadingProfile, setLoadingProfile] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitErr, setSubmitErr] = useState('')
+  const [submitSuccess, setSubmitSuccess] = useState(false)
 
   const token = getToken() ?? ''
 
@@ -889,6 +1186,17 @@ function ProviderDashboardContent() {
       setProfile(p)
     } catch { /* non-fatal */ } finally { setLoadingProfile(false) }
   }, [token])
+
+  async function submitApplication() {
+    setSubmitting(true); setSubmitErr('')
+    try {
+      await apiRequest('/provider/submit-application', { method: 'POST', token })
+      setSubmitSuccess(true)
+      void fetchProfile()
+    } catch (e) {
+      setSubmitErr(e instanceof Error ? e.message : 'Submission failed — check all required fields')
+    } finally { setSubmitting(false) }
+  }
 
   useEffect(() => {
     const stored = getStoredUser()
@@ -1002,62 +1310,150 @@ function ProviderDashboardContent() {
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
 
-          {section === 'home' && (
-            <div className="max-w-3xl space-y-6">
-              <div className="bg-gradient-to-br from-[#00343a] to-[#29676f] rounded-3xl p-8 text-white">
-                <p className="text-[#95d0d9] text-sm font-medium mb-1">Provider dashboard</p>
-                <h1 className="font-serif text-3xl font-bold mb-2">Welcome, {user.firstName ?? displayName} 🌿</h1>
-                <p className="text-[#95d0d9] text-sm">{profile?.businessName ?? 'Complete your profile to start receiving bookings'}</p>
-              </div>
-              {profile && !profile.businessName && (
-                <div className="flex items-start gap-3 p-4 bg-[#fef3ed] dark:bg-[#2a1510] rounded-2xl border border-[#e0b89a]/40">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c05928" strokeWidth="2" className="flex-shrink-0 mt-0.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                  <div>
-                    <p className="text-sm font-semibold text-[#c05928]">Complete your profile</p>
-                    <p className="text-xs text-[#70797a] mt-0.5">Add your business name, bio, and service areas to appear in search results.</p>
-                    <button onClick={() => setSection('profile')} className="mt-2 text-xs font-semibold text-[#c05928] hover:text-[#a0431e] underline underline-offset-2">Set up profile →</button>
-                  </div>
+          {section === 'home' && (() => {
+            const hasServices = (profile?.services?.length ?? 0) > 0 && profile?.services?.some(s => (s.priceMaxCents ?? 0) > 0)
+            const checks = [
+              { label: 'Business name', done: !!profile?.businessName, action: () => setSection('profile') },
+              { label: 'Owner contact info', done: !!(profile?.ownerName && profile?.ownerDirectEmail), action: () => setSection('profile') },
+              { label: 'At least one priced service', done: !!hasServices, action: () => setSection('services') },
+            ]
+            const allDone = checks.every(c => c.done)
+            const status = profile?.applicationStatus
+            const isUnderReview = status === 'pending'
+            const isApproved = status === 'approved'
+            const isRejected = status === 'rejected'
+
+            return (
+              <div className="max-w-3xl space-y-6">
+                <div className="bg-gradient-to-br from-[#00343a] to-[#29676f] rounded-3xl p-8 text-white">
+                  <p className="text-[#95d0d9] text-sm font-medium mb-1">Provider dashboard</p>
+                  <h1 className="font-serif text-3xl font-bold mb-2">Welcome, {user.firstName ?? displayName} &#127807;</h1>
+                  <p className="text-[#95d0d9] text-sm">{profile?.businessName ?? 'Complete your profile to start receiving bookings'}</p>
                 </div>
-              )}
-              {profile && !profile.stripeOnboardingCompleted && (
-                <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-700/30">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c05928" strokeWidth="2" className="flex-shrink-0 mt-0.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
-                  <div>
-                    <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Connect your bank to receive payouts</p>
-                    <p className="text-xs text-[#70797a] mt-0.5">Link your bank account via Stripe to get paid for completed bookings.</p>
-                    <button onClick={() => setSection('payments')} className="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2">Set up payments →</button>
+
+                {/* Application status + checklist */}
+                {profile && (
+                  <div className={[
+                    'rounded-2xl border overflow-hidden',
+                    isApproved ? 'border-[#29676f] bg-[#e8f4f0] dark:bg-[#004c54]/20' :
+                    isUnderReview ? 'border-amber-200 bg-amber-50 dark:bg-amber-900/10' :
+                    isRejected ? 'border-red-200 bg-red-50 dark:bg-red-900/10' :
+                    'border-[#e8e1db] dark:border-[#054f57]/60 bg-white dark:bg-[#001f23]',
+                  ].join(' ')}>
+                    <div className="px-5 py-4 border-b border-[#e8e1db]/50 dark:border-[#054f57]/30 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5">
+                        <div className={['w-2.5 h-2.5 rounded-full flex-shrink-0',
+                          isApproved ? 'bg-[#29676f]' : isUnderReview ? 'bg-amber-400 animate-pulse' : isRejected ? 'bg-red-500' : 'bg-[#b0ccc8]',
+                        ].join(' ')} />
+                        <p className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">
+                          {isApproved ? 'Application Approved' : isUnderReview ? 'Application Under Review' : isRejected ? 'Application Not Approved' : 'Complete your application'}
+                        </p>
+                      </div>
+                      <span className={['text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border',
+                        isApproved ? 'text-[#29676f] bg-[#e8f4f0] border-[#95d0d9]/40' :
+                        isUnderReview ? 'text-amber-700 bg-amber-100 border-amber-200' :
+                        isRejected ? 'text-red-600 bg-red-100 border-red-200' :
+                        'text-[#70797a] bg-[#f7f4f2] border-[#e0ebe9]',
+                      ].join(' ')}>
+                        {isApproved ? 'Active' : isUnderReview ? 'Pending Review' : isRejected ? 'Rejected' : 'Draft'}
+                      </span>
+                    </div>
+
+                    <div className="px-5 py-4 space-y-3">
+                      {!isUnderReview && !isApproved && (
+                        <div className="space-y-2.5">
+                          {checks.map((ch) => (
+                            <div key={ch.label} className="flex items-center justify-between">
+                              <div className="flex items-center gap-2.5">
+                                <div className={['w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0',
+                                  ch.done ? 'bg-[#29676f]' : 'border-2 border-[#b0ccc8] dark:border-[#054f57]',
+                                ].join(' ')}>
+                                  {ch.done && <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5"><polyline points="20 6 9 17 4 12"/></svg>}
+                                </div>
+                                <span className={'text-sm ' + (ch.done ? 'text-[#70797a] line-through' : 'text-[#00343a] dark:text-[#e0f5f7] font-medium')}>
+                                  {ch.label}
+                                </span>
+                              </div>
+                              {!ch.done && (
+                                <button onClick={ch.action} className="text-xs text-[#29676f] hover:underline flex-shrink-0">Complete &#x2192;</button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {isUnderReview && (
+                        <p className="text-sm text-[#70797a]">Our team is reviewing your submission. We&#39;ll notify you by email once a decision is made — typically within 1–2 business days.</p>
+                      )}
+                      {isApproved && (
+                        <p className="text-sm text-[#70797a]">Your profile is live. Families can now find and book your services on TRIBE.</p>
+                      )}
+                      {isRejected && profile.reviewNote && (
+                        <div className="p-3 rounded-xl bg-red-50 dark:bg-red-900/10 border border-red-100">
+                          <p className="text-xs font-semibold text-red-700 mb-0.5">Feedback from reviewer</p>
+                          <p className="text-sm text-red-600">{profile.reviewNote}</p>
+                        </div>
+                      )}
+
+                      {!isUnderReview && !isApproved && (
+                        <div className="pt-1 space-y-1.5">
+                          {submitErr && <p className="text-xs text-red-600">{submitErr}</p>}
+                          {submitSuccess && <p className="text-xs text-[#29676f]">&#10003; Application submitted successfully!</p>}
+                          <button
+                            onClick={submitApplication}
+                            disabled={!allDone || submitting}
+                            className="w-full sm:w-auto px-6 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {submitting ? 'Submitting…' : isRejected ? 'Resubmit Application' : 'Send Application'}
+                          </button>
+                          {!allDone && <p className="text-[10px] text-[#70797a]">Complete all items above to enable submission.</p>}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {[
-                  { label: 'Pending bookings', value: '0', bg: 'bg-[#fef3ed]', text: 'text-[#c05928]' },
-                  { label: 'Completed this month', value: '0', bg: 'bg-[#e8f4f5]', text: 'text-[#00343a]' },
-                  { label: 'Earnings (MTD)', value: '$0', bg: 'bg-[#f0f9f0]', text: 'text-[#2d7a2d]' },
-                ].map((s) => (
-                  <div key={s.label} className={`${s.bg} dark:bg-[#001f23] rounded-2xl p-6`}>
-                    <p className={`text-3xl font-bold ${s.text}`}>{s.value}</p>
-                    <p className="text-sm text-gray-600 dark:text-[#70797a] mt-1">{s.label}</p>
+                )}
+
+                {profile && !profile.stripeOnboardingCompleted && !isUnderReview && !isApproved && (
+                  <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/10 rounded-2xl border border-amber-200 dark:border-amber-700/30">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#c05928" strokeWidth="2" className="flex-shrink-0 mt-0.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                    <div>
+                      <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Connect your bank to receive payouts</p>
+                      <p className="text-xs text-[#70797a] mt-0.5">Link your bank account via Stripe to get paid for completed bookings.</p>
+                      <button onClick={() => setSection('payments')} className="mt-2 text-xs font-semibold text-amber-700 hover:text-amber-900 underline underline-offset-2">Set up payments &#x2192;</button>
+                    </div>
                   </div>
-                ))}
-              </div>
-              <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#054f57]/60">
-                <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-4">Quick actions</h2>
-                <div className="grid grid-cols-2 gap-3">
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {[
-                    { label: 'Edit profile', onClick: () => setSection('profile'), icon: '🌿' },
-                    { label: 'Set my services', onClick: () => setSection('services'), icon: '💰' },
-                    { label: 'Update hours', onClick: () => setSection('hours'), icon: '🕐' },
-                    { label: 'Connect bank', onClick: () => setSection('payments'), icon: '🏦' },
-                  ].map((a) => (
-                    <button key={a.label} onClick={a.onClick} className="flex items-center gap-3 p-4 rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-sm font-medium text-gray-700 dark:text-[#95d0d9] text-left">
-                      <span className="text-lg">{a.icon}</span>{a.label}
-                    </button>
+                    { label: 'Pending bookings', value: '0', bg: 'bg-[#fef3ed]', text: 'text-[#c05928]' },
+                    { label: 'Completed this month', value: '0', bg: 'bg-[#e8f4f5]', text: 'text-[#00343a]' },
+                    { label: 'Earnings (MTD)', value: '$0', bg: 'bg-[#f0f9f0]', text: 'text-[#2d7a2d]' },
+                  ].map((s) => (
+                    <div key={s.label} className={s.bg + ' dark:bg-[#001f23] rounded-2xl p-6'}>
+                      <p className={'text-3xl font-bold ' + s.text}>{s.value}</p>
+                      <p className="text-sm text-gray-600 dark:text-[#70797a] mt-1">{s.label}</p>
+                    </div>
                   ))}
                 </div>
+                <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#054f57]/60">
+                  <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7] mb-4">Quick actions</h2>
+                  <div className="grid grid-cols-2 gap-3">
+                    {[
+                      { label: 'Edit profile', onClick: () => setSection('profile'), icon: '&#127807;' },
+                      { label: 'Set my services', onClick: () => setSection('services'), icon: '&#128176;' },
+                      { label: 'Update hours', onClick: () => setSection('hours'), icon: '&#128336;' },
+                      { label: 'Connect bank', onClick: () => setSection('payments'), icon: '&#127974;' },
+                    ].map((a) => (
+                      <button key={a.label} onClick={a.onClick} className="flex items-center gap-3 p-4 rounded-2xl border border-[#e8e1db] dark:border-[#054f57]/60 hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-sm font-medium text-gray-700 dark:text-[#95d0d9] text-left">
+                        <span className="text-lg" dangerouslySetInnerHTML={{__html: a.icon}} />{a.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {section === 'profile' && (loadingProfile ? <LoadingSection /> : profile ? <SectionProfile profile={profile} token={token} onSaved={fetchProfile} /> : <NoProfile />)}
           {section === 'services' && (loadingProfile ? <LoadingSection /> : profile ? <SectionServices profile={profile} token={token} /> : <NoProfile />)}

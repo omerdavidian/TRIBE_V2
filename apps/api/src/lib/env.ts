@@ -44,3 +44,16 @@ if (!parsed.success) {
 }
 
 export const env = parsed.data
+
+// Non-fatal startup warnings for optional but operationally important vars
+const OPTIONAL_WARNINGS: Array<[keyof typeof parsed.data, string]> = [
+  ['STRIPE_SECRET_KEY', 'Stripe payments will be disabled (provider payouts and checkout will return 503)'],
+  ['STRIPE_WEBHOOK_SECRET', 'Stripe webhooks will be rejected (donation completion events will not fire)'],
+  ['RESEND_API_KEY', 'Transactional email is disabled (welcome emails, notifications will be skipped)'],
+]
+
+for (const [key, warning] of OPTIONAL_WARNINGS) {
+  if (!env[key]) {
+    console.warn(`[env] ${key} is not set — ${warning}`)
+  }
+}

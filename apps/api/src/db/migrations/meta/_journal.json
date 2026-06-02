@@ -85,6 +85,20 @@
       "when": 1780598400000,
       "tag": "0011_provider_profile_segmentation",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1780684800000,
+      "tag": "0012_provider_documents",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1780771200000,
+      "tag": "0013_provider_draft_status",
+      "breakpoints": true
     }
   ]
 }

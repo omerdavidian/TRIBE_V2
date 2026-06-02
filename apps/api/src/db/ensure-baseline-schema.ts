@@ -475,10 +475,18 @@ export async function ensureBaselineSchema() {
       on "provider_reviews" ("provider_profile_id", "mother_id");
   `)
 
-  // ── application_status enum: add info_requested value ──────────────────────
+  // ── application_status enum: add info_requested + draft values ─────────────
   await db.execute(sql`
     do $$ begin
       alter type "public"."application_status" add value if not exists 'info_requested';
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  await db.execute(sql`
+    do $$ begin
+      alter type "public"."application_status" add value if not exists 'draft';
     exception
       when duplicate_object then null;
     end $$;
@@ -996,6 +1004,81 @@ export async function ensureBaselineSchema() {
     insert into "platform_settings" ("key", "value", "label")
     values ('provider_commission_rate', '0.05', 'Provider Commission Rate')
     on conflict ("key") do nothing;
+  `)
+
+  // ── Service catalog seed (32 postpartum services, idempotent upsert) ────────
+  // This runs on every startup so the catalog is always populated without
+  // requiring a manual seed script invocation.
+  await db.execute(sql`
+    insert into "service_categories" ("slug", "name", "description", "icon_name", "sort_order", "is_active") values
+      ('postpartum-doulas',             'Postpartum Doulas',                        'Provide physical, emotional, and practical support for mothers after birth.',                           '🤱', 10,  true),
+      ('night-doulas-nurses',           'Night Doulas / Night Nurses',              'Help care for the baby overnight so moms can rest and recover.',                                      '🌙', 20,  true),
+      ('lactation-consultants',         'Lactation Consultants',                    'Support breastfeeding, pumping, feeding challenges, and newborn nutrition.',                          '🍼', 30,  true),
+      ('pelvic-floor-therapists',       'Pelvic Floor Physical Therapists',         'Help mothers recover physically after pregnancy and delivery.',                                        '🩺', 40,  true),
+      ('postpartum-therapists',         'Postpartum Therapists',                    'Provide emotional and mental health support during postpartum recovery.',                             '🧠', 50,  true),
+      ('anxiety-mindfulness-coaches',   'Anxiety & Mindfulness Coaches',            'Help mothers manage stress, overwhelm, and emotional balance.',                                        '🌿', 60,  true),
+      ('postpartum-massage-therapists', 'Postpartum Massage Therapists',            'Offer recovery-focused body treatments and relaxation support.',                                       '💆', 70,  true),
+      ('lymphatic-drainage',            'Lymphatic Drainage Specialists',            'Assist with postpartum swelling, healing, and recovery.',                                            '✨', 80,  true),
+      ('reflexology-therapists',        'Reflexology Therapists',                   'Provide stress relief and wellness treatments for postpartum mothers.',                               '🦶', 90,  true),
+      ('acupuncturists',                'Acupuncturists',                           'Support recovery, hormonal balance, pain management, and wellness.',                                  '📍', 100, true),
+      ('osteopathic-baby-specialists',  'Osteopathic Baby Specialists',             'Provide gentle body treatments and support for newborns.',                                            '👶', 110, true),
+      ('newborn-care-specialists',      'Newborn Care Specialists',                 'Help parents with newborn routines, sleep, feeding, and care guidance.',                             '🌸', 120, true),
+      ('sleep-consultants',             'Sleep Consultants',                        'Help improve baby and family sleep routines.',                                                        '😴', 130, true),
+      ('baby-development-coaches',      'Baby Development Coaches',                 'Guide parents on tummy time, milestones, and infant development.',                                    '🎯', 140, true),
+      ('infant-massage-instructors',    'Infant Massage Instructors',               'Teach parents baby massage techniques for bonding and soothing.',                                    '🤲', 150, true),
+      ('babysitters',                   'Babysitters',                              'Provide childcare support for newborns, babies, or older children.',                                 '👧', 160, true),
+      ('toddler-activity-providers',    'Toddler Activity Providers',               'Entertain and engage older siblings during postpartum recovery.',                                     '🎨', 170, true),
+      ('house-cleaners',                'House Cleaners',                           'Help maintain and organize the home after birth.',                                                    '🏠', 180, true),
+      ('deep-cleaning-services',        'Deep Cleaning Services',                   'Prepare the home before baby arrives or support recovery afterward.',                                 '🧹', 190, true),
+      ('laundry-folding-services',      'Laundry & Folding Services',               'Assist with overwhelming household laundry needs.',                                                  '👕', 200, true),
+      ('home-nursery-organizers',       'Home Organizers / Nursery Organizers',     'Organize baby spaces and postpartum home environments.',                                             '🗂️', 210, true),
+      ('personal-chefs',                'Personal Chefs',                           'Cook customized meals in-home for postpartum families.',                                             '👨‍🍳', 220, true),
+      ('grocery-errand-assistants',     'Grocery & Errand Assistants',              'Help with shopping and daily household tasks.',                                                      '🛒', 230, true),
+      ('dog-walkers-pet-care',          'Dog Walkers / Pet Care Providers',         'Support families with pet care during postpartum recovery.',                                         '🐾', 240, true),
+      ('manicure-pedicure-providers',   'In-Home Manicure & Pedicure Providers',    'Provide self-care beauty services at home.',                                                         '💅', 250, true),
+      ('hair-stylists',                 'Hair Stylists',                            'Offer in-home hair services for postpartum mothers.',                                                '💇', 260, true),
+      ('facial-skincare-specialists',   'Facial & Skincare Specialists',            'Provide wellness and beauty treatments for moms.',                                                   '🌟', 270, true),
+      ('aesthetic-specialists',         'Aesthetic',                                'Offer treatments such as Botox and advanced skincare services.',                                      '✨', 280, true),
+      ('couples-counselors',            'Couples Counselors',                       'Help couples navigate postpartum relationship changes and communication.',                            '💑', 290, true),
+      ('newborn-photographers',         'Newborn Photographers',                    'Capture postpartum and newborn moments at home.',                                                    '📷', 300, true),
+      ('postpartum-fitness-coaches',    'Postpartum Fitness & Recovery Coaches',    'Guide safe physical recovery after birth.',                                                          '💪', 310, true),
+      ('yoga-breathwork-instructors',   'Yoga & Breathwork Instructors',            'Provide gentle movement and relaxation support for mothers.',                                        '🧘', 320, true)
+    on conflict ("slug") do update set
+      "name"        = excluded."name",
+      "description" = excluded."description",
+      "icon_name"   = excluded."icon_name",
+      "sort_order"  = excluded."sort_order",
+      "is_active"   = excluded."is_active";
+  `)
+
+  // ── provider_document_type enum + provider_documents table ───────────────
+  await db.execute(sql`
+    do $$ begin
+      create type "public"."provider_document_type" as enum (
+        'ein_certificate', 'irs_letter', 'w2',
+        'identity_front', 'identity_back', 'other'
+      );
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  await db.execute(sql`
+    create table if not exists "provider_documents" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "provider_profile_id" uuid not null references "provider_profiles"("id") on delete cascade,
+      "document_type" "public"."provider_document_type" not null,
+      "stripe_file_id" text,
+      "original_filename" text not null,
+      "file_size_bytes" integer,
+      "mime_type" text not null,
+      "created_at" timestamp with time zone not null default now()
+    );
+  `)
+
+  await db.execute(sql`
+    create index if not exists "provider_documents_profile_idx"
+      on "provider_documents" ("provider_profile_id");
   `)
 
   // ── admin_notifications table ─────────────────────────────────────────────

@@ -196,8 +196,10 @@ function RegistryTile({
 
       <div className="flex flex-col flex-1 space-y-2 p-3 md:p-4">
         <div>
-          <h3 className="font-serif text-[33px] leading-none text-transparent h-0 overflow-hidden select-none" aria-hidden>{titleFor(r)}</h3>
-          <h3 className="font-serif text-3xl leading-tight text-slate-900 dark:text-slate-50">{titleFor(r)}</h3>
+          {/* Exactly 2 lines reserved — line-clamp clips overflow, min-h pins short titles */}
+          <h3 className="font-serif text-3xl leading-tight text-slate-900 dark:text-slate-50 line-clamp-2 min-h-[2.34em]">
+            {titleFor(r)}
+          </h3>
           <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
@@ -215,7 +217,10 @@ function RegistryTile({
           <div className="h-2 overflow-hidden rounded-full bg-teal-100 dark:bg-slate-700">
             <div className="h-full rounded-full bg-teal-500 transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
           </div>
-          {due && <p className="text-[9px] text-slate-500 dark:text-slate-400">Due {due}</p>}
+          {/* Invisible spacer holds the exact same height when due date is absent */}
+          <p className={`text-[9px] ${due ? 'text-slate-500 dark:text-slate-400' : 'invisible select-none'}`} aria-hidden={!due}>
+            {due ? `Due ${due}` : 'Due placeholder'}
+          </p>
         </div>
 
         <div className="rounded-lg border border-cream-200 dark:border-slate-700 bg-cream-50 dark:bg-slate-800 px-2.5 py-2">

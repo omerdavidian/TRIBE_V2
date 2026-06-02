@@ -182,7 +182,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     // If provider role: bootstrap pending profile and alert platform management
     if (role === 'provider') {
       db.insert(providerProfiles)
-        .values({ userId: user.id, applicationStatus: 'pending' })
+        .values({ userId: user.id, applicationStatus: 'draft' })
         .catch((err: unknown) => console.error('[PROVIDER PROFILE CREATE]', err))
       sendProviderVerificationAlert(
         user.fullName ?? user.email,

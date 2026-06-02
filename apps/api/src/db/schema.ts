@@ -30,6 +30,7 @@ export const authProviderEnum = pgEnum('auth_provider', [
 ])
 
 export const applicationStatusEnum = pgEnum('application_status', [
+  'draft',
   'pending',
   'approved',
   'rejected',
@@ -82,6 +83,15 @@ export const paymentTypeEnum = pgEnum('payment_type', [
 export const frequencyUnitEnum = pgEnum('frequency_unit', [
   'per_day',
   'per_week',
+])
+
+export const providerDocumentTypeEnum = pgEnum('provider_document_type', [
+  'ein_certificate',
+  'irs_letter',
+  'w2',
+  'identity_front',
+  'identity_back',
+  'other',
 ])
 
 export const thankYouStatusEnum = pgEnum('thank_you_status', [
@@ -213,6 +223,19 @@ export const providerOperatingHours = pgTable('provider_operating_hours', {
   isClosed: boolean('is_closed').notNull().default(false),
   openTime: text('open_time'),  // 'HH:MM' 24-hour
   closeTime: text('close_time'), // 'HH:MM' 24-hour
+})
+
+export const providerDocuments = pgTable('provider_documents', {
+  id: uuid('id').primaryKey().defaultRandom().notNull(),
+  providerProfileId: uuid('provider_profile_id')
+    .notNull()
+    .references(() => providerProfiles.id, { onDelete: 'cascade' }),
+  documentType: providerDocumentTypeEnum('document_type').notNull(),
+  stripeFileId: text('stripe_file_id'),
+  originalFilename: text('original_filename').notNull(),
+  fileSizeBytes: integer('file_size_bytes'),
+  mimeType: text('mime_type').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
 export const supportPages = pgTable('support_pages', {
@@ -726,12 +749,20 @@ export const providerProfilesRelations = relations(
     services: many(providerServices),
     reviews: many(providerReviews),
     operatingHours: many(providerOperatingHours),
+    documents: many(providerDocuments),
   })
 )
 
 export const providerOperatingHoursRelations = relations(providerOperatingHours, ({ one }) => ({
   providerProfile: one(providerProfiles, {
     fields: [providerOperatingHours.providerProfileId],
+    references: [providerProfiles.id],
+  }),
+}))
+
+export const providerDocumentsRelations = relations(providerDocuments, ({ one }) => ({
+  providerProfile: one(providerProfiles, {
+    fields: [providerDocuments.providerProfileId],
     references: [providerProfiles.id],
   }),
 }))
