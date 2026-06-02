@@ -117,6 +117,11 @@ export async function ensureBaselineSchema() {
 
   await db.execute(sql`
     alter table if exists "users"
+      add column if not exists "is_real_user" boolean default false not null;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "users"
       add column if not exists "avatar_url" text;
   `)
 
@@ -284,10 +289,13 @@ export async function ensureBaselineSchema() {
       "supporter_id" uuid,
       "registry_item_id" uuid,
       "registry_id" uuid,
+      "supporter_name_snapshot" text,
+      "supporter_email_snapshot" text,
       "amount_cents" integer not null default 0,
       "stripe_session_id" text,
       "stripe_payment_intent_id" text,
       "status" "public"."donation_status" not null default 'pending',
+      "is_test_data" boolean not null default false,
       "message" text,
       "is_anonymous" boolean not null default false,
       "created_at" timestamp with time zone not null default now(),
@@ -324,6 +332,17 @@ export async function ensureBaselineSchema() {
   await db.execute(sql`
     create unique index if not exists "donations_stripe_session_id_unique"
       on "donations" ("stripe_session_id");
+  `)
+
+  await db.execute(sql`
+    alter table "donations"
+      add column if not exists "supporter_name_snapshot" text,
+      add column if not exists "supporter_email_snapshot" text;
+  `)
+
+  await db.execute(sql`
+    alter table "donations"
+      add column if not exists "is_test_data" boolean not null default false;
   `)
 
   await db.execute(sql`
@@ -586,6 +605,16 @@ export async function ensureBaselineSchema() {
 
   await db.execute(sql`
     alter table if exists "registry_items"
+      add column if not exists "service_status" text not null default 'open';
+  `)
+
+  await db.execute(sql`
+    alter table if exists "registry_items"
+      add column if not exists "is_archived" boolean not null default false;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "registry_items"
       add column if not exists "frequency_unit" "public"."frequency_unit";
   `)
 
@@ -611,8 +640,14 @@ export async function ensureBaselineSchema() {
       "scheduled_for" timestamp with time zone not null,
       "notes" text,
       "status" text not null default 'confirmed',
+      "is_test_data" boolean not null default false,
       "created_at" timestamp with time zone not null default now()
     );
+  `)
+
+  await db.execute(sql`
+    alter table if exists "service_signups"
+      add column if not exists "is_test_data" boolean not null default false;
   `)
 
   await db.execute(sql`
@@ -835,10 +870,16 @@ export async function ensureBaselineSchema() {
       "bank_account_last4" text,
       "bank_routing_last4" text,
       "bank_connected" boolean not null default false,
+      "general_fund_balance_cents" integer not null default 0,
       "default_currency" text not null default 'usd',
       "created_at" timestamp with time zone not null default now(),
       "updated_at" timestamp with time zone not null default now()
     );
+  `)
+
+  await db.execute(sql`
+    alter table if exists "mother_payment_accounts"
+      add column if not exists "general_fund_balance_cents" integer not null default 0;
   `)
 
   await db.execute(sql`
@@ -878,6 +919,96 @@ export async function ensureBaselineSchema() {
       "stripe_transfer_id" text,
       "status" text not null default 'pending',
       "settled_at" timestamp with time zone,
+      "created_at" timestamp with time zone not null default now()
+    );
+  `)
+
+  // ── user_role enum: manager value ─────────────────────────────────────────
+  await db.execute(sql`
+    do $$ begin
+      alter type "public"."user_role" add value if not exists 'manager';
+    exception
+      when duplicate_object then null;
+    end $$;
+  `)
+
+  // ── users: additional_roles column (multi-role support) ───────────────────
+  await db.execute(sql`
+    alter table if exists "users"
+      add column if not exists "additional_roles" text[] not null default '{}';
+  `)
+
+  // ── mother_profiles: privacy + notification columns ───────────────────────
+  await db.execute(sql`
+    alter table if exists "mother_profiles"
+      add column if not exists "is_public" boolean not null default false;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "mother_profiles"
+      add column if not exists "email_notifications_enabled" boolean not null default true;
+  `)
+
+  // ── provider_profiles: profile segmentation columns ───────────────────────
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "business_address" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "owner_name" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "owner_direct_email" text;
+  `)
+
+  await db.execute(sql`
+    alter table if exists "provider_profiles"
+      add column if not exists "owner_direct_phone" text;
+  `)
+
+  // ── manager_permissions table ─────────────────────────────────────────────
+  await db.execute(sql`
+    create table if not exists "manager_permissions" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "user_id" uuid not null references "users"("id") on delete cascade,
+      "module" text not null,
+      "created_at" timestamp with time zone not null default now()
+    );
+  `)
+
+  // ── platform_settings table + default commission rate ─────────────────────
+  await db.execute(sql`
+    create table if not exists "platform_settings" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "key" text not null,
+      "value" text not null,
+      "label" text,
+      "updated_at" timestamp with time zone not null default now(),
+      constraint "platform_settings_key_unique" unique("key")
+    );
+  `)
+
+  await db.execute(sql`
+    insert into "platform_settings" ("key", "value", "label")
+    values ('provider_commission_rate', '0.05', 'Provider Commission Rate')
+    on conflict ("key") do nothing;
+  `)
+
+  // ── admin_notifications table ─────────────────────────────────────────────
+  await db.execute(sql`
+    create table if not exists "admin_notifications" (
+      "id" uuid primary key default gen_random_uuid() not null,
+      "type" text not null,
+      "title" text not null,
+      "body" text,
+      "metadata" jsonb,
+      "is_read" boolean not null default false,
+      "target_roles" text[] not null default '{}',
+      "required_permission" text,
       "created_at" timestamp with time zone not null default now()
     );
   `)

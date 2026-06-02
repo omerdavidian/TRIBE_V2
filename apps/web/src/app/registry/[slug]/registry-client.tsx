@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import ShareModal from '@/components/share-modal'
 import ContributionModal from '@/components/contribution-modal'
 import { getApiUrl } from '@/lib/api'
+import { useOnClickOutside } from '../../../hooks/use-on-click-outside'
 import type { RegistryDetail, RegistryItem } from '@/app/registries/[slug]/page'
 
 // ─── Supporter type ───────────────────────────────────────────────────────────
@@ -97,14 +98,61 @@ function categoryConfig(slug: string | null | undefined): CategoryConfig {
 // ─── Care Impact Card ─────────────────────────────────────────────────────────
 
 function CareImpactCard({ item, onFund }: { item: RegistryItem; onFund: (item: RegistryItem) => void }) {
+  const [showInfo, setShowInfo] = useState(false)
+  const bubbleRef = useRef<HTMLDivElement>(null)
   const cfg = categoryConfig(item.category?.slug)
   const fundedPct = pct(item.fundedAmountCents, item.targetAmountCents)
   const remaining = item.targetAmountCents - item.fundedAmountCents
 
+  useOnClickOutside(bubbleRef, () => setShowInfo(false), showInfo)
+
   return (
-    <article className={`${cfg.bg} rounded-xl p-4 flex flex-col gap-3`}>
+    <article className={`${cfg.bg} rounded-xl p-4 flex flex-col gap-3 border border-slate-200 relative dark:bg-slate-900 dark:border-slate-700/60`}>
+      <button
+        type="button"
+        onClick={() => setShowInfo((prev) => !prev)}
+        aria-label={`More information about ${item.title}`}
+        className="absolute right-3 top-3 h-7 w-7 rounded-full border border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-200 flex items-center justify-center hover:border-teal-600 hover:text-teal-700 dark:hover:border-teal-300 dark:hover:text-teal-200 transition-colors"
+      >
+        <span className="text-xs font-semibold leading-none">i</span>
+      </button>
+
+      {showInfo && (
+        <div
+          ref={bubbleRef}
+          className="absolute right-3 top-11 z-20 w-[290px] rounded-xl border border-slate-200 bg-cream-100 p-4 shadow-none dark:border-slate-700 dark:bg-slate-900"
+          role="dialog"
+          aria-label={`${item.title} details`}
+        >
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <h5 className="text-sm font-semibold text-slate-900 dark:text-slate-50 leading-tight">Service Details</h5>
+            <button
+              type="button"
+              onClick={() => setShowInfo(false)}
+              aria-label="Close details"
+              className="h-6 w-6 rounded-md border border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-200 flex items-center justify-center"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+            {item.description ? (
+              <p>{item.description}</p>
+            ) : (
+              <p>This contribution helps fund this postpartum service directly for the mother.</p>
+            )}
+            {item.providerProfile?.businessName && <p><span className="font-semibold text-slate-900 dark:text-slate-100">Provider:</span> {item.providerProfile.businessName}</p>}
+            <p><span className="font-semibold text-slate-900 dark:text-slate-100">Funding target:</span> {money(item.targetAmountCents)}</p>
+            <p><span className="font-semibold text-slate-900 dark:text-slate-100">Current funded:</span> {money(item.fundedAmountCents)}</p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-start gap-3">
-        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${cfg.text}`}>
+        <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${cfg.text} bg-cream-100 dark:bg-slate-800 dark:text-slate-100`}>
           {item.isFulfilled ? (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12" />
@@ -112,9 +160,9 @@ function CareImpactCard({ item, onFund }: { item: RegistryItem; onFund: (item: R
           ) : cfg.icon}
         </div>
         <div className="min-w-0 flex-1">
-          <h4 className={`text-sm font-semibold leading-snug ${cfg.text}`}>{item.title}</h4>
+          <h4 className={`text-sm font-semibold leading-snug ${cfg.text} dark:text-slate-50 pr-8`}>{item.title}</h4>
           {item.description && (
-            <p className="text-xs text-[#40484a] dark:text-[#70797a] mt-0.5 leading-relaxed line-clamp-2">{item.description}</p>
+            <p className="text-xs text-slate-700 dark:text-slate-300 mt-0.5 leading-relaxed line-clamp-2">{item.description}</p>
           )}
         </div>
       </div>
@@ -124,11 +172,11 @@ function CareImpactCard({ item, onFund }: { item: RegistryItem; onFund: (item: R
         <div className="flex items-center justify-between mb-1">
           <span className={`text-xs font-semibold tabular-nums ${cfg.text}`}>
             {money(item.fundedAmountCents)}
-            <span className="font-normal text-[#70797a] dark:text-[#4a7880]"> of {money(item.targetAmountCents)}</span>
+            <span className="font-normal text-slate-500 dark:text-slate-400"> of {money(item.targetAmountCents)}</span>
           </span>
-          <span className={`text-xs font-bold ${cfg.text}`}>{fundedPct}%</span>
+          <span className={`text-xs font-bold ${cfg.text} dark:text-slate-200`}>{fundedPct}%</span>
         </div>
-        <div className="h-1.5 bg-black/10 dark:bg-white/10 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-slate-200 dark:bg-slate-700/70 rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-700 ${item.isFulfilled ? 'bg-emerald-500' : 'bg-current opacity-50'} ${cfg.text}`}
             style={{ width: `${fundedPct}%` }}
@@ -147,7 +195,7 @@ function CareImpactCard({ item, onFund }: { item: RegistryItem; onFund: (item: R
         <button
           type="button"
           onClick={() => onFund(item)}
-          className={`w-full text-xs font-semibold py-2 rounded-lg border-2 transition-all hover:opacity-90 active:scale-[0.98] ${cfg.text} border-current bg-white/50 dark:bg-black/20`}
+          className={`w-full text-xs font-semibold py-2 rounded-lg border-2 transition-colors hover:opacity-90 active:scale-[0.98] ${cfg.text} border-current bg-cream-100 dark:bg-slate-800 dark:text-slate-100`}
         >
           Fund this Service · {money(remaining)} to go
         </button>
@@ -206,16 +254,20 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
   const [showContribute, setShowContribute] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [selectedItem, setSelectedItem] = useState<RegistryItem | null>(null)
+  const [items, setItems] = useState(registry.items)
   const [supporters, setSupporters] = useState<Supporter[]>([])
   const [supporterCount, setSupporterCount] = useState(0)
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'cancelled' | null>(null)
 
-  const items = registry.items
   const totalTarget = items.reduce((s, i) => s + i.targetAmountCents, 0)
   const totalFunded = items.reduce((s, i) => s + i.fundedAmountCents, 0)
   const overallPct = pct(totalFunded, totalTarget)
   const dueDate = formatDue(registry.dueDate)
   const categoryTags = Array.from(new Set(items.map((i) => i.category?.name).filter(Boolean) as string[]))
+
+  useEffect(() => {
+    setItems(registry.items)
+  }, [registry.items])
 
   useEffect(() => {
     const payment = searchParams.get('payment')
@@ -233,12 +285,28 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
     } catch { /* non-critical */ }
   }, [registry.id])
 
+  function handleOptimisticContribution(payload: { amountCents: number; registryItemId?: string }) {
+    if (payload.registryItemId) {
+      setItems((prev) => prev.map((item) => {
+        if (item.id !== payload.registryItemId) return item
+        const nextFunded = Math.min(item.targetAmountCents, item.fundedAmountCents + payload.amountCents)
+        return {
+          ...item,
+          fundedAmountCents: nextFunded,
+          isFulfilled: nextFunded >= item.targetAmountCents,
+        }
+      }))
+    }
+    setSupporterCount((prev) => prev + 1)
+    void fetchSupporters()
+  }
+
   useEffect(() => { fetchSupporters() }, [fetchSupporters])
 
   const registryUrl = typeof window !== 'undefined' ? window.location.href : `https://tribewishlist.com/registry/${registry.slug}`
 
   return (
-    <div className="min-h-screen bg-[#f7f4f2] dark:bg-[#00141a] font-sans">
+    <div className="min-h-screen bg-cream-100 dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-50">
 
       {paymentStatus && <PaymentToast status={paymentStatus} onDismiss={() => setPaymentStatus(null)} />}
 
@@ -250,36 +318,36 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
           <div className="absolute inset-0 bg-gradient-to-br from-[#c8dbd9] via-[#dce8e0] to-[#e8d8cc] dark:from-[#001f23] dark:via-[#002530] dark:to-[#001a1e]" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#f7f4f2] via-[#f7f4f2]/60 via-60% to-transparent dark:from-[#00141a] dark:via-[#00141a]/60" />
-        <div className="absolute bottom-0 left-0 right-0 px-4 sm:px-8 pb-6 pt-12 max-w-[1200px] mx-auto">
-          <h1 className="font-display font-bold text-3xl sm:text-4xl md:text-5xl text-[#00343a] dark:text-[#e8f6f7] leading-tight max-w-2xl">{registry.title}</h1>
+        <div className="absolute bottom-0 left-0 right-0 px-6 md:px-12 lg:px-16 pb-6 pt-12 max-w-7xl mx-auto">
+          <h1 className="font-display font-bold text-3xl sm:text-4xl md:text-5xl text-slate-900 dark:text-slate-50 leading-tight max-w-2xl">{registry.title}</h1>
           {registry.description && (
-            <p className="mt-2 text-[#40484a] dark:text-[#95d0d9] text-sm sm:text-base max-w-xl leading-relaxed line-clamp-2">{registry.description}</p>
+            <p className="mt-2 text-slate-700 dark:text-slate-300 text-sm sm:text-base max-w-xl leading-relaxed line-clamp-2">{registry.description}</p>
           )}
-          <p className="text-xs text-[#70797a] dark:text-[#4a7880] mt-3">
-            By <span className="font-semibold text-[#00343a] dark:text-[#95d0d9]">{registry.user.fullName ?? 'a new mother'}</span>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-3">
+            By <span className="font-semibold text-slate-900 dark:text-slate-100">{registry.user.fullName ?? 'a new mother'}</span>
             {dueDate && <> · Due <span className="font-medium">{dueDate}</span></>}
           </p>
         </div>
       </header>
 
       {/* ── Two-column grid ── */}
-      <div className="max-w-[1200px] mx-auto px-4 sm:px-8 py-8">
+      <div className="w-full max-w-7xl mx-auto px-6 md:px-12 lg:px-16 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
           {/* LEFT: biography + services */}
           <div className="lg:col-span-8 space-y-6">
             {registry.description && (
-              <section className="bg-white dark:bg-[#001f23] rounded-2xl p-6 sm:p-8 shadow-sm border border-[#ede8e4] dark:border-[#054f57]/50">
-                <h2 className="font-display font-bold text-2xl text-[#00343a] dark:text-[#e8f6f7] mb-4">
+              <section className="bg-cream-50 dark:bg-slate-800 rounded-2xl p-6 sm:p-8 border border-cream-200 dark:border-slate-700">
+                <h2 className="font-display font-bold text-2xl text-slate-900 dark:text-slate-50 mb-4">
                   {registry.user.fullName ? `${registry.user.fullName.split(' ')[0]}'s Journey` : "Her Journey"}
                 </h2>
-                <p className="text-[#40484a] dark:text-[#bfc8ca] leading-relaxed text-sm">{registry.description}</p>
+                <p className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm">{registry.description}</p>
               </section>
             )}
             {items.length > 0 && (
-              <section className="bg-white dark:bg-[#001f23] rounded-2xl p-6 sm:p-8 shadow-sm border border-[#ede8e4] dark:border-[#054f57]/50">
-                <h2 className="font-display font-bold text-2xl text-[#00343a] dark:text-[#e8f6f7] mb-1">The Impact of Your Support</h2>
-                <p className="text-sm text-[#70797a] dark:text-[#4a7880] mb-5">Every contribution goes directly toward these essential postpartum services.</p>
+              <section className="bg-cream-50 dark:bg-slate-800 rounded-2xl p-6 sm:p-8 border border-cream-200 dark:border-slate-700">
+                <h2 className="font-display font-bold text-2xl text-slate-900 dark:text-slate-50 mb-1">The Impact of Your Support</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Every contribution goes directly toward these essential postpartum services.</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {items.map((item) => <CareImpactCard key={item.id} item={item} onFund={setSelectedItem} />)}
                 </div>
@@ -291,25 +359,25 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
           <aside className="lg:col-span-4">
             <div className="sticky top-24 space-y-4">
 
-              <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 shadow-sm border border-[#ede8e4] dark:border-[#054f57]/50">
+              <div className="bg-cream-50 dark:bg-slate-800 rounded-2xl p-6 border border-cream-200 dark:border-slate-700">
                 <div className="mb-1">
-                  <span className="font-display font-bold text-3xl text-[#00343a] dark:text-[#e8f6f7]">{money(totalFunded)}</span>
-                  <span className="text-sm text-[#70797a] dark:text-[#4a7880] ml-2">raised of {money(totalTarget)} goal</span>
+                  <span className="font-display font-bold text-3xl text-slate-900 dark:text-slate-50">{money(totalFunded)}</span>
+                  <span className="text-sm text-slate-500 dark:text-slate-400 ml-2">raised of {money(totalTarget)} goal</span>
                 </div>
-                <div className="h-2.5 bg-[#e8e2de] dark:bg-[#012b31] rounded-full overflow-hidden my-3">
+                <div className="h-2.5 bg-cream-200 dark:bg-slate-700 rounded-full overflow-hidden my-3">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-[#00343a] to-[#29676f] dark:from-[#29676f] dark:to-[#95d0d9] transition-all duration-700"
+                    className="h-full rounded-full bg-gradient-to-r from-teal-700 to-teal-500 transition-all duration-700"
                     style={{ width: `${overallPct}%` }}
                   />
                 </div>
-                <p className="text-sm text-[#70797a] dark:text-[#4a7880] mb-5">
-                  <span className="font-semibold text-[#00343a] dark:text-[#95d0d9]">{overallPct}%</span> funded
-                  {supporterCount > 0 && <> · <span className="font-semibold text-[#00343a] dark:text-[#95d0d9]">{supporterCount}</span> {supporterCount === 1 ? 'supporter' : 'supporters'}</>}
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">
+                  <span className="font-semibold text-slate-900 dark:text-slate-100">{overallPct}%</span> funded
+                  {supporterCount > 0 && <> · <span className="font-semibold text-slate-900 dark:text-slate-100">{supporterCount}</span> {supporterCount === 1 ? 'supporter' : 'supporters'}</>}
                 </p>
                 <button
                   type="button"
                   onClick={() => setShowContribute(true)}
-                  className="w-full flex items-center justify-center gap-2 bg-[#7d3527] hover:bg-[#6a2d20] active:scale-[0.98] text-white font-bold py-3.5 rounded-xl shadow-md shadow-[#7d3527]/15 transition-all"
+                  className="w-full flex items-center justify-center gap-2 bg-coral-500 hover:bg-coral-600 active:scale-[0.98] text-white font-bold py-3.5 rounded-xl transition-colors"
                 >
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
@@ -319,11 +387,11 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
                 {categoryTags.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-4">
                     {categoryTags.map((tag) => (
-                      <span key={tag} className="text-xs font-medium text-[#5a6468] dark:text-[#4a7880] bg-[#f0ebe7] dark:bg-[#002020] px-3 py-1 rounded-full border border-[#e0d8d2] dark:border-[#054f57]/50">{tag}</span>
+                      <span key={tag} className="text-xs font-medium text-slate-600 dark:text-slate-300 bg-cream-100 dark:bg-slate-700 px-3 py-1 rounded-full border border-cream-200 dark:border-slate-600">{tag}</span>
                     ))}
                   </div>
                 )}
-                <button onClick={() => setShowShare(true)} className="w-full mt-4 flex items-center justify-center gap-2 text-xs text-[#70797a] dark:text-[#4a7880] hover:text-[#00343a] dark:hover:text-[#95d0d9] py-2 transition-colors">
+                <button onClick={() => setShowShare(true)} className="w-full mt-4 flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 py-2 transition-colors">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                     <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
                     <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
@@ -333,13 +401,13 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
               </div>
 
               {supporters.length > 0 && (
-                <div className="bg-white dark:bg-[#001f23] rounded-2xl p-6 shadow-sm border border-[#ede8e4] dark:border-[#054f57]/50">
+                <div className="bg-cream-50 dark:bg-slate-800 rounded-2xl p-6 border border-cream-200 dark:border-slate-700">
                   <div className="flex items-center gap-2 mb-4">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-[#70797a]" aria-hidden>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-slate-500 dark:text-slate-400" aria-hidden>
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" />
                       <path d="M23 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
                     </svg>
-                    <h3 className="font-semibold text-sm text-[#00343a] dark:text-[#e8f6f7]">Top Supporters</h3>
+                    <h3 className="font-semibold text-sm text-slate-900 dark:text-slate-100">Top Supporters</h3>
                   </div>
                   {supporters.slice(0, 5).map((s, i) => <SupporterRow key={i} supporter={s} />)}
                 </div>
@@ -359,9 +427,11 @@ export default function RegistryClient({ registry }: { registry: RegistryDetail 
       {(showContribute || selectedItem) && (
         <ContributionModal
           registryId={registry.id}
+          registrySlug={registry.slug}
           registryTitle={registry.title}
           registryItemId={selectedItem?.id}
           itemTitle={selectedItem?.title}
+          onPaymentSuccess={handleOptimisticContribution}
           onClose={() => { setShowContribute(false); setSelectedItem(null) }}
         />
       )}

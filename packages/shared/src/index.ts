@@ -6,6 +6,7 @@ export type UserRole =
   | 'provider'
   | 'business'
   | 'admin'
+  | 'manager'
 
 export type AuthProvider = 'email' | 'google' | 'apple'
 
@@ -29,6 +30,7 @@ export interface User {
   id: string
   email: string
   role: UserRole
+  additionalRoles: string[]
   firstName: string | null
   lastName: string | null
   /** @deprecated Use firstName + lastName instead */
@@ -199,6 +201,7 @@ export interface JwtPayload {
   sub: string // user id
   email: string
   role: UserRole
+  additionalRoles?: string[]
   iat?: number
   exp?: number
 }

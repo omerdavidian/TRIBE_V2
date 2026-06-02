@@ -14,11 +14,14 @@ import {
 import { db } from '../db/client.js'
 import {
   adminActionLogs,
+  adminNotifications,
   betaInvitations,
   bookings,
   donations,
   enterprisePartners,
+  managerPermissions,
   passItForwardAllocations,
+  platformSettings,
   providerServices,
   providerProfiles,
   registries,
@@ -28,7 +31,7 @@ import {
   users,
   waitlist,
 } from '../db/schema.js'
-import { requireRole } from '../plugins/auth.js'
+import { requirePermission, requireRole } from '../plugins/auth.js'
 import { hashPassword } from '../lib/password.js'
 import { sendPasswordReset, sendProviderApprovalEmail, sendProviderRejectionEmail, sendProviderInfoRequestEmail } from '../lib/email.js'
 import { env } from '../lib/env.js'
@@ -39,6 +42,7 @@ const userRoleSchema = z.enum([
   'provider',
   'business',
   'admin',
+  'manager',
 ])
 
 const createUserSchema = z.object({
@@ -51,6 +55,7 @@ const createUserSchema = z.object({
 const patchUserSchema = z.object({
   fullName: z.string().min(1).max(120).optional(),
   role: userRoleSchema.optional(),
+  additionalRoles: z.array(userRoleSchema).optional(),
   isActive: z.boolean().optional(),
   suspendedReason: z.string().max(300).optional(),
 })
@@ -176,7 +181,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     await adminOnly(request)
     const email = request.user?.email ?? ''
     if (email.toLowerCase() !== 'omerdavidian@gmail.com') {
-      throw { statusCode: 403, message: 'Forbidden, reserved for the platform owner' }
+      throw { statusCode: 403, message: 'Forbidden , reserved for the platform owner' }
     }
   }
 
@@ -212,12 +217,13 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         .where(eq(users.isActive, true))
         .groupBy(users.role)
 
-      const activeUsers = {
+      const activeUsers: Record<string, number> = {
         mother: 0,
         supporter: 0,
         provider: 0,
         business: 0,
         admin: 0,
+        manager: 0,
       }
 
       for (const row of roleRows) {
@@ -361,7 +367,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(updated)
   })
 
-  fastify.get('/dashboard/admin/users', { preHandler: adminOnly }, async (request, reply) => {
+  fastify.get('/dashboard/admin/users', { preHandler: requirePermission('users') }, async (request, reply) => {
     const query = request.query as {
       role?: string
       q?: string
@@ -399,7 +405,10 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
         id: users.id,
         email: users.email,
         role: users.role,
+        additionalRoles: users.additionalRoles,
         fullName: users.fullName,
+        firstName: users.firstName,
+        lastName: users.lastName,
         isActive: users.isActive,
         suspendedAt: users.suspendedAt,
         lastLoginAt: users.lastLoginAt,
@@ -476,6 +485,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       .set({
         ...(body.data.fullName !== undefined && { fullName: body.data.fullName }),
         ...(body.data.role !== undefined && { role: body.data.role }),
+        ...(body.data.additionalRoles !== undefined && { additionalRoles: body.data.additionalRoles }),
         ...(body.data.isActive !== undefined && {
           isActive: body.data.isActive,
           suspendedAt: body.data.isActive ? null : new Date(),
@@ -670,7 +680,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(updated)
   })
 
-  fastify.get('/dashboard/admin/ledger/overview', { preHandler: adminOnly }, async (_request, reply) => {
+  fastify.get('/dashboard/admin/ledger/overview', { preHandler: requirePermission('financials') }, async (_request, reply) => {
     const [donationCompleted] = await db
       .select({ value: sql<number>`coalesce(sum(${donations.amountCents}), 0)` })
       .from(donations)
@@ -799,7 +809,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(rows)
   })
 
-  fastify.get('/dashboard/admin/providers/vetting', { preHandler: adminOnly }, async (request, reply) => {
+  fastify.get('/dashboard/admin/providers/vetting', { preHandler: requirePermission('vendors') }, async (request, reply) => {
     const q = request.query as { status?: string }
     const statusVal = q.status
     const whereClause = statusVal === 'all'
@@ -833,7 +843,7 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(rows)
   })
 
-  // POST /dashboard/admin/providers, manually onboard an approved provider
+  // POST /dashboard/admin/providers , manually onboard an approved provider
   fastify.post('/dashboard/admin/providers', { preHandler: adminOnly }, async (request, reply) => {
     const body = createProviderSchema.safeParse(request.body)
     if (!body.success) {
@@ -1145,6 +1155,161 @@ const adminRoutes: FastifyPluginAsync = async (fastify) => {
       },
       format: 'pdf-ready-json',
     })
+  })
+
+  // ─── Platform Settings ────────────────────────────────────────────────────
+
+  /** GET /dashboard/admin/settings — list all platform settings */
+  fastify.get('/dashboard/admin/settings', { preHandler: requirePermission('settings') }, async (_request, reply) => {
+    const rows = await db.select().from(platformSettings).orderBy(platformSettings.key)
+    return reply.send(rows)
+  })
+
+  /** GET /dashboard/admin/settings/:key — get a single setting */
+  fastify.get('/dashboard/admin/settings/:key', { preHandler: requirePermission('settings') }, async (request, reply) => {
+    const { key } = request.params as { key: string }
+    const [row] = await db.select().from(platformSettings).where(eq(platformSettings.key, key)).limit(1)
+    if (!row) return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Setting not found' })
+    return reply.send(row)
+  })
+
+  /** PATCH /dashboard/admin/settings/:key — update a setting value (admin only) */
+  fastify.patch('/dashboard/admin/settings/:key', { preHandler: adminOnly }, async (request, reply) => {
+    const { key } = request.params as { key: string }
+    const body = z.object({ value: z.string().min(1), label: z.string().optional() }).safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: body.error.flatten().fieldErrors })
+    }
+
+    const [existing] = await db.select({ id: platformSettings.id }).from(platformSettings).where(eq(platformSettings.key, key)).limit(1)
+
+    let row
+    if (existing) {
+      const updates: Record<string, unknown> = { value: body.data.value, updatedAt: new Date() }
+      if (body.data.label !== undefined) updates.label = body.data.label
+      ;[row] = await db.update(platformSettings).set(updates).where(eq(platformSettings.key, key)).returning()
+    } else {
+      ;[row] = await db.insert(platformSettings).values({ key, value: body.data.value, label: body.data.label ?? null }).returning()
+    }
+
+    await logAdminAction({
+      adminUserId: request.user!.sub,
+      action: 'settings.update',
+      targetType: 'platform_settings',
+      targetId: key,
+      details: JSON.stringify({ value: body.data.value }),
+    })
+
+    return reply.send(row)
+  })
+
+  // ─── Manager Permissions ──────────────────────────────────────────────────
+
+  /** GET /dashboard/manager/me/permissions — returns the current manager's own permission modules */
+  fastify.get('/dashboard/manager/me/permissions', { preHandler: [requireRole('admin', 'manager')] }, async (request, reply) => {
+    const { sub } = request.user!
+    const rows = await db.select({ module: managerPermissions.module }).from(managerPermissions).where(eq(managerPermissions.userId, sub))
+    return reply.send(rows.map((r) => r.module))
+  })
+
+  /** GET /dashboard/admin/managers/:userId/permissions — list permissions for a manager */
+  fastify.get('/dashboard/admin/managers/:userId/permissions', { preHandler: adminOnly }, async (request, reply) => {
+    const { userId } = request.params as { userId: string }
+    const rows = await db.select().from(managerPermissions).where(eq(managerPermissions.userId, userId))
+    return reply.send(rows)
+  })
+
+  /** PUT /dashboard/admin/managers/:userId/permissions — replace full permission set */
+  fastify.put('/dashboard/admin/managers/:userId/permissions', { preHandler: adminOnly }, async (request, reply) => {
+    const { userId } = request.params as { userId: string }
+    const body = z.object({ modules: z.array(z.string().min(1)) }).safeParse(request.body)
+    if (!body.success) {
+      return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: body.error.flatten().fieldErrors })
+    }
+
+    // Verify user exists and is a manager
+    const [mgr] = await db.select({ id: users.id, role: users.role }).from(users).where(eq(users.id, userId)).limit(1)
+    if (!mgr) return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'User not found' })
+    if (mgr.role !== 'manager') return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'User is not a manager' })
+
+    // Replace all permissions
+    await db.delete(managerPermissions).where(eq(managerPermissions.userId, userId))
+    const inserted = body.data.modules.length > 0
+      ? await db.insert(managerPermissions).values(body.data.modules.map((module) => ({ userId, module }))).returning()
+      : []
+
+    await logAdminAction({
+      adminUserId: request.user!.sub,
+      action: 'manager.permissions_update',
+      targetType: 'user',
+      targetId: userId,
+      details: JSON.stringify({ modules: body.data.modules }),
+    })
+
+    return reply.send(inserted)
+  })
+
+  // ─── Admin Notifications ──────────────────────────────────────────────────
+
+  /** GET /dashboard/admin/notifications — returns notifications relevant to the requesting user */
+  fastify.get('/dashboard/admin/notifications', { preHandler: [requireRole('admin', 'manager')] }, async (request, reply) => {
+    const { role, sub } = request.user!
+    const q = request.query as { unread?: string; limit?: string }
+    const limitVal = Math.min(parseInt(q.limit ?? '50', 10), 200)
+
+    let rows
+    if (role === 'admin') {
+      // Admins see everything
+      const conditions = q.unread === 'true' ? eq(adminNotifications.isRead, false) : undefined
+      rows = await db.select().from(adminNotifications)
+        .where(conditions)
+        .orderBy(desc(adminNotifications.createdAt))
+        .limit(limitVal)
+    } else {
+      // Managers see only notifications for roles that include 'manager' and where
+      // they have the required_permission module
+      const managersModules = await db.select({ module: managerPermissions.module })
+        .from(managerPermissions)
+        .where(eq(managerPermissions.userId, sub))
+      const modules = managersModules.map((r) => r.module)
+
+      rows = await db.select().from(adminNotifications)
+        .where(
+          and(
+            sql`'manager' = ANY(${adminNotifications.targetRoles})`,
+            or(
+              isNull(adminNotifications.requiredPermission),
+              modules.length > 0
+                ? sql`${adminNotifications.requiredPermission} = ANY(ARRAY[${sql.join(modules.map((m) => sql`${m}`), sql`, `)}]::text[])`
+                : sql`false`,
+            ),
+            q.unread === 'true' ? eq(adminNotifications.isRead, false) : sql`true`,
+          )
+        )
+        .orderBy(desc(adminNotifications.createdAt))
+        .limit(limitVal)
+    }
+
+    const unreadCount = rows.filter((n) => !n.isRead).length
+    return reply.send({ notifications: rows, unreadCount })
+  })
+
+  /** PATCH /dashboard/admin/notifications/:id/read — mark a notification as read */
+  fastify.patch('/dashboard/admin/notifications/:id/read', { preHandler: [requireRole('admin', 'manager')] }, async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const [updated] = await db
+      .update(adminNotifications)
+      .set({ isRead: true })
+      .where(eq(adminNotifications.id, id))
+      .returning()
+    if (!updated) return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Notification not found' })
+    return reply.send(updated)
+  })
+
+  /** PATCH /dashboard/admin/notifications/mark-all-read — mark all visible notifications as read */
+  fastify.patch('/dashboard/admin/notifications/mark-all-read', { preHandler: [requireRole('admin', 'manager')] }, async (_request, reply) => {
+    await db.update(adminNotifications).set({ isRead: true }).where(eq(adminNotifications.isRead, false))
+    return reply.send({ success: true })
   })
 }
 

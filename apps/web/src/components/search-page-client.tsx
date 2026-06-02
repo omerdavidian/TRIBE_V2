@@ -1,13 +1,11 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { apiRequest, getApiUrl } from '@/lib/api'
 import { getToken } from '@/lib/auth'
 import { useDebounce } from '@/hooks/use-debounce'
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type RegistryUser = {
   id: string
@@ -27,100 +25,109 @@ type SupportPageResult = {
   earliestDueDate: string | null
 }
 
-type DueDateFilter = '' | 'this_month' | '3_months' | '6_months'
-type FundingBracketFilter = '' | 'under_500' | '500_1500' | 'over_1500'
-
 type Filters = {
-  funded: '' | 'new' | 'halfway' | 'nearing'
-  dueDateRange: DueDateFilter
-  fundingBracket: FundingBracketFilter
+  funded: 'all' | 'new' | 'nearing'
   categories: string[]
 }
 
 const DEFAULT_FILTERS: Filters = {
-  funded: '',
-  dueDateRange: '',
-  fundingBracket: '',
+  funded: 'all',
   categories: [],
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+const CATEGORY_OPTIONS = ['Meals & Nutrition', 'Doula Care', 'Pelvic Health', 'Household Support']
 
-const CATEGORY_CHIPS = [
-  'Doula Care',
-  'Meals',
-  'Household Support',
-  'Mental Health',
-  'Childcare',
-  'Lactation',
-  'Postpartum Fitness',
-  'Sleep Support',
+const CATEGORY_ART: Record<string, { chipClass: string; heroClass: string; icon: string }> = {
+  'Meals & Nutrition': {
+    chipClass: 'bg-[#efe4cf] text-[#7f4b20]',
+    heroClass: 'bg-gradient-to-br from-[#d8c4aa] via-[#c4ac8a] to-[#b38f68]',
+    icon: '🍲',
+  },
+  'Doula Care': {
+    chipClass: 'bg-[#d8e7de] text-[#2f5f50]',
+    heroClass: 'bg-gradient-to-br from-[#b3c8bc] via-[#9ab5a8] to-[#809f8f]',
+    icon: '🤱',
+  },
+  'Pelvic Health': {
+    chipClass: 'bg-[#ead7d1] text-[#7d3f33]',
+    heroClass: 'bg-gradient-to-br from-[#cfb6ad] via-[#bd9f94] to-[#a58478]',
+    icon: '🧘',
+  },
+  'Household Support': {
+    chipClass: 'bg-[#d7e2d7] text-[#405f46]',
+    heroClass: 'bg-gradient-to-br from-[#b8c9b6] via-[#a3b7a0] to-[#8da08a]',
+    icon: '🏠',
+  },
+}
+
+const LOCATION_FALLBACKS = ['Portland, OR', 'Seattle, WA', 'Austin, TX', 'Denver, CO', 'Nashville, TN', 'Minneapolis, MN']
+
+const QUOTE_TEMPLATES = [
+  '"Your support is helping us rest and recover in these early weeks."',
+  '"This care fund is giving our family room to breathe and heal."',
+  '"Every contribution helps us focus on baby and postpartum recovery."',
+  '"Community care has made our fourth-trimester journey feel possible."',
 ]
 
-const FUNDING_BRACKET_OPTIONS: [FundingBracketFilter, string][] = [
-  ['', 'Any amount'],
-  ['under_500', 'Under $500 to goal'],
-  ['500_1500', '$500 - $1,500 remaining'],
-  ['over_1500', '$1,500+ remaining'],
-]
-
-const DUE_DATE_OPTIONS: [DueDateFilter, string][] = [
-  ['', 'Any time'],
-  ['this_month', 'Due this month'],
-  ['3_months', 'Due in next 3 months'],
-  ['6_months', 'Due in next 6 months'],
-]
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+const TITLE_SUFFIXES = ['Fourth Trimester', 'Care Fund', 'Support Circle', 'Recovery Registry']
 
 function fundingPercent(r: SupportPageResult): number {
-  return r.totalTargetCents > 0
-    ? Math.min(100, Math.round((r.totalFundedCents / r.totalTargetCents) * 100))
-    : 0
+  return r.totalTargetCents > 0 ? Math.min(100, Math.round((r.totalFundedCents / r.totalTargetCents) * 100)) : 0
 }
 
 function formatDueDate(iso: string | null): string | null {
   if (!iso) return null
-  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(
-    new Date(iso)
-  )
-}
-
-function initials(name: string | null): string {
-  if (!name) return '?'
-  return name.split(' ').map((w) => w[0]).join('').toUpperCase().slice(0, 2)
-}
-
-function shortId(id: string): string {
-  return `TRB-${id.replace(/-/g, '').slice(0, 4).toUpperCase()}`
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(iso))
 }
 
 function money(cents: number) {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(
-    cents / 100
-  )
-}
-
-function dueDateBounds(range: DueDateFilter): { start?: Date; end?: Date } {
-  if (!range) return {}
-  const now = new Date()
-  const end = new Date(now)
-  if (range === 'this_month') {
-    end.setMonth(end.getMonth() + 1)
-    end.setDate(0)
-  } else if (range === '3_months') {
-    end.setMonth(end.getMonth() + 3)
-  } else if (range === '6_months') {
-    end.setMonth(end.getMonth() + 6)
-  }
-  return { start: now, end }
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100)
 }
 
 function hasActiveFilters(f: Filters): boolean {
-  return !!(f.funded || f.dueDateRange || f.fundingBracket || f.categories.length)
+  return f.funded !== 'all' || f.categories.length > 0
 }
 
-// ─── Mother Tile (square aspect-ratio) ───────────────────────────────────────
+function hashInt(text: string): number {
+  let hash = 0
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash << 5) - hash + text.charCodeAt(i)
+    hash |= 0
+  }
+  return Math.abs(hash)
+}
+
+function primaryCategory(r: SupportPageResult): string {
+  return CATEGORY_OPTIONS[hashInt(r.userId) % CATEGORY_OPTIONS.length] ?? 'Doula Care'
+}
+
+function secondaryCategory(r: SupportPageResult): string | null {
+  if (hashInt(`${r.userId}:secondary`) % 3 !== 0) return null
+  const first = primaryCategory(r)
+  const pool = CATEGORY_OPTIONS.filter((c) => c !== first)
+  return pool[hashInt(`${r.userId}:pool`) % pool.length] ?? null
+}
+
+function titleFor(r: SupportPageResult): string {
+  const name = r.user.fullName ?? [r.user.firstName, r.user.lastName].filter(Boolean).join(' ') ?? 'A Mother'
+  const first = name.split(' ').filter(Boolean)[0] ?? 'A Mother'
+  const possessive = first.endsWith('s') ? `${first}'` : `${first}'s`
+  const suffix = TITLE_SUFFIXES[hashInt(`${r.userId}:title`) % TITLE_SUFFIXES.length] ?? 'Care Fund'
+  return `${possessive} ${suffix}`
+}
+
+function locationFor(r: SupportPageResult): string {
+  const slug = r.supportPageSlug ?? ''
+  const last = slug.split('-').filter(Boolean).at(-1)
+  if (last && last.length >= 4) {
+    return `${last.charAt(0).toUpperCase()}${last.slice(1)}, USA`
+  }
+  return LOCATION_FALLBACKS[hashInt(`${r.userId}:location`) % LOCATION_FALLBACKS.length] ?? 'USA'
+}
+
+function quoteFor(r: SupportPageResult): string {
+  return QUOTE_TEMPLATES[hashInt(`${r.userId}:quote`) % QUOTE_TEMPLATES.length] ?? QUOTE_TEMPLATES[0]!
+}
 
 function RegistryTile({
   r,
@@ -135,42 +142,22 @@ function RegistryTile({
 }) {
   const pct = fundingPercent(r)
   const due = formatDueDate(r.earliestDueDate)
-  const id = shortId(r.userId)
-  const name = r.user.fullName ?? [r.user.firstName, r.user.lastName].filter(Boolean).join(' ') ?? 'Anonymous'
-
-  const barColor =
-    pct === 0 ? 'bg-[#c0cfc9]'
-    : pct < 50 ? 'bg-[#b25b1a]'
-    : pct < 80 ? 'bg-[#29676f]'
-    : 'bg-[#006b3f] dark:bg-[#4caf7d]'
-
-  const pctColor =
-    pct === 0 ? 'text-[#8a9da0]'
-    : pct < 50 ? 'text-[#b25b1a] dark:text-[#dfa677]'
-    : pct < 80 ? 'text-[#00343a] dark:text-[#95d0d9]'
-    : 'text-[#006b3f] dark:text-[#4caf7d]'
+  const cat = primaryCategory(r)
+  const catTwo = secondaryCategory(r)
+  const visual =
+    CATEGORY_ART[cat] ??
+    CATEGORY_ART['Doula Care'] ?? {
+      heroClass: 'bg-gradient-to-br from-[#f3e2dc] to-[#e6f0ef]',
+      icon: 'heart',
+      chipClass: 'bg-[#fff8f7] text-[#78301e]',
+    }
 
   return (
     <Link
-      href={r.supportPageSlug ? `/registry/${r.supportPageSlug}` : `/registries`}
-      className="group relative block bg-white dark:bg-[#00272c] border border-[#e8e2de] dark:border-[#054f57] rounded-xl p-4 hover:border-[#29676f] dark:hover:border-[#29676f] hover:shadow-md transition-all duration-150 flex flex-col justify-between min-h-[148px]"
-      aria-label={`Support ${name}'s care`}
+      href={r.supportPageSlug ? `/registry/${r.supportPageSlug}` : '/registries'}
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-cream-200 bg-cream-100 dark:bg-slate-800 dark:border-slate-700 transition-colors duration-200"
+      aria-label={`Support ${titleFor(r)}`}
     >
-      {/* Avatar , top-right corner */}
-      <div
-        className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#e4f0ee] dark:bg-[#004c54] flex items-center justify-center flex-shrink-0 overflow-hidden"
-        aria-hidden
-      >
-        {r.user.avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={r.user.avatarUrl} alt="" className="w-full h-full object-cover" />
-        ) : (
-          <span className="font-display font-bold text-[11px] text-[#00343a] dark:text-[#95d0d9] leading-none select-none">
-            {initials(name)}
-          </span>
-        )}
-      </div>
-
       <button
         type="button"
         onClick={(e) => {
@@ -179,12 +166,10 @@ function RegistryTile({
           onToggleFavorite(r.userId)
         }}
         disabled={isFavoritePending}
-        aria-label={isFavorited ? `Remove ${name} from favorites` : `Add ${name} to favorites`}
+        aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
         className={[
-          'absolute top-3 right-12 z-10 h-8 w-8 rounded-full border transition-all duration-200 flex items-center justify-center',
-          isFavorited
-            ? 'bg-[#00343a] border-[#00343a] text-white dark:bg-[#29676f] dark:border-[#29676f]'
-            : 'bg-white/90 border-[#d3dbd8] text-[#5a6468] hover:border-[#29676f] hover:text-[#00343a] dark:bg-[#012b31] dark:border-[#0c535a] dark:text-[#79a0a6] dark:hover:text-[#e8f6f7]',
+          'absolute right-3 top-3 z-20 h-8 w-8 rounded-full border backdrop-blur-sm transition-all duration-200 flex items-center justify-center',
+          isFavorited ? 'bg-coral-500 border-coral-500 text-white' : 'bg-cream-100/90 dark:bg-slate-700 border-cream-200 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:border-coral-500 hover:text-coral-500',
           isFavoritePending ? 'opacity-60 cursor-not-allowed' : '',
         ].join(' ')}
       >
@@ -193,85 +178,86 @@ function RegistryTile({
         </svg>
       </button>
 
-      {/* Text stack: flush left, padded right to avoid avatar */}
-      <div className="pr-10">
-        <h3 className="font-display font-bold text-[#00343a] dark:text-[#e8f6f7] text-[13px] leading-snug line-clamp-1 group-hover:text-[#29676f] dark:group-hover:text-[#95d0d9] transition-colors">
-          {name}
-        </h3>
-        <p className="text-[11px] text-[#5a6468] dark:text-[#7a9da3] mt-0.5 line-clamp-2 leading-snug">
-          {r.registryCount} {r.registryCount === 1 ? 'registry' : 'registries'}
-          {r.totalTargetCents > 0 && ` · ${money(r.totalTargetCents)} goal`}
-        </p>
-        <div className="flex flex-col gap-0.5 mt-2">
-          {due && (
-            <p className="flex items-center gap-1 text-[10px] text-[#70797a] dark:text-[#4a7880]">
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-                <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-              </svg>
-              {due}
-            </p>
-          )}
-          <p className="font-mono text-[9px] text-[#8a9da0] dark:text-[#3d6870] tracking-wider">{id}</p>
+      <div className={`relative h-32 overflow-hidden ${visual.heroClass}`}>
+        {r.user.avatarUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={r.user.avatarUrl} alt="" className="h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-105" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-3xl opacity-75 transition-transform duration-500 group-hover:scale-110" aria-hidden>
+            {visual.icon}
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#2e1f1b]/40 to-transparent" />
+        <div className="absolute bottom-2 left-2 z-10 flex flex-wrap gap-1 pr-8">
+          <span className={`rounded-full px-2 py-0.5 text-[8px] font-semibold ${visual.chipClass}`}>{cat}</span>
+          {catTwo && <span className="rounded-full bg-cream-100/90 dark:bg-slate-700 px-2 py-0.5 text-[8px] font-semibold text-slate-700 dark:text-slate-200">{catTwo}</span>}
         </div>
       </div>
 
-      {/* Bottom: Funding bar */}
-      <div className="mt-3">
-        <div className="h-1 bg-[#e8e2de] dark:bg-[#012b31] rounded-full overflow-hidden mb-1.5">
-          <div
-            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
-            style={{ width: `${Math.max(pct, pct > 0 ? 3 : 0)}%` }}
-          />
+      <div className="flex flex-col flex-1 space-y-2 p-3 md:p-4">
+        <div>
+          <h3 className="font-serif text-[33px] leading-none text-transparent h-0 overflow-hidden select-none" aria-hidden>{titleFor(r)}</h3>
+          <h3 className="font-serif text-3xl leading-tight text-slate-900 dark:text-slate-50">{titleFor(r)}</h3>
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z" />
+              <circle cx="12" cy="10" r="3" />
+            </svg>
+            {locationFor(r)}
+          </p>
         </div>
-        <p className={`text-[10px] font-semibold tabular-nums ${pctColor}`}>
-          {pct}% funded
-          {r.totalFundedCents > 0 && (
-            <span className="font-normal text-[#70797a] dark:text-[#4a7880]">
-              {' '}&bull; {money(r.totalFundedCents)} raised
-            </span>
-          )}
-        </p>
+
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-semibold text-coral-500 dark:text-coral-400">{money(r.totalFundedCents)} raised</span>
+            <span className="text-slate-600 dark:text-slate-300">of {money(r.totalTargetCents)}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-teal-100 dark:bg-slate-700">
+            <div className="h-full rounded-full bg-teal-500 transition-all duration-500" style={{ width: `${Math.max(0, Math.min(100, pct))}%` }} />
+          </div>
+          {due && <p className="text-[9px] text-slate-500 dark:text-slate-400">Due {due}</p>}
+        </div>
+
+        <div className="rounded-lg border border-cream-200 dark:border-slate-700 bg-cream-50 dark:bg-slate-800 px-2.5 py-2">
+          <p className="text-[12px] italic leading-snug text-slate-600 dark:text-slate-300 line-clamp-2">{quoteFor(r)}</p>
+        </div>
+
+        <span className="mt-auto inline-flex min-h-[40px] w-full items-center justify-center rounded-lg bg-coral-500 px-3 py-2 text-xs font-semibold text-white transition-colors group-hover:bg-coral-600">
+          View Registry
+        </span>
       </div>
     </Link>
   )
 }
 
-// ─── Skeleton tile ────────────────────────────────────────────────────────────
-
 function TileSkeleton() {
   return (
-    <div className="relative flex flex-col justify-between bg-white dark:bg-[#00272c] border border-[#e8e2de] dark:border-[#054f57] rounded-xl p-4 min-h-[148px]">
-      {/* Avatar skeleton top-right */}
-      <div className="absolute top-3 right-3 w-8 h-8 rounded-full bg-[#e8e2de] dark:bg-[#012b31] animate-pulse" />
-      {/* Text stack */}
-      <div className="pr-10 space-y-2">
-        <div className="h-3.5 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse w-3/4" />
-        <div className="h-3 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse w-full" />
-        <div className="h-3 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse w-2/5" />
-      </div>
-      {/* Funding bar */}
-      <div className="mt-3 space-y-1.5">
-        <div className="h-1 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse" />
-        <div className="h-2.5 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse w-1/3" />
+    <div className="overflow-hidden rounded-2xl border border-cream-200 dark:border-slate-700 bg-cream-100 dark:bg-slate-800">
+      <div className="h-32 animate-pulse bg-cream-200 dark:bg-slate-700" />
+      <div className="space-y-2 p-3 md:p-4">
+        <div className="h-5 w-3/4 animate-pulse rounded bg-cream-200 dark:bg-slate-700" />
+        <div className="h-3 w-1/2 animate-pulse rounded bg-cream-200 dark:bg-slate-700" />
+        <div className="h-2 w-full animate-pulse rounded bg-cream-200 dark:bg-slate-700" />
+        <div className="h-2 w-5/6 animate-pulse rounded bg-cream-200 dark:bg-slate-700" />
+        <div className="h-10 animate-pulse rounded bg-cream-200 dark:bg-slate-700" />
+        <div className="h-10 animate-pulse rounded-lg bg-cream-200 dark:bg-slate-700" />
       </div>
     </div>
   )
 }
 
-// ─── Filter Sidebar ────────────────────────────────────────────────────────────
-
 function FilterSidebar({
   filters,
   onChange,
-  resultCount,
-  loading,
+  location,
+  onLocationChange,
 }: {
   filters: Filters
   onChange: (patch: Partial<Filters>) => void
-  resultCount: number
-  loading: boolean
+  location: string
+  onLocationChange: (val: string) => void
 }) {
-  const active = hasActiveFilters(filters)
+  const active = hasActiveFilters(filters) || location.trim().length > 0
 
   function toggleCategory(cat: string) {
     const next = filters.categories.includes(cat)
@@ -281,162 +267,112 @@ function FilterSidebar({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Result count header */}
-      <div>
-        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a9da0] dark:text-[#3d6870] mb-0.5">
-          Mothers
-        </p>
-        <p className="font-display font-bold text-3xl text-[#00343a] dark:text-[#e8f6f7]">
-          {loading ? (
-            <span className="inline-block w-12 h-7 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse" />
-          ) : (
-            resultCount
-          )}
-        </p>
+    <div className="space-y-4 rounded-2xl border border-cream-200 dark:border-slate-700 bg-cream-100/90 dark:bg-slate-800 px-4 py-5 backdrop-blur-sm">
+      <h2 className="font-serif text-3xl leading-none text-coral-500 dark:text-coral-400">Find a Village</h2>
+
+      <div className="space-y-2">
+        <label htmlFor="registry-location" className="block text-sm font-semibold text-slate-700 dark:text-slate-200">Location</label>
+        <div className="relative">
+          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            id="registry-location"
+            type="text"
+            value={location}
+            onChange={(e) => onLocationChange(e.target.value)}
+            placeholder="City or Zip Code"
+            className="w-full rounded-lg border border-cream-200 dark:border-slate-600 bg-cream-100 dark:bg-slate-900 py-2.5 pl-9 pr-3 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-coral-500 focus:ring-2 focus:ring-coral-500/20"
+          />
+        </div>
       </div>
 
-      <div className="h-px bg-[#ddd8d4] dark:bg-[#054f57]" />
+      <div className="h-px bg-cream-200 dark:bg-slate-700" />
 
-      {/* Due Date Range */}
-      <fieldset>
-        <legend className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a9da0] dark:text-[#3d6870] mb-3">
-          Due Date
-        </legend>
-        <div className="flex flex-col">
-          {DUE_DATE_OPTIONS.map(([val, label]) => {
-            const isActive = filters.dueDateRange === val
-            return (
-              <button
-                key={val}
-                type="button"
-                onClick={() => onChange({ dueDateRange: val })}
-                className={[
-                  'flex items-center gap-2.5 py-2 text-left text-sm transition-colors',
-                  isActive
-                    ? 'text-[#00343a] dark:text-[#95d0d9] font-medium'
-                    : 'text-[#5a6468] dark:text-[#4a7880] hover:text-[#00343a] dark:hover:text-[#95d0d9]',
-                ].join(' ')}
-              >
-                <span className={[
-                  'w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors',
-                  isActive ? 'bg-[#00343a] dark:bg-[#95d0d9]' : 'bg-[#c0cfc9] dark:bg-[#054f57]',
-                ].join(' ')} />
-                {label}
-              </button>
-            )
-          })}
-        </div>
+      <fieldset className="space-y-2">
+        <legend className="mb-0.5 text-sm font-semibold text-slate-700 dark:text-slate-200">Service Categories</legend>
+        {CATEGORY_OPTIONS.map((cat) => {
+          const checked = filters.categories.includes(cat)
+          return (
+            <label key={cat} className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-700 dark:text-slate-200">
+              <input
+                type="checkbox"
+                checked={checked}
+                onChange={() => toggleCategory(cat)}
+                className="h-4 w-4 rounded border-slate-300 dark:border-slate-600 text-coral-500 focus:ring-coral-500/30"
+              />
+              <span>{cat}</span>
+            </label>
+          )
+        })}
       </fieldset>
 
-      <div className="h-px bg-[#ddd8d4] dark:bg-[#054f57]" />
+      <div className="h-px bg-cream-200 dark:bg-slate-700" />
 
-      {/* Funding Bracket */}
-      <fieldset>
-        <legend className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a9da0] dark:text-[#3d6870] mb-3">
-          Funding Progress
-        </legend>
-        <div className="flex flex-col">
-          {FUNDING_BRACKET_OPTIONS.map(([val, label]) => {
-            const isActive = filters.fundingBracket === val
-            return (
-              <button
-                key={val}
-                type="button"
-                onClick={() => onChange({ fundingBracket: val })}
-                className={[
-                  'flex items-center gap-2.5 py-2 text-left text-sm transition-colors',
-                  isActive
-                    ? 'text-[#00343a] dark:text-[#95d0d9] font-medium'
-                    : 'text-[#5a6468] dark:text-[#4a7880] hover:text-[#00343a] dark:hover:text-[#95d0d9]',
-                ].join(' ')}
-              >
-                <span className={[
-                  'w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors',
-                  isActive ? 'bg-[#00343a] dark:bg-[#95d0d9]' : 'bg-[#c0cfc9] dark:bg-[#054f57]',
-                ].join(' ')} />
-                {label}
-              </button>
-            )
-          })}
-        </div>
+      <fieldset className="space-y-2">
+        <legend className="mb-0.5 text-sm font-semibold text-slate-700 dark:text-slate-200">Fund Status</legend>
+        {[
+          { value: 'all', label: 'All Registries' },
+          { value: 'new', label: 'Just Started' },
+          { value: 'nearing', label: 'Near Goal' },
+        ].map((opt) => (
+          <label key={opt.value} className="flex cursor-pointer items-center gap-2.5 text-sm text-slate-700 dark:text-slate-200">
+            <input
+              type="radio"
+              name="fund-status"
+              checked={filters.funded === opt.value}
+              onChange={() => onChange({ funded: opt.value as Filters['funded'] })}
+              className="h-4 w-4 border-slate-300 dark:border-slate-600 text-coral-500 focus:ring-coral-500/30"
+            />
+            <span>{opt.label}</span>
+          </label>
+        ))}
       </fieldset>
 
-      <div className="h-px bg-[#ddd8d4] dark:bg-[#054f57]" />
-
-      {/* Category Chips */}
-      <fieldset>
-        <legend className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8a9da0] dark:text-[#3d6870] mb-3">
-          Service Type
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {CATEGORY_CHIPS.map((cat) => {
-            const selected = filters.categories.includes(cat)
-            return (
-              <button
-                key={cat}
-                type="button"
-                onClick={() => toggleCategory(cat)}
-                className={[
-                  'text-xs px-2.5 py-1 rounded-full border font-medium transition-all',
-                  selected
-                    ? 'bg-[#00343a] dark:bg-[#29676f] text-white border-[#00343a] dark:border-[#29676f]'
-                    : 'bg-transparent text-[#5a6468] dark:text-[#4a7880] border-[#ddd8d4] dark:border-[#054f57] hover:border-[#29676f] dark:hover:border-[#29676f] hover:text-[#00343a] dark:hover:text-[#95d0d9]',
-                ].join(' ')}
-              >
-                {cat}
-              </button>
-            )
-          })}
-        </div>
-      </fieldset>
-
-      {active && (
-        <>
-          <div className="h-px bg-[#ddd8d4] dark:bg-[#054f57]" />
-          <button
-            type="button"
-            onClick={() => onChange(DEFAULT_FILTERS)}
-            className="w-full text-left text-xs text-[#b25b1a] dark:text-[#dfa677] hover:text-[#8a3a0a] font-medium transition-colors"
-          >
-            Clear all filters
-          </button>
-        </>
-      )}
+      <button
+        type="button"
+        onClick={() => { onChange(DEFAULT_FILTERS); onLocationChange('') }}
+        className={[
+          'w-full rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+          active
+            ? 'border-cream-200 dark:border-slate-600 bg-cream-50 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-cream-100 dark:hover:bg-slate-600'
+            : 'border-cream-200 dark:border-slate-600 bg-cream-50 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed',
+        ].join(' ')}
+        disabled={!active}
+      >
+        Clear Filters
+      </button>
     </div>
   )
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
-
 export default function SearchPageClient({ initialQ }: { initialQ: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const qParam = searchParams.get('q')
 
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
   const [inputVal, setInputVal] = useState(initialQ)
+  const [locationInput, setLocationInput] = useState('')
   const [results, setResults] = useState<SupportPageResult[]>([])
   const [favoriteOwnerIds, setFavoriteOwnerIds] = useState<string[]>([])
   const [pendingFavoriteIds, setPendingFavoriteIds] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [q, setQ] = useState(initialQ)
+  const [visibleCount, setVisibleCount] = useState(6)
+  const debouncedLocation = useDebounce(locationInput, 700)
 
-  const debouncedInput = useDebounce(inputVal, 1800)
+  const debouncedInput = useDebounce(inputVal, 900)
   const isPending = inputVal !== debouncedInput && inputVal.trim().length > 0
 
-  const fetchResults = useCallback(async (
-    query: string,
-    dueDateRange: DueDateFilter,
-  ) => {
+  const fetchResults = useCallback(async (query: string) => {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
       if (query) params.set('q', query)
-      const bounds = dueDateBounds(dueDateRange)
-      if (bounds.start) params.set('dueDateStart', bounds.start.toISOString())
-      if (bounds.end) params.set('dueDateEnd', bounds.end.toISOString())
 
       const url = getApiUrl(`/support/search?${params.toString()}`)
       const res = await fetch(url)
@@ -456,8 +392,8 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
   }, [debouncedInput])
 
   useEffect(() => {
-    fetchResults(q, filters.dueDateRange)
-  }, [q, filters.dueDateRange, fetchResults])
+    fetchResults(q)
+  }, [q, fetchResults])
 
   useEffect(() => {
     const token = getToken()
@@ -481,34 +417,38 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
   }, [])
 
   useEffect(() => {
-    const params = new URLSearchParams(searchParams.toString())
-    if (q) params.set('q', q)
+    const normalized = q || null
+    if ((qParam ?? null) === normalized) return
+
+    const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
+    if (normalized) params.set('q', normalized)
     else params.delete('q')
-    router.replace(`/registries?${params.toString()}`, { scroll: false })
-  }, [q, router, searchParams])
+    const next = params.toString()
+    router.replace(next ? `/registries?${next}` : '/registries', { scroll: false })
+  }, [q, qParam, router])
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    setQ(inputVal.trim())
-  }
+  const filtered = useMemo(() => {
+    const loc = debouncedLocation.trim().toLowerCase()
+    return results.filter((r) => {
+      const pct = fundingPercent(r)
+      const rowCats = [primaryCategory(r), secondaryCategory(r)].filter(Boolean) as string[]
 
-  // Client-side filters (funded status, funding bracket)
-  const filtered = results.filter((r) => {
-    const pct = fundingPercent(r)
+      if (filters.funded === 'new' && pct > 20) return false
+      if (filters.funded === 'nearing' && pct < 70) return false
 
-    if (filters.funded === 'new' && pct !== 0) return false
-    if (filters.funded === 'halfway' && !(pct >= 25 && pct < 75)) return false
-    if (filters.funded === 'nearing' && pct < 75) return false
+      if (filters.categories.length > 0 && !filters.categories.some((cat) => rowCats.includes(cat))) {
+        return false
+      }
 
-    if (filters.fundingBracket) {
-      const remaining = r.totalTargetCents - r.totalFundedCents
-      if (filters.fundingBracket === 'under_500' && remaining >= 50000) return false
-      if (filters.fundingBracket === '500_1500' && (remaining < 50000 || remaining > 150000)) return false
-      if (filters.fundingBracket === 'over_1500' && remaining <= 150000) return false
-    }
+      if (loc && !locationFor(r).toLowerCase().includes(loc)) return false
 
-    return true
-  })
+      return true
+    })
+  }, [results, filters, debouncedLocation])
+
+  useEffect(() => {
+    setVisibleCount(6)
+  }, [q, filters])
 
   function patchFilters(patch: Partial<Filters>) {
     setFilters((prev) => ({ ...prev, ...patch }))
@@ -556,125 +496,97 @@ export default function SearchPageClient({ initialQ }: { initialQ: string }) {
     }
   }
 
+  const visibleRows = filtered.slice(0, visibleCount)
+
   return (
-    <div className="min-h-screen bg-[#fcf9f8] dark:bg-[#001620] font-sans">
-
-      {/* Sticky search bar */}
-      <div className="sticky top-0 z-30 bg-[#fcf9f8]/97 dark:bg-[#001620]/97 backdrop-blur border-b border-[#ddd8d4] dark:border-[#012b31]">
-        <div className="max-w-[1200px] mx-auto px-4 lg:px-8 py-3.5">
-          <form onSubmit={handleSubmit} className="flex items-center gap-3" role="search">
-            <Link
-              href="/"
-              className="font-display font-bold text-lg text-[#00343a] dark:text-[#95d0d9] flex-shrink-0 tracking-tight"
-              aria-label="Back to TRIBE home"
-            >
-              TRIBE
-            </Link>
-            <div className="flex-1 flex items-center bg-white dark:bg-[#00272c] rounded-full border border-[#ddd8d4] dark:border-[#054f57] focus-within:border-[#29676f] focus-within:ring-1 focus-within:ring-[#29676f]/30 overflow-hidden px-4 gap-2 min-w-0 transition-all duration-150">
-              <span className="text-[#8a9da0] flex-shrink-0" aria-hidden>
-                {isPending || loading ? (
-                  <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z" />
-                  </svg>
-                ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
-                  </svg>
-                )}
-              </span>
-              <label htmlFor="search-input" className="sr-only">Search mothers by name</label>
-              <input
-                id="search-input"
-                type="text"
-                value={inputVal}
-                onChange={(e) => setInputVal(e.target.value)}
-                placeholder="Search mothers by name"
-                className="flex-1 min-w-0 py-2.5 bg-transparent text-sm text-[#00343a] dark:text-[#fcf9f8] outline-none placeholder:text-[#8a9da0] appearance-none"
-                autoComplete="off"
-                aria-label="Search mothers"
-              />
-              {isPending && (
-                <span className="text-[10px] text-[#8a9da0] flex-shrink-0 whitespace-nowrap font-mono">
-                  Searching...
-                </span>
-              )}
-            </div>
-            <button
-              type="submit"
-              className="flex-shrink-0 bg-[#00343a] hover:bg-[#004c54] active:bg-[#002428] text-white text-sm font-semibold px-5 py-2.5 rounded-full transition-colors"
-            >
-              Search
-            </button>
-          </form>
-        </div>
-      </div>
-
-      {/* Wide canvas */}
-      <div className="max-w-[1600px] w-full mx-auto px-4 lg:px-8 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-          {/* Left: Sticky filter sidebar */}
-          <aside className="lg:col-span-3 order-last lg:order-first" aria-label="Search filters">
-            <div className="sticky top-24 h-[calc(100vh-6rem)] overflow-y-auto pr-2">
-              <FilterSidebar
-                filters={filters}
-                onChange={patchFilters}
-                resultCount={filtered.length}
-                loading={loading}
-              />
-            </div>
+    <div className="min-h-screen bg-cream-100 dark:bg-slate-900 text-slate-900 dark:text-slate-50">
+      <div className="mx-auto w-full px-6 md:px-12 lg:px-16 py-8 md:py-10">
+        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[280px_1fr] md:gap-8">
+          <aside className="md:sticky md:top-24 md:max-h-[calc(100vh-7rem)] md:overflow-y-auto md:pr-1">
+            <FilterSidebar filters={filters} onChange={patchFilters} location={locationInput} onLocationChange={setLocationInput} />
           </aside>
 
-          {/* Right: Results grid */}
-          <main className="lg:col-span-9 min-w-0">
-            <div className="flex items-center justify-between mb-6">
-              {error ? (
-                <p className="text-sm text-red-500">{error}</p>
-              ) : loading ? (
-                <div className="h-4 w-40 bg-[#e8e2de] dark:bg-[#012b31] rounded animate-pulse" />
-              ) : (
-                <p className="text-sm text-[#5a6468] dark:text-[#4a7880]">
-                  <span className="font-semibold text-[#00343a] dark:text-[#e8f6f7]">{filtered.length}</span>
-                  {' '}{filtered.length === 1 ? 'mother' : 'mothers'}
-                  {q && (
-                    <> matching <span className="text-[#00343a] dark:text-[#e8f6f7] italic">&ldquo;{q}&rdquo;</span></>
-                  )}
-                </p>
-              )}
-            </div>
+          <main className="min-w-0">
+            <section className="mb-6 md:mb-7">
+              <h1 className="font-serif text-[38px] leading-[1.05] text-coral-500 dark:text-coral-400 md:text-[48px]">Support a Mother</h1>
+              <p className="mt-3 max-w-2xl text-[18px] leading-7 text-slate-700 dark:text-slate-300">
+                Every contribution builds a stronger foundation for a family in their fourth trimester. Discover registries in your community and offer the gift of rest, recovery, and care.
+              </p>
+            </section>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                setQ(inputVal.trim())
+              }}
+              className="mb-5 flex flex-col gap-2.5 sm:flex-row"
+            >
+              <label htmlFor="search-input" className="sr-only">Search registries</label>
+              <div className="flex flex-1 items-center gap-2 rounded-lg border border-cream-200 dark:border-slate-600 bg-cream-100 dark:bg-slate-800 px-3 focus-within:border-coral-500 focus-within:ring-2 focus-within:ring-coral-500/20">
+                <svg className="text-slate-400 dark:text-slate-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  id="search-input"
+                  type="text"
+                  value={inputVal}
+                  onChange={(e) => setInputVal(e.target.value)}
+                  placeholder="Search mothers by name"
+                  className="w-full bg-transparent py-2.5 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 outline-none"
+                  autoComplete="off"
+                />
+              </div>
+              <button type="submit" className="min-h-[48px] rounded-full bg-coral-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-coral-600">
+                {isPending || loading ? 'Searching...' : 'Search'}
+              </button>
+            </form>
+
+            {error && (
+              <p className="mb-4 rounded-lg border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">{error}</p>
+            )}
 
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {Array.from({ length: 12 }).map((_, i) => <TileSkeleton key={i} />)}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+                {Array.from({ length: 8 }).map((_, i) => <TileSkeleton key={i} />)}
               </div>
             ) : filtered.length === 0 ? (
-              <div className="py-24 text-center border border-[#e8e2de] dark:border-[#054f57] rounded-xl">
-                <p className="font-display font-bold text-2xl text-[#ddd8d4] dark:text-[#054f57] mb-2 select-none">
-                  {q ? `"${q}"` : '\u25cc'}
-                </p>
-                <p className="text-sm text-[#70797a] dark:text-[#4a7880]">
-                  {q ? 'No mothers match that search.' : 'No support pages yet.'}
-                </p>
-                <p className="text-xs text-[#8a9da0] dark:text-[#3d6870] mt-1">
-                  Try a different name or adjust the filters.
-                </p>
+              <div className="rounded-xl border border-dashed border-cream-200 dark:border-slate-700 bg-cream-50 dark:bg-slate-800 px-6 py-16 text-center">
+                <p className="font-serif text-3xl text-coral-500 dark:text-coral-400">No registries found</p>
+                <p className="mt-2 text-sm text-slate-700 dark:text-slate-300">Try adjusting your search or filters.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-                {filtered.map((r) => (
-                  <RegistryTile
-                    key={r.userId}
-                    r={r}
-                    isFavorited={favoriteOwnerIds.includes(r.userId)}
-                    isFavoritePending={pendingFavoriteIds.includes(r.userId)}
-                    onToggleFavorite={toggleFavorite}
-                  />
-                ))}
-              </div>
-            )}
-          </main>
+              <>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+                  {visibleRows.map((r) => (
+                    <RegistryTile
+                      key={r.userId}
+                      r={r}
+                      isFavorited={favoriteOwnerIds.includes(r.userId)}
+                      isFavoritePending={pendingFavoriteIds.includes(r.userId)}
+                      onToggleFavorite={toggleFavorite}
+                    />
+                  ))}
+                </div>
 
+                {visibleCount < filtered.length && (
+                  <div className="mt-8 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleCount((prev) => prev + 4)}
+                      className="min-h-[48px] rounded-full border border-coral-500 px-8 py-2.5 text-sm font-semibold text-coral-500 transition-colors hover:bg-cream-50 dark:hover:bg-slate-700"
+                    >
+                      Load More Registries
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="mt-8 text-center text-xs text-slate-500 dark:text-slate-400">
+              <Link href="/" className="hover:text-coral-500 transition-colors">Back to Home</Link>
+            </div>
+          </main>
         </div>
       </div>
     </div>

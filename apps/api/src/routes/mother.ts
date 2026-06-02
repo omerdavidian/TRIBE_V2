@@ -10,6 +10,7 @@ import {
 	registries,
 	registryItems,
 	serviceSignups,
+	supporterThankYouMessages,
 	users,
 } from '../db/schema.js'
 import { requireRole } from '../plugins/auth.js'
@@ -214,6 +215,52 @@ const motherRoutes: FastifyPluginAsync = async (fastify) => {
 		}
 	})
 
+	fastify.get('/supporters', { preHandler: requireRole('mother') }, async (request) => {
+		const motherUserId = request.user!.sub
+
+		const rows = await db
+			.select({
+				donationId: donations.id,
+				amountCents: donations.amountCents,
+				createdAt: donations.createdAt,
+				completedAt: donations.completedAt,
+				supporterNameSnapshot: donations.supporterNameSnapshot,
+				supporterEmailSnapshot: donations.supporterEmailSnapshot,
+				supporterFullName: users.fullName,
+				supporterEmail: users.email,
+				registryTitle: registries.title,
+				serviceTitle: registryItems.title,
+				thankYouStatus: supporterThankYouMessages.status,
+			})
+			.from(donations)
+			.innerJoin(registries, eq(donations.registryId, registries.id))
+			.leftJoin(users, eq(donations.supporterId, users.id))
+			.leftJoin(registryItems, eq(donations.registryItemId, registryItems.id))
+			.leftJoin(supporterThankYouMessages, eq(supporterThankYouMessages.donationId, donations.id))
+			.where(
+				and(
+					eq(registries.userId, motherUserId),
+					eq(donations.status, 'completed')
+				)
+			)
+			.orderBy(desc(donations.completedAt), desc(donations.createdAt))
+			.limit(100)
+
+		return rows.map((row) => ({
+			donationId: row.donationId,
+			supporterName:
+				row.supporterNameSnapshot ??
+				row.supporterFullName ??
+				'Anonymous supporter',
+			supporterEmail: row.supporterEmailSnapshot ?? row.supporterEmail ?? '',
+			amountCents: row.amountCents,
+			registryTitle: row.registryTitle,
+			serviceTitle: row.serviceTitle,
+			contributedAt: row.completedAt ?? row.createdAt.toISOString(),
+			thankYouStatus: row.thankYouStatus === 'sent' ? 'sent' : 'pending',
+		}))
+	})
+
 	fastify.patch('/mother/profile', { preHandler: requireRole('mother') }, async (request, reply) => {
 		const parsed = updateMotherProfileSchema.safeParse(request.body)
 		if (!parsed.success) {
@@ -290,6 +337,76 @@ const motherRoutes: FastifyPluginAsync = async (fastify) => {
 			user,
 			profile,
 		}
+	})
+
+	// GET /mothers/settings — fetch privacy/notification settings
+	fastify.get('/mothers/settings', { preHandler: requireRole('mother') }, async (request) => {
+		const motherUserId = request.user!.sub
+		const profile = await db
+			.select({
+				isPublic: motherProfiles.isPublic,
+				emailNotificationsEnabled: motherProfiles.emailNotificationsEnabled,
+			})
+			.from(motherProfiles)
+			.where(eq(motherProfiles.userId, motherUserId))
+			.limit(1)
+
+		if (profile.length === 0) {
+			// Profile not yet created – return defaults
+			return { isPublic: false, emailNotificationsEnabled: true }
+		}
+		return profile[0]
+	})
+
+	const updateMotherSettingsSchema = z.object({
+		isPublic: z.boolean().optional(),
+		emailNotificationsEnabled: z.boolean().optional(),
+	})
+
+	// PATCH /mothers/settings — update privacy/notification settings
+	fastify.patch('/mothers/settings', { preHandler: requireRole('mother') }, async (request, reply) => {
+		const motherUserId = request.user!.sub
+		const body = updateMotherSettingsSchema.parse(request.body)
+
+		if (Object.keys(body).length === 0) {
+			return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'No fields to update' })
+		}
+
+		const updatePayload: Partial<typeof body & { updatedAt: Date }> = {
+			...body,
+			updatedAt: new Date(),
+		}
+
+		const existing = await db
+			.select({ id: motherProfiles.id })
+			.from(motherProfiles)
+			.where(eq(motherProfiles.userId, motherUserId))
+			.limit(1)
+
+		if (existing.length === 0) {
+			// Bootstrap profile row on first settings save
+			await db.insert(motherProfiles).values({
+				userId: motherUserId,
+				isPublic: body.isPublic ?? false,
+				emailNotificationsEnabled: body.emailNotificationsEnabled ?? true,
+			})
+		} else {
+			await db
+				.update(motherProfiles)
+				.set(updatePayload)
+				.where(eq(motherProfiles.userId, motherUserId))
+		}
+
+		const updated = await db
+			.select({
+				isPublic: motherProfiles.isPublic,
+				emailNotificationsEnabled: motherProfiles.emailNotificationsEnabled,
+			})
+			.from(motherProfiles)
+			.where(eq(motherProfiles.userId, motherUserId))
+			.limit(1)
+
+		return updated[0] ?? { isPublic: false, emailNotificationsEnabled: true }
 	})
 }
 

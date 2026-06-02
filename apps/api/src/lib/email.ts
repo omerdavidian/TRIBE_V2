@@ -39,10 +39,14 @@ async function dispatchEmail(params: {
         error: result.error,
       })
       logFallback(params.to, params.subject, params.fallbackText)
-      return { delivered: isLocalDev, provider: 'fallback' as const }
+      return { delivered: isLocalDev, provider: 'fallback' as const, messageId: null }
     }
 
-    return { delivered: true, provider: 'resend' as const }
+    return {
+      delivered: true,
+      provider: 'resend' as const,
+      messageId: 'data' in result ? (result.data?.id ?? null) : null,
+    }
   } catch (error) {
     console.error('[EMAIL ERROR]', {
       to: params.to,
@@ -51,8 +55,92 @@ async function dispatchEmail(params: {
       error,
     })
     logFallback(params.to, params.subject, params.fallbackText)
-    return { delivered: isLocalDev, provider: 'fallback' as const }
+    return { delivered: isLocalDev, provider: 'fallback' as const, messageId: null }
   }
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+export async function sendContributionConfirmationEmail(params: {
+  to: string
+  supporterName: string
+  amountCents: number
+  registryTitle: string
+  serviceTitle: string | null
+  livemode: boolean
+}) {
+  const amountLabel = new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(params.amountCents / 100)
+  const safeName = escapeHtml(params.supporterName)
+  const safeRegistryTitle = escapeHtml(params.registryTitle)
+  const safeServiceTitle = escapeHtml(params.serviceTitle ?? 'General registry support')
+  const sandboxBanner = params.livemode
+    ? ''
+    : `
+      <div style="margin:0 0 24px 0;padding:16px 18px;border-radius:14px;background:#fff2cc;border:1px solid #f0c36d;color:#7a4b00;font-size:14px;font-weight:700;line-height:1.5;">
+        ⚠️ TEST SYSTEM DISPATCH — No real currency was exchanged. This transaction was successfully simulated utilizing a Stripe Sandbox Test Card.
+      </div>
+    `
+  const subject = params.livemode ? 'Your TRIBE contribution receipt' : 'TRIBE test contribution receipt'
+  const html = `
+    <div style="margin:0;padding:24px;background:#f4f1ed;font-family:Arial,sans-serif;color:#14323a;">
+      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;margin:0 auto;background:#ffffff;border:1px solid #e5ddd7;border-radius:20px;overflow:hidden;">
+        <tr>
+          <td style="padding:28px 32px;background:#0b3f45;color:#ffffff;">
+            <div style="font-size:12px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;opacity:0.72;">TRIBE receipt</div>
+            <h1 style="margin:12px 0 8px 0;font-size:30px;line-height:1.15;font-weight:700;">Thank you for supporting a mother’s care team.</h1>
+            <p style="margin:0;font-size:15px;line-height:1.6;color:#d6ecef;">We’ve recorded your contribution and shared the details below for your records.</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:28px 32px 32px 32px;">
+            ${sandboxBanner}
+            <p style="margin:0 0 22px 0;font-size:16px;line-height:1.6;color:#32484d;">Hi ${safeName}, thank you for showing up for postpartum care in a tangible way.</p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;border:1px solid #ebe3dd;border-radius:16px;overflow:hidden;">
+              <tr>
+                <td style="padding:14px 16px;background:#faf7f4;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6a7d82;">Total Contribution Amount</td>
+                <td style="padding:14px 16px;background:#faf7f4;font-size:16px;font-weight:700;color:#14323a;text-align:right;">${amountLabel}</td>
+              </tr>
+              <tr>
+                <td style="padding:14px 16px;border-top:1px solid #ebe3dd;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6a7d82;">Target Registry Name</td>
+                <td style="padding:14px 16px;border-top:1px solid #ebe3dd;font-size:15px;color:#14323a;text-align:right;">${safeRegistryTitle}</td>
+              </tr>
+              <tr>
+                <td style="padding:14px 16px;border-top:1px solid #ebe3dd;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6a7d82;">Specific Care Service Funded</td>
+                <td style="padding:14px 16px;border-top:1px solid #ebe3dd;font-size:15px;color:#14323a;text-align:right;">${safeServiceTitle}</td>
+              </tr>
+            </table>
+            <p style="margin:22px 0 0 0;font-size:14px;line-height:1.7;color:#5a6d72;">TRIBE will continue helping families translate contributions into real postpartum support.</p>
+          </td>
+        </tr>
+      </table>
+    </div>
+  `
+
+  const fallbackText = [
+    params.livemode
+      ? 'Thank you for your TRIBE contribution.'
+      : 'TEST SYSTEM DISPATCH — No real currency was exchanged. This transaction was simulated using a Stripe Sandbox Test Card.',
+    `Amount: ${amountLabel}`,
+    `Registry: ${params.registryTitle}`,
+    `Service: ${params.serviceTitle ?? 'General registry support'}`,
+  ].join('\n')
+
+  return dispatchEmail({
+    to: params.to,
+    subject,
+    html,
+    fallbackText,
+  })
 }
 
 export async function sendWelcomeEmail(to: string, fullName: string) {
@@ -155,7 +243,7 @@ export async function sendProviderVerificationAlert(
   providerEmail: string
 ) {
   const alertTo = env.PLATFORM_ALERT_EMAIL ?? env.RESEND_FROM_EMAIL
-  const subject = `[TRIBE] New Provider Application, ${providerName}`
+  const subject = `[TRIBE] New Provider Application , ${providerName}`
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
       <h1 style="color: #004C54; font-size: 22px;">New Provider Application</h1>
@@ -186,6 +274,45 @@ export async function sendProviderVerificationAlert(
     subject,
     html,
     fallbackText: `New provider application: ${providerName} <${providerEmail}>. Review at ${env.FRONTEND_URL}/dashboard/admin`,
+  })
+}
+
+export async function sendVendorSignupNotificationEmail(
+  to: string,
+  vendorName: string,
+  vendorEmail: string,
+) {
+  const subject = `[TRIBE] New Vendor Signup: ${vendorName}`
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
+      <h1 style="color: #004C54; font-size: 22px;">New Vendor Signup</h1>
+      <p style="color: #555; font-size: 16px; line-height: 1.6;">
+        A new vendor has registered on TRIBE and is awaiting review.
+      </p>
+      <table style="border-collapse: collapse; width: 100%; margin-top: 16px;">
+        <tr>
+          <td style="padding: 10px 12px; background: #f4f6f8; font-weight: 600; color: #333;">Name</td>
+          <td style="padding: 10px 12px; color: #555;">${vendorName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px 12px; font-weight: 600; color: #333;">Email</td>
+          <td style="padding: 10px 12px; color: #555;">${vendorEmail}</td>
+        </tr>
+      </table>
+      <a href="${env.FRONTEND_URL}/dashboard/admin"
+         style="display: inline-block; background: #004C54; color: white; padding: 12px 24px;
+                border-radius: 8px; text-decoration: none; font-weight: 600; margin-top: 24px;">
+        Review Vendor Applications →
+      </a>
+      <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0;" />
+      <p style="color: #999; font-size: 12px;">TRIBE · tribewishlist.com</p>
+    </div>
+  `
+  return dispatchEmail({
+    to,
+    subject,
+    html,
+    fallbackText: `New vendor signup: ${vendorName} <${vendorEmail}>. Review at ${env.FRONTEND_URL}/dashboard/admin`,
   })
 }
 
@@ -302,7 +429,7 @@ export async function sendProviderRejectionEmail(to: string, name: string, note?
 }
 
 export async function sendProviderInfoRequestEmail(to: string, name: string, message: string) {
-  const subject = 'Additional information required, TRIBE provider application'
+  const subject = 'Additional information required , TRIBE provider application'
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 32px;">
       <h1 style="color: #004C54; font-size: 24px;">We need a bit more information</h1>

@@ -135,6 +135,112 @@ const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
   },
 ]
 
+// --- Notifications Bell -------------------------------------------------------
+
+type AdminNotification = {
+  id: string
+  type: string
+  title: string
+  body: string | null
+  isRead: boolean
+  createdAt: string
+}
+
+function NotificationBell({ token }: { token: string }) {
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState<AdminNotification[]>([])
+  const [loaded, setLoaded] = useState(false)
+
+  const load = useCallback(async () => {
+    try {
+      const data = await apiRequest<{ notifications: AdminNotification[]; unreadCount: number }>(
+        '/dashboard/admin/notifications?limit=20',
+        { token }
+      )
+      setItems(data.notifications)
+    } catch { /* non-fatal */ } finally { setLoaded(true) }
+  }, [token])
+
+  useEffect(() => { void load() }, [load])
+
+  async function markRead(id: string) {
+    try {
+      await apiRequest(`/dashboard/admin/notifications/${id}/read`, { method: 'PATCH', token })
+      setItems((prev) => prev.map((n) => n.id === id ? { ...n, isRead: true } : n))
+    } catch { /* non-fatal */ }
+  }
+
+  async function markAllRead() {
+    try {
+      await apiRequest('/dashboard/admin/notifications/mark-all-read', { method: 'PATCH', token })
+      setItems((prev) => prev.map((n) => ({ ...n, isRead: true })))
+    } catch { /* non-fatal */ }
+  }
+
+  const unread = items.filter((n) => !n.isRead).length
+
+  function timeAgo(iso: string) {
+    const diff = Date.now() - new Date(iso).getTime()
+    const m = Math.floor(diff / 60000)
+    if (m < 1) return 'just now'
+    if (m < 60) return `${m}m ago`
+    const h = Math.floor(m / 60)
+    if (h < 24) return `${h}h ago`
+    return `${Math.floor(h / 24)}d ago`
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => { setOpen((o) => !o); if (!loaded) void load() }}
+        className="relative p-2 rounded-lg text-[#40484a] dark:text-[#95d0d9] hover:bg-[#e8f4f0] dark:hover:bg-[#004c54]/20 transition-colors"
+        aria-label="Notifications">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
+        </svg>
+        {unread > 0 && (
+          <span className="absolute top-1 right-1 min-w-[16px] h-4 bg-amber-400 text-black text-[9px] font-bold rounded-full flex items-center justify-center px-0.5">
+            {unread > 9 ? '9+' : unread}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full mt-2 w-80 z-50 bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/60 rounded-2xl shadow-xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-[#e0ebe9] dark:border-[#054f57]/40 flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">Notifications</h3>
+              {unread > 0 && (
+                <button onClick={markAllRead} className="text-xs text-[#29676f] hover:underline">Mark all read</button>
+              )}
+            </div>
+            <ul className="max-h-80 overflow-y-auto divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30">
+              {items.length === 0 ? (
+                <li className="px-4 py-6 text-center text-sm text-[#70797a]">No notifications</li>
+              ) : (
+                items.map((n) => (
+                  <li key={n.id} className={`px-4 py-3 flex items-start gap-3 ${!n.isRead ? 'bg-[#f0faf8] dark:bg-[#004c54]/10' : ''}`}>
+                    <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${!n.isRead ? 'bg-[#29676f]' : 'bg-transparent border border-[#b0ccc8]'}`} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-[#00343a] dark:text-[#e0f5f7] leading-snug">{n.title}</p>
+                      {n.body && <p className="text-[10px] text-[#70797a] mt-0.5 line-clamp-2">{n.body}</p>}
+                      <p className="text-[10px] text-[#70797a] mt-1">{timeAgo(n.createdAt)}</p>
+                    </div>
+                    {!n.isRead && (
+                      <button onClick={() => void markRead(n.id)} className="flex-shrink-0 text-[10px] text-[#29676f] hover:underline mt-0.5">Dismiss</button>
+                    )}
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // --- Metric card --------------------------------------------------------------
 
 function MetricCard({ label, value, sub, accent = false }: { label: string; value: string; sub?: string; accent?: boolean }) {
@@ -230,28 +336,156 @@ function TabOverview({ overview, loading }: { overview: OverviewMetrics | null; 
 
 // --- Tab: Users & Trust -------------------------------------------------------
 
-function TabUsers({ vetting, onVetting, loading }: {
+type RealUser = {
+  id: string
+  email: string
+  role: string
+  additionalRoles: string[]
+  fullName: string | null
+  firstName: string | null
+  lastName: string | null
+  isActive: boolean
+  lastLoginAt: string | null
+  createdAt: string
+}
+
+const ALL_ROLES = ['mother', 'supporter', 'provider', 'business', 'admin', 'manager'] as const
+
+function RoleEditor({
+  user, token, onUpdated,
+}: { user: RealUser; token: string; onUpdated: (u: RealUser) => void }) {
+  const [open, setOpen] = useState(false)
+  const [primary, setPrimary] = useState(user.role)
+  const [additional, setAdditional] = useState<Set<string>>(new Set(user.additionalRoles))
+  const [saving, setSaving] = useState(false)
+
+  function toggleAdditional(role: string) {
+    setAdditional((prev) => {
+      const n = new Set(prev)
+      n.has(role) ? n.delete(role) : n.add(role)
+      return n
+    })
+  }
+
+  async function save() {
+    setSaving(true)
+    try {
+      const updated = await apiRequest<RealUser>(`/dashboard/admin/users/${user.id}`, {
+        method: 'PATCH', token,
+        body: JSON.stringify({ role: primary, additionalRoles: [...additional] }),
+      })
+      onUpdated(updated)
+      setOpen(false)
+    } catch { /* non-fatal */ } finally { setSaving(false) }
+  }
+
+  const allRoleLabels = [user.role, ...user.additionalRoles].map((r) => r.charAt(0).toUpperCase() + r.slice(1)).join(', ')
+
+  if (!open) {
+    return (
+      <button onClick={() => setOpen(true)} className="text-left group">
+        <span className="text-xs font-medium text-[#40484a] dark:text-[#95d0d9] capitalize group-hover:text-[#29676f] transition-colors">
+          {allRoleLabels}
+        </span>
+        {user.additionalRoles.length > 0 && (
+          <span className="ml-1 text-[10px] text-[#70797a]">+{user.additionalRoles.length}</span>
+        )}
+        <span className="ml-1 text-[10px] text-[#b0ccc8] group-hover:text-[#29676f]"> edit</span>
+      </button>
+    )
+  }
+
+  return (
+    <div className="space-y-2 min-w-[200px]">
+      <div>
+        <p className="text-[10px] text-[#70797a] mb-1 uppercase tracking-wider">Primary Role</p>
+        <select
+          value={primary}
+          onChange={(e) => setPrimary(e.target.value)}
+          className="w-full text-xs px-2 py-1.5 border border-[#b0ccc8] dark:border-[#054f57] rounded-lg bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-1 focus:ring-[#29676f]"
+        >
+          {ALL_ROLES.map((r) => <option key={r} value={r}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
+        </select>
+      </div>
+      <div>
+        <p className="text-[10px] text-[#70797a] mb-1 uppercase tracking-wider">Additional Roles</p>
+        <div className="flex flex-wrap gap-1">
+          {ALL_ROLES.filter((r) => r !== primary).map((r) => (
+            <button
+              key={r} type="button" onClick={() => toggleAdditional(r)}
+              className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${additional.has(r) ? 'bg-[#00343a] text-white border-[#00343a]' : 'border-[#b0ccc8] text-[#70797a] hover:border-[#29676f]'}`}
+            >
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="flex gap-1.5">
+        <button onClick={save} disabled={saving} className="text-[10px] px-2.5 py-1 bg-[#00343a] text-white rounded-lg hover:bg-[#004c54] disabled:opacity-60 transition-colors">
+          {saving ? '...' : 'Save'}
+        </button>
+        <button onClick={() => { setOpen(false); setPrimary(user.role); setAdditional(new Set(user.additionalRoles)) }} className="text-[10px] px-2.5 py-1 border border-[#b0ccc8] dark:border-[#054f57] rounded-lg text-[#70797a] hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function TabUsers({ vetting, onVetting, loadingVetting, token }: {
   vetting: VettingRow[]
   onVetting: (id: string, status: 'approved' | 'rejected' | 'pending') => void
-  loading: boolean
+  loadingVetting: boolean
+  token: string
 }) {
   const [userQuery, setUserQuery] = useState('')
-  const MOCK_USERS = [
-    { id: '1', email: 'sarah.chen@email.com', name: 'Sarah Chen', role: 'mother', status: 'Active' },
-    { id: '2', email: 'amara.nwosu@email.com', name: 'Amara Nwosu', role: 'provider', status: 'Active' },
-    { id: '3', email: 'jen.kim@email.com', name: 'Jen Kim', role: 'supporter', status: 'Active' },
-    { id: '4', email: 'tanya.okonkwo@email.com', name: 'Tanya Okonkwo', role: 'mother', status: 'Active' },
-    { id: '5', email: 'priya.patel@email.com', name: 'Priya Patel', role: 'provider', status: 'Suspended' },
-  ]
-  const filtered = MOCK_USERS.filter(u =>
-    !userQuery || u.name.toLowerCase().includes(userQuery.toLowerCase()) || u.email.toLowerCase().includes(userQuery.toLowerCase())
-  )
+  const [users, setUsers] = useState<RealUser[]>([])
+  const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [loadingUsers, setLoadingUsers] = useState(true)
+  const [actionPending, setActionPending] = useState<string | null>(null)
+
+  const fetchUsers = useCallback(async (q: string, pg: number) => {
+    setLoadingUsers(true)
+    try {
+      const qs = new URLSearchParams({ pageSize: '20', page: String(pg) })
+      if (q) qs.set('q', q)
+      const data = await apiRequest<{ data: RealUser[]; total: number; totalPages: number }>(`/dashboard/admin/users?${qs}`, { token })
+      setUsers(data.data)
+      setTotal(data.total)
+    } catch { /* non-fatal */ } finally { setLoadingUsers(false) }
+  }, [token])
+
+  useEffect(() => {
+    const timer = setTimeout(() => { void fetchUsers(userQuery, 1); setPage(1) }, 350)
+    return () => clearTimeout(timer)
+  }, [userQuery, fetchUsers])
+
+  async function toggleActive(u: RealUser) {
+    setActionPending(u.id)
+    try {
+      const updated = await apiRequest<RealUser>(`/dashboard/admin/users/${u.id}`, {
+        method: 'PATCH', token,
+        body: JSON.stringify({ isActive: !u.isActive }),
+      })
+      setUsers((prev) => prev.map((x) => x.id === u.id ? updated : x))
+    } catch { /* non-fatal */ } finally { setActionPending(null) }
+  }
+
+  function updateUser(updated: RealUser) {
+    setUsers((prev) => prev.map((x) => x.id === updated.id ? updated : x))
+  }
+
+  const displayName = (u: RealUser) =>
+    u.fullName ?? ([u.firstName, u.lastName].filter(Boolean).join(' ') || '-')
+
   return (
     <div className="space-y-8">
       <div>
         <h2 className="font-display text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7] mb-1">Users & Trust Management</h2>
-        <p className="text-sm text-[#70797a]">Manage mothers, supporters, and providers. Credential and vet providers before they appear.</p>
+        <p className="text-sm text-[#70797a]">Manage all platform users. Click a role to edit. Users can hold multiple roles simultaneously.</p>
       </div>
+
       <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e0ebe9] dark:border-[#054f57]/60 overflow-hidden">
         <div className="px-6 py-4 border-b border-[#e0ebe9] dark:border-[#054f57]/40 flex items-center justify-between">
           <div>
@@ -260,10 +494,10 @@ function TabUsers({ vetting, onVetting, loading }: {
           </div>
           {vetting.length > 0 && <span className="bg-amber-100 dark:bg-amber-900/20 text-amber-700 text-xs font-bold px-2 py-1 rounded-full">{vetting.length} pending</span>}
         </div>
-        {loading ? (
+        {loadingVetting ? (
           <div className="p-6 space-y-3">{Array.from({ length: 3 }).map((_, i) => <Sk key={i} className="h-16" />)}</div>
         ) : vetting.length === 0 ? (
-          <div className="px-6 py-8 text-center"><div className="text-3xl mb-2">?</div><p className="text-sm text-[#70797a]">All caught up � no pending applications.</p></div>
+          <div className="px-6 py-8 text-center"><div className="text-3xl mb-2">&#10003;</div><p className="text-sm text-[#70797a]">All caught up — no pending applications.</p></div>
         ) : (
           <div className="divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30">
             {vetting.map(p => (
@@ -282,41 +516,167 @@ function TabUsers({ vetting, onVetting, loading }: {
           </div>
         )}
       </div>
+
       <div className="bg-white dark:bg-[#001f23] rounded-2xl border border-[#e0ebe9] dark:border-[#054f57]/60 overflow-hidden">
-        <div className="px-6 py-4 border-b border-[#e0ebe9] dark:border-[#054f57]/40">
-          <h3 className="font-semibold text-[#00343a] dark:text-[#e0f5f7] mb-3">User Directory</h3>
-          <input value={userQuery} onChange={e => setUserQuery(e.target.value)} placeholder="Search by name or email�"
-            className="w-full max-w-sm px-3 py-2 text-sm rounded-xl border border-[#b0ccc8] dark:border-[#054f57] bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]" />
+        <div className="px-6 py-4 border-b border-[#e0ebe9] dark:border-[#054f57]/40 flex items-center gap-4 flex-wrap">
+          <div className="flex-1 min-w-0">
+            <h3 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">User Directory</h3>
+            {total > 0 && <p className="text-xs text-[#70797a] mt-0.5">{total.toLocaleString()} users total</p>}
+          </div>
+          <input
+            value={userQuery} onChange={e => setUserQuery(e.target.value)}
+            placeholder="Search by name or email..."
+            className="w-full sm:w-72 px-3 py-2 text-sm rounded-xl border border-[#b0ccc8] dark:border-[#054f57] bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f]"
+          />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead><tr className="bg-[#f7f4f2] dark:bg-[#00272c]/60 text-left">
-              {['User','Role','Status','Actions'].map(h => <th key={h} className="px-6 py-3 text-xs font-semibold uppercase tracking-wider text-[#70797a]">{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {filtered.map((u, i) => (
-                <tr key={u.id} className={`border-t border-[#e0ebe9] dark:border-[#054f57]/30 ${i%2===0?'':'bg-[#f7f4f2]/60 dark:bg-[#00272c]/20'}`}>
-                  <td className="px-6 py-3"><p className="font-medium text-[#00343a] dark:text-[#e0f5f7]">{u.name}</p><p className="text-xs text-[#70797a]">{u.email}</p></td>
-                  <td className="px-6 py-3 capitalize text-[#40484a] dark:text-[#95d0d9]">{u.role}</td>
-                  <td className="px-6 py-3"><span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${u.status==='Active'?'bg-[#e8f4f0] text-[#29676f]':'bg-red-50 text-red-600'}`}>{u.status}</span></td>
-                  <td className="px-6 py-3"><div className="flex gap-2">
-                    <button className="text-xs border border-[#b0ccc8] dark:border-[#054f57] px-2 py-1 rounded-lg hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-[#40484a] dark:text-[#95d0d9]">Reset pwd</button>
-                    <button className="text-xs border border-[#b0ccc8] dark:border-[#054f57] px-2 py-1 rounded-lg hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-[#40484a] dark:text-[#95d0d9]">{u.status==='Active'?'Suspend':'Activate'}</button>
-                    <button className="text-xs border border-[#b0ccc8] dark:border-[#054f57] px-2 py-1 rounded-lg hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-[#40484a] dark:text-[#95d0d9]">View as</button>
-                  </div></td>
+        {loadingUsers ? (
+          <div className="p-6 space-y-3">{Array.from({ length: 5 }).map((_, i) => <Sk key={i} className="h-14" />)}</div>
+        ) : users.length === 0 ? (
+          <div className="px-6 py-10 text-center text-sm text-[#70797a]">No users found.</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead>
+                <tr className="bg-[#f7f4f2] dark:bg-[#00272c]/60 text-left">
+                  {['User', 'Roles', 'Status', 'Last Login', 'Actions'].map(h => (
+                    <th key={h} className="px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[#70797a] whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {users.map((u, i) => (
+                  <tr key={u.id} className={`border-t border-[#e0ebe9] dark:border-[#054f57]/30 ${i % 2 === 0 ? '' : 'bg-[#f7f4f2]/60 dark:bg-[#00272c]/20'}`}>
+                    <td className="px-5 py-3 max-w-[200px]">
+                      <p className="font-medium text-[#00343a] dark:text-[#e0f5f7] truncate">{displayName(u)}</p>
+                      <p className="text-xs text-[#70797a] truncate">{u.email}</p>
+                    </td>
+                    <td className="px-5 py-3">
+                      <RoleEditor user={u} token={token} onUpdated={updateUser} />
+                    </td>
+                    <td className="px-5 py-3">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${u.isActive ? 'bg-[#e8f4f0] text-[#29676f]' : 'bg-red-50 text-red-600'}`}>
+                        {u.isActive ? 'Active' : 'Suspended'}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3 text-xs text-[#70797a] whitespace-nowrap">
+                      {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' }) : 'Never'}
+                    </td>
+                    <td className="px-5 py-3">
+                      <button
+                        onClick={() => toggleActive(u)}
+                        disabled={actionPending === u.id}
+                        className="text-xs border border-[#b0ccc8] dark:border-[#054f57] px-2 py-1 rounded-lg hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-[#40484a] dark:text-[#95d0d9] disabled:opacity-50"
+                      >
+                        {u.isActive ? 'Suspend' : 'Activate'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {total > 20 && (
+          <div className="px-6 py-3 border-t border-[#e0ebe9] dark:border-[#054f57]/30 flex items-center justify-between">
+            <button disabled={page <= 1} onClick={() => { const p = page - 1; setPage(p); void fetchUsers(userQuery, p) }}
+              className="text-xs px-3 py-1.5 border border-[#b0ccc8] dark:border-[#054f57] rounded-lg disabled:opacity-40 hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-[#40484a] dark:text-[#95d0d9]">
+              Prev
+            </button>
+            <span className="text-xs text-[#70797a]">Page {page} of {Math.ceil(total / 20)}</span>
+            <button disabled={page * 20 >= total} onClick={() => { const p = page + 1; setPage(p); void fetchUsers(userQuery, p) }}
+              className="text-xs px-3 py-1.5 border border-[#b0ccc8] dark:border-[#054f57] rounded-lg disabled:opacity-40 hover:bg-[#f7f4f2] dark:hover:bg-[#004c54]/20 transition-colors text-[#40484a] dark:text-[#95d0d9]">
+              Next
+            </button>
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+// --- Commission Rate Panel ----------------------------------------------------
+
+function CommissionRatePanel({ token }: { token: string }) {
+  const [value, setValue] = useState('')
+  const [original, setOriginal] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [err, setErr] = useState('')
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    apiRequest<{ value: string }>('/dashboard/admin/settings/provider_commission_rate', { token })
+      .then((d) => { setValue(d.value); setOriginal(d.value) })
+      .catch(() => { /* non-fatal */ })
+      .finally(() => setLoading(false))
+  }, [token])
+
+  async function save(e: React.FormEvent) {
+    e.preventDefault()
+    const num = parseFloat(value)
+    if (isNaN(num) || num < 0 || num > 1) {
+      setErr('Must be a decimal between 0 and 1 (e.g. 0.05 for 5%)')
+      return
+    }
+    setSaving(true); setErr(''); setSaved(false)
+    try {
+      await apiRequest('/dashboard/admin/settings/provider_commission_rate', {
+        method: 'PATCH', token,
+        body: JSON.stringify({ value: num.toString() }),
+      })
+      setOriginal(num.toString())
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to save')
+    } finally { setSaving(false) }
+  }
+
+  const pctDisplay = original ? `${(parseFloat(original) * 100).toFixed(1)}%` : '—'
+
+  return (
+    <div className="bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/60 rounded-2xl p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">Provider Commission Rate</h3>
+          <p className="text-xs text-[#70797a] mt-0.5">Platform fee taken from each completed provider booking.</p>
+        </div>
+        <span className="text-2xl font-bold font-display text-[#29676f]">{pctDisplay}</span>
+      </div>
+      {loading ? (
+        <div className="h-10 rounded-xl bg-[#e0ebe9] dark:bg-[#004c54]/30 animate-pulse" />
+      ) : (
+        <form onSubmit={save} className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-xs">
+            <input
+              type="number" step="0.001" min="0" max="1"
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder="e.g. 0.05"
+              className="w-full px-3.5 py-2.5 text-sm border border-[#b0ccc8] dark:border-[#054f57] rounded-xl bg-[#f7f4f2] dark:bg-[#00272c] text-[#00343a] dark:text-[#e0f5f7] focus:outline-none focus:ring-2 focus:ring-[#29676f] pr-16"
+            />
+            {value && !isNaN(parseFloat(value)) && (
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-[#70797a] pointer-events-none">
+                {(parseFloat(value) * 100).toFixed(1)}%
+              </span>
+            )}
+          </div>
+          <button type="submit" disabled={saving || value === original}
+            className="px-4 py-2.5 bg-[#00343a] text-white text-sm font-semibold rounded-xl hover:bg-[#004c54] disabled:opacity-50 transition-colors flex-shrink-0">
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          {saved && <span className="text-xs text-[#29676f] font-semibold">✓ Saved</span>}
+        </form>
+      )}
+      {err && <p className="text-xs text-red-600 bg-red-50 px-3 py-2 rounded-xl mt-3">{err}</p>}
+      <p className="text-xs text-[#70797a] mt-3">Enter a decimal value (0.05 = 5%, 0.1 = 10%). Changes take effect immediately on new bookings.</p>
     </div>
   )
 }
 
 // --- Tab: Financials ----------------------------------------------------------
 
-function TabFinancials({ overview }: { overview: OverviewMetrics | null }) {
+function TabFinancials({ overview, token }: { overview: OverviewMetrics | null; token: string }) {
   const gmv = overview?.gmvCents ?? 0
   const MOCK_LEDGER = [
     { label: 'Total Funded to Mothers', cents: gmv, delta: '+12%', positive: true },
@@ -337,6 +697,7 @@ function TabFinancials({ overview }: { overview: OverviewMetrics | null }) {
         <h2 className="font-display text-2xl font-bold text-[#00343a] dark:text-[#e0f5f7] mb-1">Financials & Escrow</h2>
         <p className="text-sm text-[#70797a]">Ledger view of all platform funds, Stripe balances, pending payouts, and charitable allocations.</p>
       </div>
+      <CommissionRatePanel token={token} />
       <div className="bg-white dark:bg-[#001f23] border border-[#e0ebe9] dark:border-[#054f57]/60 rounded-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-[#e0ebe9] dark:border-[#054f57]/40"><h3 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">Financial Ledger</h3></div>
         <div className="divide-y divide-[#e0ebe9] dark:divide-[#054f57]/30">
@@ -394,8 +755,8 @@ function TabFinancials({ overview }: { overview: OverviewMetrics | null }) {
 const MOCK_AUDIT = [
   { time: '2 min ago', action: 'Provider approved', actor: 'admin@tribe.com', severity: 'info' },
   { time: '14 min ago', action: 'Failed login attempt (3x)', actor: 'suspicious@unknown.com', severity: 'warn' },
-  { time: '1 hr ago', action: 'Payout released � $380', actor: 'system', severity: 'info' },
-  { time: '2 hr ago', action: 'Rate limit triggered � /auth/login', actor: '192.168.1.105', severity: 'warn' },
+  { time: '1 hr ago', action: 'Payout released $380', actor: 'system', severity: 'info' },
+  { time: '2 hr ago', action: 'Rate limit triggered /auth/login', actor: '192.168.1.105', severity: 'warn' },
   { time: '3 hr ago', action: 'Admin login', actor: 'admin@tribe.com', severity: 'info' },
 ]
 
@@ -578,16 +939,16 @@ function TabIntegrations({ token }: { token: string }) {
       {/* ── Section 1: Financials & Platform Fees (Stripe) ───────────────── */}
       <section>
         <IntgSectionHeader
-          title="Financials & Platform Fees, Stripe"
+          title="Financials & Platform Fees , Stripe"
           subtitle="Payment processing health, revenue metrics, and fee analysis."
         />
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <InfoCard>
             <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-3">Connection Status</p>
             <div className="space-y-2">
-              <StatusDot ok label="Stripe API, Connected" />
-              <StatusDot ok label="Webhooks, Delivering" />
-              <StatusDot ok label="Stripe Connect, Active" />
+              <StatusDot ok label="Stripe API , Connected" />
+              <StatusDot ok label="Webhooks , Delivering" />
+              <StatusDot ok label="Stripe Connect , Active" />
             </div>
             <p className="text-[10px] text-[#70797a] mt-3">
               Last webhook: <span className="font-medium text-[#40484a] dark:text-[#95d0d9]">{new Date().toLocaleTimeString()}</span>
@@ -621,7 +982,7 @@ function TabIntegrations({ token }: { token: string }) {
         <div className="grid sm:grid-cols-3 gap-4">
           <InfoCard>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Frontend, Vercel</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Frontend , Vercel</p>
               <StatusDot ok label="Healthy" />
             </div>
             <StatRow label="Bandwidth (MTD)" value="18.4 GB" sub="/ 100 GB" />
@@ -632,7 +993,7 @@ function TabIntegrations({ token }: { token: string }) {
 
           <InfoCard>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Backend, Railway</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Backend , Railway</p>
               <StatusDot ok label="Running" />
             </div>
             <StatRow label="API uptime (30 d)" value="99.94%" />
@@ -643,7 +1004,7 @@ function TabIntegrations({ token }: { token: string }) {
 
           <InfoCard>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Database, Neon</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Database , Neon</p>
               <StatusDot ok label="Healthy" />
             </div>
             <StatRow label="Active connections" value="8" sub="/ 100 pool" />
@@ -663,7 +1024,7 @@ function TabIntegrations({ token }: { token: string }) {
         <div className="grid sm:grid-cols-2 gap-4">
           <InfoCard>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Transactional Email, Resend</p>
+              <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a]">Transactional Email , Resend</p>
               <StatusDot ok label="Connected" />
             </div>
             <StatRow label="Monthly quota used" value="3,842" sub="/ 100 K" />
@@ -692,7 +1053,7 @@ function TabIntegrations({ token }: { token: string }) {
           </InfoCard>
 
           <InfoCard>
-            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-1">API Traffic, Fastify Rate Limiter</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#70797a] mb-1">API Traffic , Fastify Rate Limiter</p>
             <p className="text-[10px] text-[#70797a] mb-4">100 req / min per IP · Current peak load</p>
             {([
               { label: 'p50 req/min', val: 14, max: 100 },
@@ -1411,12 +1772,13 @@ function AdminDashboardContent() {
           </button>
           <h1 className="flex-1 text-sm font-semibold text-[#00343a] dark:text-[#e0f5f7]">{TABS.find(t => t.id === activeTab)?.label}</h1>
           {error && <p className="text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-3 py-1 rounded-lg hidden sm:block">? {error}</p>}
+          <NotificationBell token={getToken() ?? ''} />
           <button onClick={() => void fetchData()} className="text-sm text-[#40484a] dark:text-[#95d0d9] border border-[#b0ccc8] dark:border-[#054f57] px-3 py-1.5 rounded-full hover:bg-[#e8f4f0] dark:hover:bg-[#004c54]/20 transition-colors">Refresh</button>
         </header>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
           {activeTab === 'overview' && <TabOverview overview={overview} loading={loading} />}
-          {activeTab === 'users' && <TabUsers vetting={vetting} onVetting={handleVetting} loading={loading} />}
-          {activeTab === 'financials' && <TabFinancials overview={overview} />}
+          {activeTab === 'users' && <TabUsers vetting={vetting} onVetting={handleVetting} loadingVetting={loading} token={getToken() ?? ''} />}
+          {activeTab === 'financials' && <TabFinancials overview={overview} token={getToken() ?? ''} />}
           {activeTab === 'security' && <TabSecurity />}
           {activeTab === 'integrations' && <TabIntegrations token={getToken() ?? ''} />}
           {activeTab === 'vendors' && <TabVendors token={getToken() ?? ''} />}

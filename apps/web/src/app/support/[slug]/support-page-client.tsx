@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type RefObject } from 'react'
 import Image from 'next/image'
 import { apiRequest } from '@/lib/api'
 import { getToken } from '@/lib/auth'
@@ -8,6 +8,32 @@ import ContributionModal from '@/components/contribution-modal'
 import CommunitySignupModal from '@/components/community-signup-modal'
 import ShareModal from '@/components/share-modal'
 import type { SupportPageData, RegistryPublic, RegistryItemPublic } from '@/app/registry/[slug]/page'
+
+function useOnClickOutside<T extends HTMLElement>(
+  ref: RefObject<T | null>,
+  onOutside: () => void,
+  enabled = true
+) {
+  useEffect(() => {
+    if (!enabled) return
+
+    function onPointerDown(event: MouseEvent | TouchEvent) {
+      const el = ref.current
+      if (!el) return
+      if (event.target instanceof Node && !el.contains(event.target)) {
+        onOutside()
+      }
+    }
+
+    document.addEventListener('mousedown', onPointerDown)
+    document.addEventListener('touchstart', onPointerDown)
+
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown)
+      document.removeEventListener('touchstart', onPointerDown)
+    }
+  }, [ref, onOutside, enabled])
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -93,6 +119,8 @@ function CareItemCard({
   onFund: (item: RegistryItemPublic, registryId: string, registryTitle: string) => void
   onCommunitySignup: (item: RegistryItemPublic) => void
 }) {
+  const [showInfo, setShowInfo] = useState(false)
+  const bubbleRef = useRef<HTMLDivElement>(null)
   const cfg = catConfig(item.category?.slug)
   const fundedPct = pct(item.fundedAmountCents, item.targetAmountCents)
   const remaining = item.targetAmountCents - item.fundedAmountCents
@@ -101,12 +129,65 @@ function CareItemCard({
   const fulfilled = item.quantityFulfilled
   const remainingShifts = Math.max(requested - fulfilled, 0)
 
+  useOnClickOutside(bubbleRef, () => setShowInfo(false), showInfo)
+
   return (
-    <article className={`${cfg.bg} border ${cfg.border} rounded-xl p-5 flex flex-col gap-4 dark:bg-[#03252a] dark:border-[#154850]`}>
+    <article className={`${cfg.bg} border ${cfg.border} rounded-xl p-5 flex flex-col gap-4 relative dark:bg-slate-900 dark:border-slate-700/60`}>
+      <button
+        type="button"
+        onClick={() => setShowInfo((prev) => !prev)}
+        aria-label={`More information about ${item.title}`}
+        className="absolute right-3 top-3 h-7 w-7 rounded-full border border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-200 flex items-center justify-center hover:border-teal-600 hover:text-teal-700 dark:hover:border-teal-300 dark:hover:text-teal-200 transition-colors"
+      >
+        <span className="text-xs font-semibold leading-none">i</span>
+      </button>
+
+      {showInfo && (
+        <div className="absolute inset-0 z-10 rounded-xl bg-transparent" aria-hidden />
+      )}
+
+      {showInfo && (
+        <div
+          ref={bubbleRef}
+          className="absolute right-3 top-11 z-20 w-[290px] rounded-xl border border-slate-200 bg-cream-100 p-4 shadow-none dark:border-slate-700 dark:bg-slate-900"
+          role="dialog"
+          aria-label={`${item.title} details`}
+        >
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <h5 className="text-sm font-semibold text-slate-900 dark:text-slate-50 leading-tight">Service Details</h5>
+            <button
+              type="button"
+              onClick={() => setShowInfo(false)}
+              aria-label="Close details"
+              className="h-6 w-6 rounded-md border border-slate-300 text-slate-700 dark:border-slate-600 dark:text-slate-200 flex items-center justify-center"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="space-y-2 text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
+            {item.description && <p>{item.description}</p>}
+            {item.customPurpose && <p><span className="font-semibold text-slate-900 dark:text-slate-100">Purpose:</span> {item.customPurpose}</p>}
+            {item.providerProfile?.businessName && <p><span className="font-semibold text-slate-900 dark:text-slate-100">Provider:</span> {item.providerProfile.businessName}</p>}
+            {item.frequencyUnit && requested > 0 && (
+              <p>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">Care cadence:</span> {requested}x {item.frequencyUnit === 'per_day' ? 'per day' : 'per week'}
+              </p>
+            )}
+            <p>
+              <span className="font-semibold text-slate-900 dark:text-slate-100">Funding model:</span> {isCommunity ? 'Community signup support' : 'Monetary contribution'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-start gap-3">
         <div
-          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${cfg.text} bg-white/60 dark:bg-[#08333a] dark:text-[#95d0d9]`}
+          className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${cfg.text} bg-cream-100 dark:bg-slate-800 dark:text-slate-100`}
           aria-hidden
         >
           {item.isFulfilled ? (
@@ -120,12 +201,12 @@ function CareItemCard({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <h4 className={`text-sm font-semibold leading-snug ${cfg.text} dark:text-[#e0f5f7]`}>{item.title}</h4>
+          <h4 className={`text-sm font-semibold leading-snug ${cfg.text} dark:text-slate-50 pr-8`}>{item.title}</h4>
           {item.description && (
-            <p className="text-xs text-[#40484a] mt-0.5 leading-relaxed line-clamp-2 dark:text-[#a8c2c6]">{item.description}</p>
+            <p className="text-xs text-slate-700 mt-0.5 leading-relaxed line-clamp-2 dark:text-slate-300">{item.description}</p>
           )}
           {item.providerProfile?.businessName && (
-            <p className="text-[11px] text-[#70797a] mt-1 dark:text-[#79a0a6]">
+            <p className="text-[11px] text-slate-500 mt-1 dark:text-slate-400">
               via {item.providerProfile.businessName}
             </p>
           )}
@@ -136,14 +217,14 @@ function CareItemCard({
       {isCommunity ? (
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <span className={`text-xs font-semibold ${cfg.text} dark:text-[#e0f5f7]`}>
+            <span className={`text-xs font-semibold ${cfg.text} dark:text-slate-50`}>
               {fulfilled} of {requested} volunteer slots covered
             </span>
-            <span className={`text-xs font-bold ${cfg.text} dark:text-[#95d0d9]`}>
+            <span className={`text-xs font-bold ${cfg.text} dark:text-slate-200`}>
               {requested > 0 ? Math.min(100, Math.round((fulfilled / requested) * 100)) : 0}%
             </span>
           </div>
-          <div className="h-2 bg-black/10 rounded-full overflow-hidden dark:bg-[#0b3940]">
+          <div className="h-2 bg-slate-200 rounded-full overflow-hidden dark:bg-slate-700/70">
             <div
               className={`h-full rounded-full transition-all duration-700 ${item.isFulfilled ? 'bg-emerald-500' : 'bg-current opacity-60'} ${cfg.text}`}
               style={{
@@ -152,7 +233,7 @@ function CareItemCard({
             />
           </div>
           {item.frequencyUnit && (
-            <p className="mt-1 text-[11px] text-[#70797a] dark:text-[#79a0a6]">
+            <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
               Needed: {requested}x {item.frequencyUnit === 'per_day' ? 'per day' : 'per week'}
             </p>
           )}
@@ -162,11 +243,11 @@ function CareItemCard({
           <div className="flex items-center justify-between mb-1.5">
             <span className={`text-xs font-semibold tabular-nums ${cfg.text} dark:text-[#e0f5f7]`}>
               {money(item.fundedAmountCents)}
-              <span className="font-normal text-[#70797a] dark:text-[#79a0a6]"> of {money(item.targetAmountCents)}</span>
+                <span className="font-normal text-slate-500 dark:text-slate-400"> of {money(item.targetAmountCents)}</span>
             </span>
-            <span className={`text-xs font-bold ${cfg.text} dark:text-[#95d0d9]`}>{fundedPct}%</span>
+              <span className={`text-xs font-bold ${cfg.text} dark:text-slate-200`}>{fundedPct}%</span>
           </div>
-          <div className="h-2 bg-black/10 rounded-full overflow-hidden dark:bg-[#0b3940]">
+            <div className="h-2 bg-slate-200 rounded-full overflow-hidden dark:bg-slate-700/70">
             <div
               className={`h-full rounded-full transition-all duration-700 ${item.isFulfilled ? 'bg-emerald-500' : 'bg-current opacity-60'} ${cfg.text}`}
               style={{ width: `${Math.max(fundedPct, fundedPct > 0 ? 2 : 0)}%` }}
@@ -185,7 +266,7 @@ function CareItemCard({
         <button
           type="button"
           onClick={() => onCommunitySignup(item)}
-          className={`w-full text-xs font-semibold py-2.5 rounded-lg border-2 transition-all hover:opacity-90 active:scale-[0.98] ${cfg.text} border-current bg-white/50 dark:bg-[#08333a] dark:text-[#e0f5f7]`}
+          className={`w-full text-xs font-semibold py-2.5 rounded-lg border-2 transition-colors hover:opacity-90 active:scale-[0.98] ${cfg.text} border-current bg-cream-100 dark:bg-slate-800 dark:text-slate-100`}
         >
           Sign Up to Help · {remainingShifts} open
         </button>
@@ -193,7 +274,7 @@ function CareItemCard({
         <button
           type="button"
           onClick={() => onFund(item, registryId, registryTitle)}
-          className={`w-full text-xs font-semibold py-2.5 rounded-lg border-2 transition-all hover:opacity-90 active:scale-[0.98] ${cfg.text} border-current bg-white/50 dark:bg-[#08333a] dark:text-[#e0f5f7]`}
+          className={`w-full text-xs font-semibold py-2.5 rounded-lg border-2 transition-colors hover:opacity-90 active:scale-[0.98] ${cfg.text} border-current bg-cream-100 dark:bg-slate-800 dark:text-slate-100`}
         >
           Fund this Service · {money(remaining)} to go
         </button>
@@ -311,6 +392,7 @@ function RegistryBlock({
 // ─── Main support page client ─────────────────────────────────────────────────
 
 export default function SupportPageClient({ page }: { page: SupportPageData }) {
+  const [registries, setRegistries] = useState(page.registries)
   const [fundingItem, setFundingItem] = useState<{
     item: RegistryItemPublic
     registryId: string
@@ -346,13 +428,33 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
   }, [page.user.id])
 
   // Aggregate across all registries for the hero stat bar
-  const allItems = page.registries.flatMap((r) => r.items)
+  const allItems = registries.flatMap((r) => r.items)
   const grandTotal = allItems.reduce((s, i) => s + i.targetAmountCents, 0)
   const grandFunded = allItems.reduce((s, i) => s + i.fundedAmountCents, 0)
   const grandPct = pct(grandFunded, grandTotal)
 
+  useEffect(() => {
+    setRegistries(page.registries)
+  }, [page.registries])
+
   function handleFund(item: RegistryItemPublic, registryId: string, registryTitle: string) {
     setFundingItem({ item, registryId, registryTitle })
+  }
+
+  function handleOptimisticContribution(payload: { amountCents: number; registryItemId?: string }) {
+    if (!payload.registryItemId) return
+    setRegistries((prev) => prev.map((registry) => ({
+      ...registry,
+      items: registry.items.map((item) => {
+        if (item.id !== payload.registryItemId) return item
+        const nextFunded = Math.min(item.targetAmountCents, item.fundedAmountCents + payload.amountCents)
+        return {
+          ...item,
+          fundedAmountCents: nextFunded,
+          isFulfilled: nextFunded >= item.targetAmountCents,
+        }
+      }),
+    })))
   }
 
   async function handleToggleFavorite() {
@@ -477,7 +579,7 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {page.registries.map((registry) => (
+                  {registries.map((registry) => (
                     <RegistryBlock
                       key={registry.id}
                       registry={registry}
@@ -552,9 +654,11 @@ export default function SupportPageClient({ page }: { page: SupportPageData }) {
       {fundingItem && (
         <ContributionModal
           registryId={fundingItem.registryId}
+          registrySlug={page.slug}
           registryTitle={fundingItem.registryTitle}
           registryItemId={fundingItem.item.id}
           itemTitle={fundingItem.item.title}
+          onPaymentSuccess={handleOptimisticContribution}
           onClose={() => setFundingItem(null)}
         />
       )}

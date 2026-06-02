@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import crypto from 'crypto'
 import { db } from '../db/client.js'
-import { users, providerProfiles } from '../db/schema.js'
+import { users, providerProfiles, managerPermissions, adminNotifications } from '../db/schema.js'
 import { hashPassword, verifyPassword } from '../lib/password.js'
 import { signJwt } from '../lib/jwt.js'
 import { env } from '../lib/env.js'
@@ -12,6 +12,7 @@ import {
   sendEmailVerification,
   sendPasswordReset,
   sendProviderVerificationAlert,
+  sendVendorSignupNotificationEmail,
 } from '../lib/email.js'
 import { requireAuth } from '../plugins/auth.js'
 import type { UserRole } from '@tribe/shared'
@@ -62,12 +63,51 @@ function getResetBaseOrigin(headers: Record<string, unknown>): string {
   return env.FRONTEND_URL
 }
 
+/**
+ * Fire-and-forget: creates admin_notifications rows and emails all admins +
+ * managers who have the 'vendors' permission module.
+ */
+async function notifyAdminsAndManagersOfVendorSignup(vendorName: string, vendorEmail: string) {
+  // 1. Collect recipient emails and ids
+  const admins = await db
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .where(eq(users.role, 'admin'))
+
+  const managersWithVendors = await db
+    .select({ id: users.id, email: users.email })
+    .from(users)
+    .innerJoin(managerPermissions, eq(managerPermissions.userId, users.id))
+    .where(eq(managerPermissions.module, 'vendors'))
+
+  // 2. Insert a single shared admin_notification visible to admins + vendor-managers
+  await db.insert(adminNotifications).values({
+    type: 'provider_signup',
+    title: `New vendor signup: ${vendorName}`,
+    body: `${vendorName} (${vendorEmail}) registered as a provider and is awaiting review.`,
+    metadata: { vendorName, vendorEmail },
+    targetRoles: ['admin', 'manager'],
+    requiredPermission: 'vendors',
+    isRead: false,
+  })
+
+  // 3. Email all admin recipients (no duplicate filtering needed; admins always included)
+  const adminEmails = admins.map((a) => a.email)
+  const managerEmails = managersWithVendors.map((m) => m.email)
+  const allRecipients = [...new Set([...adminEmails, ...managerEmails])]
+
+  for (const email of allRecipients) {
+    await sendVendorSignupNotificationEmail(email, vendorName, vendorEmail).catch(console.error)
+  }
+}
+
 const authRoutes: FastifyPluginAsync = async (fastify) => {
   const authSelect = {
     id: users.id,
     email: users.email,
     passwordHash: users.passwordHash,
     role: users.role,
+    additionalRoles: users.additionalRoles,
     firstName: users.firstName,
     lastName: users.lastName,
     fullName: users.fullName,
@@ -148,12 +188,18 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         user.fullName ?? user.email,
         user.email
       ).catch(console.error)
+      // Notify all admins + managers with 'vendors' permission via DB notification + email
+      notifyAdminsAndManagersOfVendorSignup(
+        user.fullName ?? (`${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email),
+        user.email,
+      ).catch(console.error)
     }
 
     const accessToken = await signJwt({
       sub: user.id,
       email: user.email,
       role: user.role,
+      additionalRoles: user.additionalRoles ?? [],
     })
 
     return reply.status(201).send({
@@ -162,6 +208,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
         id: user.id,
         email: user.email,
         role: user.role,
+        additionalRoles: user.additionalRoles ?? [],
         firstName: user.firstName,
         lastName: user.lastName,
         fullName: user.fullName,
@@ -250,7 +297,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   })
 
-  // GET /auth/me, requires auth
+  // GET /auth/me , requires auth
   fastify.get('/auth/me', { preHandler: requireAuth }, async (request, reply) => {
     const [user] = await db
       .select(authSelect)
@@ -371,7 +418,7 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send({ message: 'Password reset successfully' })
   })
 
-  // POST /auth/change-password, requires authentication
+  // POST /auth/change-password , requires authentication
   fastify.post('/auth/change-password', { preHandler: requireAuth }, async (request, reply) => {
     const changePasswordSchema = z.object({
       currentPassword: z.string().min(1),

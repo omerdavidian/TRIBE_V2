@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { getStoredUser, getToken } from '@/lib/auth'
 import { apiRequest } from '@/lib/api'
 import StarRating from '@/components/star-rating'
+import EmbeddedPaymentModal from '@/components/embedded-payment-modal'
 import type { User, ProviderProfile, FundingFrequency, Registry } from '@tribe/shared'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -17,6 +18,22 @@ interface ProviderWithRating extends ProviderProfile {
   recommendCount: number
   user: { id: string; fullName: string | null }
   services: { id: string; description: string | null; priceMinCents: number | null; priceMaxCents: number | null; category: { name: string; iconName: string | null; slug?: string } }[]
+}
+
+type RegistryItemWithFunding = {
+  id: string
+  title: string
+  description: string | null
+  targetAmountCents: number
+  fundedAmountCents: number
+  isFulfilled: boolean
+  paymentType?: 'monetary' | 'community'
+  serviceStatus?: string
+  isArchived?: boolean
+}
+
+type RegistryWithItems = Registry & {
+  items: RegistryItemWithFunding[]
 }
 
 // ── Sample catalog shown when API returns empty (local dev) ────────────────────
@@ -146,7 +163,7 @@ function getCatVisual(slug?: string): CatVisual {
   }
 }
 
-type ActiveTab = 'search' | 'custom'
+type ActiveTab = 'search' | 'custom' | 'registry'
 
 const FREQUENCY_LABELS: Record<FundingFrequency, string> = {
   one_time: 'Total / One-Time',
@@ -258,6 +275,10 @@ function formatPrice(minCents: number | null, maxCents: number | null) {
   if (minCents) return `From ${fmt(minCents)}`
   if (maxCents) return `Up to ${fmt(maxCents)}`
   return null
+}
+
+function money(cents: number) {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 0 }).format(cents / 100)
 }
 
 // ── Add-to-Registry modal overlay with checkboxes ────────────────────────────
@@ -685,6 +706,137 @@ function SeedProviderCard({ seed, registries, token }: { seed: SeedProvider; reg
   )
 }
 
+function TopUpPaymentModal({
+  token,
+  registryItem,
+  registryTitle,
+  onClose,
+  onCompleted,
+}: {
+  token: string
+  registryItem: RegistryItemWithFunding
+  registryTitle: string
+  onClose: () => void
+  onCompleted: () => void
+}) {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [clientSecret, setClientSecret] = useState<string | null>(null)
+  const [donationId, setDonationId] = useState<string | null>(null)
+  const [amountCents, setAmountCents] = useState(0)
+  const [syncing, setSyncing] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function initTopUp() {
+      setLoading(true)
+      setError('')
+      try {
+        const result = await apiRequest<{
+          donationId: string
+          clientSecret: string
+          amountCents: number
+        }>('/services/top-up', {
+          method: 'POST',
+          token,
+          body: JSON.stringify({ registryItemId: registryItem.id }),
+        })
+
+        if (!cancelled) {
+          setDonationId(result.donationId)
+          setClientSecret(result.clientSecret)
+          setAmountCents(result.amountCents)
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Could not initialize top-up payment')
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void initTopUp()
+    return () => {
+      cancelled = true
+    }
+  }, [registryItem.id, token])
+
+  async function waitForDonationCommit() {
+    if (!donationId) return
+    setSyncing(true)
+    try {
+      for (let attempt = 0; attempt < 12; attempt += 1) {
+        const status = await apiRequest<{ completed?: boolean; status?: string }>(`/donations/${donationId}/status`)
+        if (status.completed || status.status === 'completed') {
+          await onCompleted()
+          onClose()
+          return
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 650))
+      }
+      throw new Error('Payment captured, but sync is still in progress. Please refresh in a few seconds.')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Payment sync did not finish in time')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  return (
+    <>
+      {loading && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+          <div className="relative bg-white dark:bg-[#021d22] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#0c3b42] shadow-xl max-w-sm w-full text-center">
+            <div className="w-8 h-8 border-2 border-[#00343a] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-[#4f6368] dark:text-[#a8c2c6]">Initializing top-up checkout…</p>
+          </div>
+        </div>
+      )}
+
+      {!loading && error && (
+        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+          <div className="relative bg-white dark:bg-[#021d22] rounded-2xl p-6 border border-[#e8e1db] dark:border-[#0c3b42] shadow-xl max-w-sm w-full">
+            <h3 className="font-semibold text-[#00343a] dark:text-[#e0f5f7] mb-2">Top-up unavailable</h3>
+            <p className="text-sm text-red-600 dark:text-[#ffb4be]">{error}</p>
+            <button
+              type="button"
+              onClick={onClose}
+              className="mt-4 w-full h-10 rounded-xl bg-[#00343a] text-white text-sm font-semibold"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!loading && !error && clientSecret && (
+        <>
+          <EmbeddedPaymentModal
+            amountCents={amountCents}
+            itemTitle={`${registryItem.title} · ${registryTitle}`}
+            clientSecret={clientSecret}
+            onClose={onClose}
+            onSuccess={() => {
+              void waitForDonationCommit()
+            }}
+          />
+          {syncing && (
+            <div className="fixed inset-x-0 top-20 z-[1001] flex justify-center px-4">
+              <div className="bg-[#00343a] text-white text-xs font-semibold tracking-wide px-4 py-2 rounded-full shadow-lg">
+                Finalizing payment and booking status…
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  )
+}
+
 // ── Main Page ──────────────────────────────────────────────────────────────────
 
 export default function MotherServicesPage() {
@@ -700,7 +852,10 @@ export default function MotherServicesPage() {
   const [searchError, setSearchError] = useState('')
 
   // Mother's registries (for Add to Registry)
-  const [registries, setRegistries] = useState<Registry[]>([])
+  const [registries, setRegistries] = useState<RegistryWithItems[]>([])
+  const [registryBusy, setRegistryBusy] = useState(false)
+  const [topUpTarget, setTopUpTarget] = useState<{ item: RegistryItemWithFunding; registryTitle: string } | null>(null)
+  const [rolloverPendingId, setRolloverPendingId] = useState<string | null>(null)
 
   // Custom service form
   const [customForm, setCustomForm] = useState({
@@ -725,16 +880,25 @@ export default function MotherServicesPage() {
     setToken(storedToken)
   }, [router])
 
+  const refreshRegistries = useCallback(async () => {
+    if (!token) return
+    setRegistryBusy(true)
+    try {
+      const data = await apiRequest<RegistryWithItems[]>('/registries/mine', { token })
+      setRegistries(data)
+      if (data[0] && !customTargetRegistry) setCustomTargetRegistry(data[0].id)
+    } catch {
+      // Non-fatal in this page.
+    } finally {
+      setRegistryBusy(false)
+    }
+  }, [customTargetRegistry, token])
+
   // Fetch registries once auth'd
   useEffect(() => {
     if (!token) return
-    apiRequest<Registry[]>('/registries/mine', { token })
-      .then((data) => {
-        setRegistries(data)
-        if (data[0]) setCustomTargetRegistry(data[0].id)
-      })
-      .catch(() => {/* non-fatal */})
-  }, [token])
+    void refreshRegistries()
+  }, [token, refreshRegistries])
 
   const searchProviders = useCallback(async () => {
     if (!token) return
@@ -783,12 +947,36 @@ export default function MotherServicesPage() {
       })
       setCustomSuccess(true)
       setCustomForm({ title: '', description: '', customPurpose: '', targetAmountCents: '', fundingFrequency: 'one_time' })
+      await refreshRegistries()
     } catch (err) {
       setCustomError(err instanceof Error ? err.message : 'Failed to add service')
     } finally {
       setCustomSaving(false)
     }
   }
+
+  async function handleRollover(registryItemId: string) {
+    if (!token) return
+    setRolloverPendingId(registryItemId)
+    try {
+      await apiRequest('/services/rollover', {
+        method: 'POST',
+        token,
+        body: JSON.stringify({ registryItemId }),
+      })
+      await refreshRegistries()
+    } catch {
+      // Intentionally silent in this UX pass.
+    } finally {
+      setRolloverPendingId(null)
+    }
+  }
+
+  const partiallyFundedItems = registries.flatMap((registry) =>
+    (registry.items ?? [])
+      .filter((item) => !item.isArchived && item.paymentType !== 'community' && item.targetAmountCents > item.fundedAmountCents)
+      .map((item) => ({ item, registryTitle: registry.title }))
+  )
 
   if (!user) {
     return (
@@ -823,6 +1011,17 @@ export default function MotherServicesPage() {
               ].join(' ')}
             >
               Custom Service
+            </button>
+            <button
+              onClick={() => setActiveTab('registry')}
+              className={[
+                'flex-1 py-2.5 px-4 rounded-xl text-sm font-semibold transition-colors',
+                activeTab === 'registry'
+                  ? 'bg-teal-700 text-white shadow-sm'
+                  : 'text-gray-500 dark:text-[#79a0a6] hover:text-gray-700 dark:hover:text-[#e0f5f7]',
+              ].join(' ')}
+            >
+              My Registry
             </button>
           </div>
 
@@ -1030,6 +1229,72 @@ export default function MotherServicesPage() {
                 </form>
               </div>
             </div>
+          )}
+
+          {activeTab === 'registry' && (
+            <div className="space-y-4">
+              <div className="bg-white dark:bg-[#021d22] rounded-2xl p-5 border border-gray-100 dark:border-[#0c3b42] shadow-sm">
+                <h2 className="font-semibold text-gray-900 dark:text-[#e0f5f7]">Partially Funded Services</h2>
+                <p className="text-sm text-gray-500 dark:text-[#79a0a6] mt-1">Top up remaining balances to mark services ready for booking, or roll existing funds into your general fund.</p>
+              </div>
+
+              {registryBusy ? (
+                <div className="flex justify-center py-14">
+                  <div className="w-8 h-8 border-2 border-[#00343a] border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : partiallyFundedItems.length === 0 ? (
+                <div className="bg-white dark:bg-[#021d22] rounded-2xl border border-gray-100 dark:border-[#0c3b42] p-12 text-center">
+                  <p className="text-sm text-[#70797a] dark:text-[#79a0a6]">No partially funded monetary services right now.</p>
+                </div>
+              ) : (
+                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                  {partiallyFundedItems.map(({ item, registryTitle }) => {
+                    const remaining = Math.max(0, item.targetAmountCents - item.fundedAmountCents)
+                    const pct = item.targetAmountCents > 0 ? Math.round((item.fundedAmountCents / item.targetAmountCents) * 100) : 0
+
+                    return (
+                      <article key={item.id} className="bg-white dark:bg-[#021d22] rounded-2xl border border-gray-100 dark:border-[#0c3b42] p-5 shadow-sm">
+                        <p className="text-xs uppercase tracking-wider text-[#8a9da0] dark:text-[#79a0a6]">{registryTitle}</p>
+                        <h3 className="mt-2 font-semibold text-[#00343a] dark:text-[#e0f5f7]">{item.title}</h3>
+                        <p className="mt-2 text-sm text-[#4f6368] dark:text-[#a8c2c6]">{money(item.fundedAmountCents)} of {money(item.targetAmountCents)} funded · {pct}%</p>
+                        <div className="h-2 bg-[#e8e2de] dark:bg-[#0c3b42] rounded-full mt-3 overflow-hidden">
+                          <div className="h-full bg-[#29676f]" style={{ width: `${Math.min(100, pct)}%` }} />
+                        </div>
+                        <p className="mt-3 text-sm font-semibold text-[#7d3527] dark:text-[#f1b49f]">Remaining: {money(remaining)}</p>
+
+                        <div className="mt-4 flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setTopUpTarget({ item, registryTitle })}
+                            className="h-10 rounded-xl bg-[#7d3527] text-white text-sm font-semibold hover:bg-[#6a2d20] transition-colors"
+                          >
+                            Pay Remaining Balance to Book
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => { void handleRollover(item.id) }}
+                            disabled={rolloverPendingId === item.id}
+                            className="h-10 rounded-xl border border-[#7d3527]/40 text-[#7d3527] dark:text-[#f1b49f] text-sm font-semibold hover:bg-[#fdf2ee] dark:hover:bg-[rgba(125,53,39,0.18)] transition-colors disabled:opacity-60"
+                          >
+                            {rolloverPendingId === item.id ? 'Transferring…' : 'Cancel & Transfer to General Fund'}
+                          </button>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {topUpTarget && token && (
+            <TopUpPaymentModal
+              token={token}
+              registryItem={topUpTarget.item}
+              registryTitle={topUpTarget.registryTitle}
+              onClose={() => setTopUpTarget(null)}
+              onCompleted={refreshRegistries}
+            />
           )}
 
     </div>

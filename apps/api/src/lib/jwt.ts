@@ -21,10 +21,15 @@ export async function signJwt(payload: {
   sub: string
   email: string
   role: UserRole
+  additionalRoles?: string[]
 }): Promise<string> {
   const expirySeconds = parseExpiry(env.JWT_EXPIRES_IN)
 
-  return new SignJWT({ email: payload.email, role: payload.role })
+  return new SignJWT({
+    email: payload.email,
+    role: payload.role,
+    additionalRoles: payload.additionalRoles ?? [],
+  })
     .setProtectedHeader({ alg: 'HS256' })
     .setSubject(payload.sub)
     .setIssuedAt()
@@ -39,6 +44,7 @@ export async function verifyJwt(token: string): Promise<JwtPayload> {
     sub: payload.sub as string,
     email: payload['email'] as string,
     role: payload['role'] as UserRole,
+    additionalRoles: (payload['additionalRoles'] as string[] | undefined) ?? [],
     iat: payload.iat,
     exp: payload.exp,
   }

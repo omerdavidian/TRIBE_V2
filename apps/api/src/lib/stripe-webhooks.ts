@@ -11,10 +11,10 @@
 
 import { Stripe } from 'stripe'
 import { db } from '../db/client.js'
-import { donations, registryItems, registries, users, vouchers } from '../db/schema.js'
+import { donations, registryItems, registries, supporterThankYouMessages, users, vouchers } from '../db/schema.js'
 import { eq, sql } from 'drizzle-orm'
 import crypto from 'crypto'
-import { sendVoucherEmail } from './email.js'
+import { sendContributionConfirmationEmail, sendVoucherEmail } from './email.js'
 
 const STRIPE_WEBHOOK_SECRET = process.env.STRIPE_WEBHOOK_SECRET || ''
 
@@ -23,6 +23,7 @@ export interface WebhookHandler {
 }
 
 async function completeDonationAfterPayment(
+  livemode: boolean,
   paymentIntentId: string,
   metadata: Stripe.Metadata,
   amountReceivedCents: number
@@ -36,6 +37,10 @@ async function completeDonationAfterPayment(
           id: true,
           status: true,
           amountCents: true,
+          supporterId: true,
+          supporterNameSnapshot: true,
+          supporterEmailSnapshot: true,
+          isAnonymous: true,
           registryItemId: true,
           registryId: true,
         },
@@ -46,6 +51,10 @@ async function completeDonationAfterPayment(
           id: true,
           status: true,
           amountCents: true,
+          supporterId: true,
+          supporterNameSnapshot: true,
+          supporterEmailSnapshot: true,
+          isAnonymous: true,
           registryItemId: true,
           registryId: true,
         },
@@ -63,15 +72,74 @@ async function completeDonationAfterPayment(
 
   const registryItemId = donation.registryItemId ?? metadata['registryItemId'] ?? null
   const donationAmountCents = donation.amountCents || amountReceivedCents
+  const completedAt = new Date()
 
   await db
     .update(donations)
     .set({
       status: 'completed',
       stripePaymentIntentId: paymentIntentId,
-      completedAt: new Date(),
+      isTestData: !livemode,
+      supporterNameSnapshot: donation.supporterNameSnapshot ?? metadata['supporterName'] ?? null,
+      supporterEmailSnapshot: donation.supporterEmailSnapshot ?? metadata['supporterEmail'] ?? null,
+      completedAt,
     })
     .where(eq(donations.id, donation.id))
+
+  const registry = donation.registryId
+    ? await db.query.registries.findFirst({
+        where: eq(registries.id, donation.registryId),
+        columns: { id: true, title: true, slug: true, userId: true },
+      })
+    : null
+  const registryItem = registryItemId
+    ? await db.query.registryItems.findFirst({
+        where: eq(registryItems.id, registryItemId),
+        columns: { id: true, title: true, registryId: true, isFulfilled: true },
+      })
+    : null
+  const supporter = donation.supporterId
+    ? await db.query.users.findFirst({
+        where: eq(users.id, donation.supporterId),
+        columns: { id: true, email: true, fullName: true, firstName: true, lastName: true },
+      })
+    : null
+  const supporterName =
+    donation.supporterNameSnapshot ??
+    metadata['supporterName'] ??
+    supporter?.fullName ??
+    [supporter?.firstName, supporter?.lastName].filter(Boolean).join(' ').trim() ??
+    'Supporter'
+  const supporterEmail = donation.supporterEmailSnapshot ?? metadata['supporterEmail'] ?? supporter?.email ?? null
+
+  if (registry?.userId && supporterEmail) {
+    const existingThankYou = await db.query.supporterThankYouMessages.findFirst({
+      where: eq(supporterThankYouMessages.donationId, donation.id),
+      columns: { id: true },
+    })
+
+    if (!existingThankYou) {
+      await db.insert(supporterThankYouMessages).values({
+        motherUserId: registry.userId,
+        donationId: donation.id,
+        supporterUserId: donation.supporterId,
+        recipientEmailSnapshot: supporterEmail,
+        recipientNameSnapshot: donation.isAnonymous ? 'Anonymous supporter' : supporterName,
+        subject: 'Thank you for supporting my postpartum journey',
+        body: 'Your care means the world to our family. Thank you for helping us feel seen and supported.',
+        status: 'draft',
+      })
+    }
+
+    await sendContributionConfirmationEmail({
+      to: supporterEmail,
+      supporterName: donation.isAnonymous ? 'Supporter' : supporterName,
+      amountCents: donationAmountCents,
+      registryTitle: registry.title,
+      serviceTitle: registryItem?.title ?? null,
+      livemode,
+    })
+  }
 
   // If donation was scoped to a specific registry item, update its funded amount.
   if (registryItemId) {
@@ -80,6 +148,7 @@ async function completeDonationAfterPayment(
       .set({
         fundedAmountCents: sql`LEAST(${registryItems.fundedAmountCents} + ${donationAmountCents}, ${registryItems.targetAmountCents})`,
         isFulfilled: sql`(${registryItems.fundedAmountCents} + ${donationAmountCents}) >= ${registryItems.targetAmountCents}`,
+        serviceStatus: sql`case when (${registryItems.fundedAmountCents} + ${donationAmountCents}) >= ${registryItems.targetAmountCents} then 'ready_to_book' else ${registryItems.serviceStatus} end`,
       })
       .where(eq(registryItems.id, registryItemId))
 
@@ -143,6 +212,7 @@ async function handlePaymentIntentSucceeded(event: Stripe.Event): Promise<void> 
   console.log(`Payment succeeded: ${paymentIntent.id}`)
 
   await completeDonationAfterPayment(
+    paymentIntent.livemode,
     paymentIntent.id,
     paymentIntent.metadata ?? {},
     paymentIntent.amount_received || paymentIntent.amount

@@ -6,6 +6,7 @@ import './globals.css'
 import ThemeController from '@/components/theme-controller'
 import NavFooterWrapper from '@/components/nav-footer-wrapper'
 import SessionProvider from '@/components/session-provider'
+import TestingModeBadge from '@/components/testing-mode-badge'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -56,6 +57,7 @@ export default function RootLayout({
             {children}
           </NavFooterWrapper>
         </SessionProvider>
+        <TestingModeBadge />
         <SpeedInsights />
         <Analytics />
       </body>

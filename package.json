@@ -18,7 +18,8 @@
     "lint": "npm run lint --workspace=apps/api && npm run lint --workspace=apps/web",
     "db:generate": "npm run db:generate --workspace=apps/api",
     "db:migrate": "npm run db:migrate --workspace=apps/api",
-    "db:studio": "npm run db:studio --workspace=apps/api"
+    "db:studio": "npm run db:studio --workspace=apps/api",
+    "db:reset-alpha": "npm run db:reset-alpha --workspace=apps/api"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

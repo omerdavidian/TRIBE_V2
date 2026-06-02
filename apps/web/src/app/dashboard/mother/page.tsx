@@ -4,10 +4,11 @@ import React, { useCallback, useEffect, useState, Suspense, useRef } from 'react
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { getStoredUser, getToken, logout } from '@/lib/auth'
+import { getStoredUser, getToken } from '@/lib/auth'
 import { apiRequest, getApiUrl } from '@/lib/api'
 import ChangePasswordForm from '@/components/change-password-form'
 import ImageUploader from '@/components/image-uploader'
+import MotherServicesCatalogView from '@/components/mother-services-catalog-view'
 import type { User, Registry, RegistryItem } from '@tribe/shared'
 
 // ── Support Page Config Panel ─────────────────────────────────────────────────
@@ -282,6 +283,7 @@ type Section =
   | 'home'
   | 'profile'
   | 'registry'
+  | 'services'
   | 'payment'
   | 'gratitude'
   | 'calendar'
@@ -610,7 +612,7 @@ function CreateRegistryWizard({ existingRegistry, onSuccess, onCancel }: WizardP
               </div>
               <div>
                 <label className="block text-xs font-semibold text-[#40484a] uppercase tracking-widest mb-1.5">Personal Message <span className="text-[#8a9da0] font-normal normal-case">(optional)</span></label>
-                <textarea rows={4} maxLength={600} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Share what this support means to you and your growing familyâ€¦" className="w-full px-4 py-3 rounded-xl border-2 border-[#e0ebe9] dark:border-[#054f57] bg-white dark:bg-[#00272c] text-[#00343a] dark:text-[#e8f6f7] text-sm focus:outline-none focus:border-[#29676f] transition-all placeholder:text-[#8a9da0] resize-none" />
+                <textarea rows={4} maxLength={600} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Share what this support means to you and your growing family" className="w-full px-4 py-3 rounded-xl border-2 border-[#e0ebe9] dark:border-[#054f57] bg-white dark:bg-[#00272c] text-[#00343a] dark:text-[#e8f6f7] text-sm focus:outline-none focus:border-[#29676f] transition-all placeholder:text-[#8a9da0] resize-none" />
                 <p className="text-xs text-[#8a9da0] text-right mt-1">{form.description.length}/600</p>
               </div>
             </div>
@@ -696,7 +698,7 @@ function CreateRegistryWizard({ existingRegistry, onSuccess, onCancel }: WizardP
             {step < 3 ? (
               <button type="button" disabled={autoSaving} onClick={advanceStep} className="px-6 py-2.5 bg-[#00343a] hover:bg-[#004c54] disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2">
                 {autoSaving && <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/></svg>}
-                {autoSaving ? 'Savingâ€¦' : 'Continue →'}
+                {autoSaving ? 'Saving' : 'Continue →'}
               </button>
             ) : (
               <button type="button" disabled={submitting} onClick={handleSubmit} className="px-6 py-2.5 bg-[#00343a] hover:bg-[#004c54] disabled:opacity-60 text-white text-sm font-semibold rounded-xl transition-colors flex items-center gap-2">
@@ -800,8 +802,8 @@ function RegistryListPanel({
 
                   <p className="text-xs text-[#70797a] mt-0.5">
                     {registry.items.length} item{registry.items.length !== 1 ? 's' : ''}
-                    {totalTarget > 0 && ` Â· $${(totalFunded / 100).toFixed(0)} of $${(totalTarget / 100).toFixed(0)} funded (${pct}%)`}
-                    {registry.dueDate && ` Â· Due ${new Date(registry.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                    {totalTarget > 0 && ` · $${(totalFunded / 100).toFixed(0)} of $${(totalTarget / 100).toFixed(0)} funded (${pct}%)`}
+                    {registry.dueDate && ` · Due ${new Date(registry.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
                   </p>
 
                   {totalTarget > 0 && (
@@ -852,7 +854,7 @@ function RegistryListPanel({
                 {confirmDeleteId === registry.id ? (
                   <div className="flex items-center gap-1.5 ml-auto">
                     <span className="text-xs text-[#70797a]">Delete permanently?</span>
-                    <button onClick={() => doDelete(registry.id)} disabled={deleting} className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1.5 rounded-lg disabled:opacity-50 transition-colors">{deleting ? 'â€¦' : 'Yes'}</button>
+                    <button onClick={() => doDelete(registry.id)} disabled={deleting} className="text-xs font-semibold text-red-600 hover:text-red-700 border border-red-200 hover:border-red-400 px-2.5 py-1.5 rounded-lg disabled:opacity-50 transition-colors">{deleting ? '' : 'Yes'}</button>
                     <button onClick={() => setConfirmDeleteId(null)} className="text-xs text-[#70797a] px-2.5 py-1.5 rounded-lg hover:bg-[#f0ebe7] transition-colors">Cancel</button>
                   </div>
                 ) : (
@@ -946,7 +948,7 @@ function RegistryManagementPanel({
               className="flex items-center gap-1.5 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 px-4 py-2 rounded-xl transition-colors"
             >
               {publishing ? <svg className="animate-spin w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-80" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 100 16v-4l-3 3 3 3v-4a8 8 0 01-8-8z"/></svg> : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
-              {publishing ? 'Publishingâ€¦' : 'Publish Registry'}
+              {publishing ? 'Publishing' : 'Publish Registry'}
             </button>
           )}
           <button onClick={onEdit} className="flex items-center gap-1.5 text-sm font-semibold text-[#40484a] border border-[#e0ebe9] hover:border-[#29676f] px-4 py-2 rounded-xl transition-colors">
@@ -988,7 +990,7 @@ function RegistryManagementPanel({
           <button onClick={copyLink} className="text-xs text-[#29676f] hover:text-[#00343a] font-semibold flex items-center gap-1 transition-colors">
             {copied ? <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Copied!</> : <><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>Copy link</>}
           </button>
-          <span className="text-[#e0ebe9]">Â·</span>
+          <span className="text-[#e0ebe9]">·</span>
           {registry.isPublished ? (
             <Link href={registryUrl} target="_blank" className="text-xs text-[#29676f] hover:text-[#00343a] font-semibold transition-colors">Open in new tab</Link>
           ) : (
@@ -1019,7 +1021,7 @@ function RegistryManagementPanel({
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-semibold text-[#00343a] dark:text-[#e0f5f7]">Care Items</h2>
           <Link
-            href="/dashboard/mother/services"
+            href="/dashboard/mother?section=services"
             className="text-xs font-semibold text-[#29676f] hover:text-[#00343a] transition-colors flex items-center gap-1"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -1030,7 +1032,7 @@ function RegistryManagementPanel({
           <div className="text-center py-8">
             <div className="text-3xl mb-3">🌱</div>
             <p className="text-sm text-[#70797a] mb-4">No care items yet. Add services from the Services tab or they were added when you created the registry.</p>
-            <Link href="/dashboard/mother/services" className="text-sm font-semibold text-[#29676f] hover:text-[#00343a] transition-colors">Browse services →</Link>
+            <Link href="/dashboard/mother?section=services" className="text-sm font-semibold text-[#29676f] hover:text-[#00343a] transition-colors">Browse services →</Link>
           </div>
         ) : (
           <ul className="space-y-3">
@@ -1083,6 +1085,10 @@ function ProfileSection({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
+  // Privacy & notification settings
+  const [isPublic, setIsPublic] = useState(false)
+  const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(true)
+  const [savingPrivacy, setSavingPrivacy] = useState(false)
 
   useEffect(() => {
     const token = getToken()
@@ -1090,6 +1096,14 @@ function ProfileSection({
       setLoading(false)
       return
     }
+
+    // Load privacy settings in parallel
+    apiRequest<{ isPublic: boolean; emailNotificationsEnabled: boolean }>('/mothers/settings', { token })
+      .then((s) => {
+        setIsPublic(s.isPublic)
+        setEmailNotificationsEnabled(s.emailNotificationsEnabled)
+      })
+      .catch(() => {})
 
     apiRequest<{
       user: {
@@ -1201,6 +1215,29 @@ function ProfileSection({
     } catch {}
   }
 
+  async function handlePrivacyToggle(field: 'isPublic' | 'emailNotificationsEnabled', value: boolean) {
+    const token = getToken()
+    if (!token) return
+    if (field === 'isPublic') setIsPublic(value)
+    else setEmailNotificationsEnabled(value)
+    setSavingPrivacy(true)
+    try {
+      const updated = await apiRequest<{ isPublic: boolean; emailNotificationsEnabled: boolean }>('/mothers/settings', {
+        method: 'PATCH',
+        token,
+        body: JSON.stringify({ [field]: value }),
+      })
+      setIsPublic(updated.isPublic)
+      setEmailNotificationsEnabled(updated.emailNotificationsEnabled)
+    } catch {
+      // Roll back on failure
+      if (field === 'isPublic') setIsPublic(!value)
+      else setEmailNotificationsEnabled(!value)
+    } finally {
+      setSavingPrivacy(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -1227,44 +1264,109 @@ function ProfileSection({
         />
       </div>
 
-      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
-        <h2 className="font-semibold text-[#00343a] mb-4">Personal Info</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-          <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+        <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+          <h2 className="font-semibold text-[#00343a] mb-4">Personal Info</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input value={firstName} onChange={(e) => setFirstName(e.target.value)} placeholder="First name" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+            <input value={lastName} onChange={(e) => setLastName(e.target.value)} placeholder="Last name" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+          <h2 className="font-semibold text-[#00343a] mb-4">Address</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input value={addressStreet} onChange={(e) => setAddressStreet(e.target.value)} placeholder="Street" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm md:col-span-2" />
+            <input value={addressCity} onChange={(e) => setAddressCity(e.target.value)} placeholder="City" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+            <input value={addressState} onChange={(e) => setAddressState(e.target.value)} placeholder="State" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+            <input value={addressZip} onChange={(e) => setAddressZip(e.target.value)} placeholder="ZIP" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#e8e1db] p-6 h-full flex flex-col">
+          <h2 className="font-semibold text-[#00343a] mb-4">Social Links</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} placeholder="Instagram URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+            <input value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="Facebook URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+            <input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="TikTok URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+            <input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="Website URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
+          </div>
+          <div className="mt-5">
+            <button onClick={handleSave} className="h-11 px-5 rounded-xl bg-[#00343a] text-white text-sm font-semibold hover:bg-[#004c54] transition-colors">
+              {saving ? 'Saving...' : saved ? 'Saved' : 'Save Profile'}
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
+          <h2 className="font-semibold text-[#00343a] mb-4">Security</h2>
+          <ChangePasswordForm />
         </div>
       </div>
 
+      {/* Privacy & Notification Settings */}
       <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
-        <h2 className="font-semibold text-[#00343a] mb-4">Address</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input value={addressStreet} onChange={(e) => setAddressStreet(e.target.value)} placeholder="Street" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm md:col-span-2" />
-          <input value={addressCity} onChange={(e) => setAddressCity(e.target.value)} placeholder="City" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-          <input value={addressState} onChange={(e) => setAddressState(e.target.value)} placeholder="State" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-          <input value={addressZip} onChange={(e) => setAddressZip(e.target.value)} placeholder="ZIP" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-        </div>
-      </div>
+        <h2 className="font-semibold text-[#00343a] mb-1">Privacy & Notifications</h2>
+        <p className="text-xs text-[#70797a] mb-5">Control who can see your registry and how we reach you.</p>
+        <div className="space-y-4">
+          {/* Public registry toggle */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-[#00343a]">Public Registry</p>
+              <p className="text-xs text-[#70797a] mt-0.5">When on, anyone with your link can view and contribute to your registry. When off, only you can see it.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isPublic}
+              disabled={savingPrivacy}
+              onClick={() => handlePrivacyToggle('isPublic', !isPublic)}
+              className={[
+                'relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#29676f] focus-visible:ring-offset-2',
+                isPublic ? 'bg-[#29676f]' : 'bg-[#d1d5db]',
+                savingPrivacy ? 'opacity-60 cursor-wait' : 'cursor-pointer',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200',
+                  isPublic ? 'translate-x-5' : 'translate-x-0',
+                ].join(' ')}
+              />
+            </button>
+          </div>
 
-      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
-        <h2 className="font-semibold text-[#00343a] mb-4">Social Links</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input value={instagramUrl} onChange={(e) => setInstagramUrl(e.target.value)} placeholder="Instagram URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-          <input value={facebookUrl} onChange={(e) => setFacebookUrl(e.target.value)} placeholder="Facebook URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-          <input value={tiktokUrl} onChange={(e) => setTiktokUrl(e.target.value)} placeholder="TikTok URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-          <input value={websiteUrl} onChange={(e) => setWebsiteUrl(e.target.value)} placeholder="Website URL" className="h-11 rounded-xl border border-[#d6d2ce] px-3 text-sm" />
-        </div>
-        <div className="mt-5">
-          <button onClick={handleSave} className="h-11 px-5 rounded-xl bg-[#00343a] text-white text-sm font-semibold hover:bg-[#004c54] transition-colors">
-            {saving ? 'Saving...' : saved ? 'Saved' : 'Save Profile'}
-          </button>
-        </div>
-      </div>
+          <div className="h-px bg-[#f0ebe7]" />
 
-      <div className="bg-white rounded-2xl border border-[#e8e1db] p-6">
-        <h2 className="font-semibold text-[#00343a] mb-4">Security</h2>
-        <ChangePasswordForm />
+          {/* Email notifications toggle */}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-[#00343a]">Email Notifications</p>
+              <p className="text-xs text-[#70797a] mt-0.5">Receive emails about donations, service updates, and community activity.</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={emailNotificationsEnabled}
+              disabled={savingPrivacy}
+              onClick={() => handlePrivacyToggle('emailNotificationsEnabled', !emailNotificationsEnabled)}
+              className={[
+                'relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#29676f] focus-visible:ring-offset-2',
+                emailNotificationsEnabled ? 'bg-[#29676f]' : 'bg-[#d1d5db]',
+                savingPrivacy ? 'opacity-60 cursor-wait' : 'cursor-pointer',
+              ].join(' ')}
+            >
+              <span
+                className={[
+                  'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200',
+                  emailNotificationsEnabled ? 'translate-x-5' : 'translate-x-0',
+                ].join(' ')}
+              />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -1643,9 +1745,58 @@ function PaymentSection() {
 }
 
 function GratitudeSection() {
+  const [rows, setRows] = useState<Array<{
+    donationId: string
+    supporterName: string
+    supporterEmail: string
+    amountCents: number
+    registryTitle: string
+    serviceTitle: string | null
+    contributedAt: string
+    thankYouStatus: 'pending' | 'sent'
+  }>>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [subject, setSubject] = useState('Thank you for supporting my postpartum journey')
   const [body, setBody] = useState('Your care means the world to our family. Thank you for helping us feel seen and supported.')
+
+  useEffect(() => {
+    const token = getToken()
+    if (!token) {
+      setRows([])
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+    setLoadError(null)
+
+    apiRequest<Array<{
+      donationId: string
+      supporterName: string
+      supporterEmail: string
+      amountCents: number
+      registryTitle: string
+      serviceTitle: string | null
+      contributedAt: string
+      thankYouStatus: 'pending' | 'sent'
+    }>>('/supporters', { token })
+      .then((data) => {
+        if (!cancelled) setRows(data)
+      })
+      .catch((err) => {
+        if (!cancelled) setLoadError(err instanceof Error ? err.message : 'Could not load supporters')
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="space-y-6">
@@ -1664,7 +1815,51 @@ function GratitudeSection() {
           <span>Date</span>
           <span>Status</span>
         </div>
-        <div className="py-8 text-sm text-[#70797a] text-center">Thank-you workflows are ready. Supporter syncing will populate this list after API wiring.</div>
+        {loading ? (
+          <div className="space-y-3 py-5">
+            {Array.from({ length: 4 }).map((_, idx) => (
+              <div key={idx} className="grid grid-cols-4 gap-4 items-center py-3 border-b border-[#f3eeea] last:border-0">
+                <div className="h-10 rounded-xl bg-[#f3eeea] animate-pulse" />
+                <div className="h-10 rounded-xl bg-[#f3eeea] animate-pulse" />
+                <div className="h-10 rounded-xl bg-[#f3eeea] animate-pulse" />
+                <div className="h-10 rounded-xl bg-[#f3eeea] animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : loadError ? (
+          <div className="py-8 text-sm text-red-600 text-center">{loadError}</div>
+        ) : rows.length === 0 ? (
+          <div className="py-8 text-sm text-[#70797a] text-center">Completed contributions will appear here automatically once a supporter checks out.</div>
+        ) : (
+          <div className="divide-y divide-[#f3eeea]">
+            {rows.map((row) => {
+              const emailHandle = row.supporterEmail ? `@${row.supporterEmail.split('@')[0]}` : 'No email captured'
+              return (
+                <div key={row.donationId} className="grid grid-cols-4 gap-4 py-4 items-center">
+                  <div>
+                    <p className="text-sm font-semibold text-[#00343a]">{row.supporterName}</p>
+                    <p className="text-xs text-[#7f8d8f] mt-1">{emailHandle}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#00343a]">{new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(row.amountCents / 100)}</p>
+                    <p className="text-xs text-[#7f8d8f] mt-1">{row.serviceTitle ?? row.registryTitle}</p>
+                  </div>
+                  <div className="text-sm text-[#4f6368]">{new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(new Date(row.contributedAt))}</div>
+                  <div>
+                    <span className={[
+                      'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold',
+                      row.thankYouStatus === 'sent'
+                        ? 'bg-[#e7f6ee] text-[#18633f]'
+                        : 'bg-[#f3eeea] text-[#7a6b55]',
+                    ].join(' ')}>
+                      {row.thankYouStatus === 'sent' ? 'Dispatched' : 'Pending'}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {open && (
@@ -1759,24 +1954,38 @@ function CareCalendarSection() {
   )
 }
 
-const NAV_ITEMS: { id: Section | 'services'; label: string; icon: React.ReactNode; href?: string }[] = [
-  { id: 'home', label: 'Home', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> },
-  { id: 'profile', label: 'Profile', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21a8 8 0 0 0-16 0"/><circle cx="12" cy="7" r="4"/></svg> },
-  { id: 'registry', label: 'My Registry', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 12V22H4V12"/><path d="M22 7H2v5h20V7z"/><path d="M12 22V7"/></svg> },
-  { id: 'payment', label: 'Payment Hub', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg> },
-  { id: 'gratitude', label: 'Gratitude CRM', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/></svg> },
-  { id: 'calendar', label: 'Care Calendar', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
-  { id: 'services', label: 'Services', href: '/dashboard/mother/services', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg> },
-  { id: 'bookings', label: 'Bookings', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg> },
-]
-
 // ── Main Dashboard Content ──────────────────────────────────────────────────────
 
 function MotherDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const sectionParam = searchParams.get('section')
   const [user, setUser] = useState<User | null>(null)
-  const [section, setSection] = useState<Section>('home')
+  const didBootstrapRef = useRef(false)
+
+  const section: Section =
+    sectionParam === 'home' ||
+    sectionParam === 'profile' ||
+    sectionParam === 'registry' ||
+    sectionParam === 'services' ||
+    sectionParam === 'payment' ||
+    sectionParam === 'gratitude' ||
+    sectionParam === 'calendar' ||
+    sectionParam === 'bookings'
+      ? sectionParam
+      : 'home'
+
+  const setSection = useCallback(
+    (nextSection: Section) => {
+      if (nextSection === section) return
+      const params = new URLSearchParams(searchParams.toString())
+      if (nextSection === 'home') params.delete('section')
+      else params.set('section', nextSection)
+      const nextQuery = params.toString()
+      router.replace(nextQuery ? `/dashboard/mother?${nextQuery}` : '/dashboard/mother', { scroll: false })
+    },
+    [router, searchParams, section]
+  )
 
   // Registry state
   const [registries, setRegistries] = useState<RegistryWithItems[]>([])
@@ -1814,26 +2023,14 @@ function MotherDashboardContent() {
   }
 
   useEffect(() => {
+    if (didBootstrapRef.current) return
+    didBootstrapRef.current = true
+
     const stored = getStoredUser()
     const token = getToken()
     if (!stored) { router.replace('/auth'); return }
     if (stored.role !== 'mother') { router.replace('/dashboard'); return }
     setUser(stored)
-
-    const sectionParam = searchParams.get('section')
-    if (
-      sectionParam === 'home' ||
-      sectionParam === 'profile' ||
-      sectionParam === 'registry' ||
-      sectionParam === 'payment' ||
-      sectionParam === 'gratitude' ||
-      sectionParam === 'calendar' ||
-      sectionParam === 'bookings'
-    ) {
-      setSection(sectionParam)
-    } else {
-      setSection('home')
-    }
 
     if (token) {
       apiRequest<RegistryWithItems[]>('/registries/mine', { token })
@@ -1854,7 +2051,7 @@ function MotherDashboardContent() {
       setLoadingRegistries(false)
       setOverviewLoading(false)
     }
-  }, [router, searchParams])
+  }, [router])
 
   // Derive current preview slug (first published registry)
   const activeRegistry = registries.find((r) => r.id === activeRegistryId) ?? null
@@ -1941,7 +2138,7 @@ function MotherDashboardContent() {
 
           {/* ── Home ── */}
           {section === 'home' && (
-            <div className="max-w-6xl space-y-6">
+            <div className="w-full max-w-[1600px] mx-auto space-y-6">
               <div className="bg-gradient-to-br from-[#00343a] to-[#004c54] rounded-3xl p-8 text-white">
                 <p className="text-[#95d0d9] text-sm font-medium mb-1">Welcome back</p>
                 <h1 className="font-serif text-3xl font-bold mb-2">Hello, {user.firstName ?? displayName}</h1>
@@ -2060,7 +2257,7 @@ function MotherDashboardContent() {
           {/* ── Registry ── */}
           {section === 'registry' && (
             showWizard ? (
-              <div className="max-w-6xl space-y-6">
+              <div className="w-full max-w-[1600px] mx-auto space-y-6">
                 <h1 className="font-serif text-2xl font-bold text-[#00343a]">{editingRegistry ? 'Edit Registry' : 'Create Registry'}</h1>
                 <CreateRegistryWizard
                   existingRegistry={editingRegistry ?? undefined}
@@ -2069,7 +2266,7 @@ function MotherDashboardContent() {
                 />
               </div>
             ) : (
-              <div className="max-w-6xl space-y-8">
+              <div className="w-full max-w-[1600px] mx-auto space-y-8">
 
                 {/* ── Block 1: Global Support Page Config ── */}
                 <SupportPageCanvas />
@@ -2107,37 +2304,48 @@ function MotherDashboardContent() {
             )
           )}
 
+          {/* ── Services ── */}
+          {section === 'services' && (
+            <MotherServicesCatalogView
+              registries={registries}
+              onCreateRegistry={() => {
+                openCreateNew()
+                setSection('registry')
+              }}
+            />
+          )}
+
           {/* ── Profile ── */}
           {section === 'profile' && (
-            <div className="max-w-6xl">
+            <div className="w-full max-w-[1600px] mx-auto">
               <ProfileSection user={user} onUserUpdate={handleUserUpdate} />
             </div>
           )}
 
           {/* ── Payment ── */}
           {section === 'payment' && (
-            <div className="max-w-6xl">
+            <div className="w-full max-w-[1600px] mx-auto">
               <PaymentSection />
             </div>
           )}
 
           {/* ── Gratitude ── */}
           {section === 'gratitude' && (
-            <div className="max-w-6xl">
+            <div className="w-full max-w-[1600px] mx-auto">
               <GratitudeSection />
             </div>
           )}
 
           {/* ── Care Calendar ── */}
           {section === 'calendar' && (
-            <div className="max-w-6xl">
+            <div className="w-full max-w-[1600px] mx-auto">
               <CareCalendarSection />
             </div>
           )}
 
           {/* ── Bookings ── */}
           {section === 'bookings' && (
-            <div className="max-w-6xl space-y-6">
+            <div className="w-full max-w-[1600px] mx-auto space-y-6">
               <h1 className="font-serif text-2xl font-bold text-[#00343a]">Bookings</h1>
               <div className="bg-white dark:bg-[#001f23] rounded-2xl p-12 border border-[#e8e1db] dark:border-[#054f57]/60 flex flex-col items-center justify-center text-center">
                 <div className="text-5xl mb-4">📅</div>

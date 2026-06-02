@@ -18,6 +18,8 @@ const DEFAULT_STRIPE_PUBLISHABLE_KEY =
 const resolvedPublishableKey =
   process.env['NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY']?.trim() || DEFAULT_STRIPE_PUBLISHABLE_KEY
 
+const stripeIsSandbox = resolvedPublishableKey.startsWith('pk_test_')
+
 const stripePromise = loadStripe(resolvedPublishableKey)
 
 function CheckoutForm({ amountCents, onClose, onSuccess }: Omit<EmbeddedPaymentModalProps, 'clientSecret' | 'itemTitle'>) {
@@ -291,6 +293,9 @@ export default function EmbeddedPaymentModal({
           )}
 
           <p className="text-center text-[#8a9da0] text-xs mt-4 dark:text-[#79a0a6]">Your payment details are encrypted by Stripe.</p>
+          {stripeIsSandbox && (
+            <p className="text-center text-[#8a6b1b] text-xs mt-2 dark:text-[#f4d98c]">Testing mode. Payments are simulated and no real charges are processed.</p>
+          )}
         </div>
       </div>
     </div>

@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import Stripe from 'stripe'
 import { db } from '../db/client.js'
-import { donations, registries, registryItems } from '../db/schema.js'
+import { donations, motherPaymentAccounts, registries, registryItems } from '../db/schema.js'
 import { eq, and } from 'drizzle-orm'
 import { env } from '../lib/env.js'
 
@@ -13,7 +13,16 @@ const paymentIntentBodySchema = z.object({
   registryItemId: z.string().uuid().optional(),
   amountCents: z.number().int().min(50), // Stripe minimum is $0.50
   isAnonymous: z.boolean().default(false),
+  supporterName: z.string().trim().min(1).max(120).optional(),
+  supporterEmail: z.string().trim().email().max(160).optional(),
 })
+
+const PLATFORM_FEE_BPS = Number.parseInt(process.env['PLATFORM_FEE_BPS'] ?? '500', 10)
+
+function platformFeeAmount(amountCents: number) {
+  if (!Number.isFinite(PLATFORM_FEE_BPS) || PLATFORM_FEE_BPS <= 0) return 0
+  return Math.max(0, Math.round(amountCents * (PLATFORM_FEE_BPS / 10000)))
+}
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -42,11 +51,23 @@ export default async function donationRoutes(fastify: FastifyInstance) {
         eq(registries.id, body.registryId),
         eq(registries.isPublished, true)
       ),
-      columns: { id: true, title: true },
+      columns: { id: true, title: true, userId: true },
     })
+
     if (!registry) {
       return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Registry not found' })
     }
+
+    const paymentAccount = await db.query.motherPaymentAccounts.findFirst({
+      where: eq(motherPaymentAccounts.motherUserId, registry.userId),
+      columns: {
+        stripeConnectAccountId: true,
+        stripeOnboardingCompleted: true,
+      },
+    })
+
+    // Stripe Connect account ID (may be null — funds held on platform until mother onboards)
+    const destinationAccountId = paymentAccount?.stripeConnectAccountId ?? null
 
     // ── Validate optional item ──────────────────────────────────────────────
     if (body.registryItemId) {
@@ -68,6 +89,40 @@ export default async function donationRoutes(fastify: FastifyInstance) {
     const supporterId = request.user?.sub ?? null
     // Guests are always anonymous; logged-in users may opt in to anonymity
     const isAnonymous = !supporterId || body.isAnonymous
+    const supporterRecord = supporterId
+      ? await db.query.users.findFirst({
+          where: (users, { eq }) => eq(users.id, supporterId),
+          columns: {
+            email: true,
+            fullName: true,
+            firstName: true,
+            lastName: true,
+          },
+        })
+      : null
+
+    const supporterName =
+      supporterRecord?.fullName ??
+      [supporterRecord?.firstName, supporterRecord?.lastName].filter(Boolean).join(' ').trim() ??
+      body.supporterName?.trim() ??
+      null
+    const supporterEmail = supporterRecord?.email ?? request.user?.email ?? body.supporterEmail?.trim().toLowerCase() ?? null
+
+    if (!supporterEmail) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Supporter email is required to send a payment confirmation.',
+      })
+    }
+
+    if (!supporterName) {
+      return reply.status(400).send({
+        statusCode: 400,
+        error: 'Bad Request',
+        message: 'Supporter name is required to complete this contribution.',
+      })
+    }
 
     // ── Insert pending donation row ─────────────────────────────────────────
     const pendingDonations = await db
@@ -76,7 +131,10 @@ export default async function donationRoutes(fastify: FastifyInstance) {
         supporterId,
         registryId: body.registryId,
         registryItemId: body.registryItemId ?? null,
+        supporterNameSnapshot: supporterName,
+        supporterEmailSnapshot: supporterEmail,
         amountCents: body.amountCents,
+        isTestData: true,
         isAnonymous,
         status: 'pending',
       })
@@ -101,14 +159,26 @@ export default async function donationRoutes(fastify: FastifyInstance) {
       paymentIntent = await stripe.paymentIntents.create({
         amount: body.amountCents,
         currency: 'usd',
-        payment_method_types: ['card', 'us_bank_account'],
+        payment_method_types: ['card'],
+        receipt_email: supporterEmail,
+        // Only route to mother's Stripe account if she has completed Connect onboarding.
+        // Otherwise funds are held on the platform account and transferred manually later.
+        ...(destinationAccountId
+          ? {
+              application_fee_amount: platformFeeAmount(body.amountCents),
+              transfer_data: { destination: destinationAccountId },
+            }
+          : {}),
         description: `Contribution to ${registry.title} via TRIBE`,
         metadata: {
           donationId: pendingDonation.id,
           registryId: body.registryId,
           registryItemId: body.registryItemId ?? '',
           supporterId: supporterId ?? '',
+          supporterName,
+          supporterEmail,
           isAnonymous: String(isAnonymous),
+          heldForOnboarding: destinationAccountId ? 'false' : 'true',
         },
       })
     } catch (err) {
@@ -120,7 +190,10 @@ export default async function donationRoutes(fastify: FastifyInstance) {
     // ── Attach payment intent ID to donation ────────────────────────────────
     await db
       .update(donations)
-      .set({ stripePaymentIntentId: paymentIntent.id })
+      .set({
+        stripePaymentIntentId: paymentIntent.id,
+        isTestData: !paymentIntent.livemode,
+      })
       .where(eq(donations.id, pendingDonation.id))
 
     if (!paymentIntent.client_secret) {
@@ -169,5 +242,36 @@ export default async function donationRoutes(fastify: FastifyInstance) {
     }))
 
     return reply.send({ count: rows.length, supporters })
+  })
+
+  // GET /donations/:donationId/status - lightweight webhook completion probe for checkout lifecycle.
+  fastify.get('/donations/:donationId/status', async (request, reply) => {
+    const { donationId } = request.params as { donationId: string }
+
+    if (!donationId?.match(/^[0-9a-f-]{36}$/i)) {
+      return reply.status(400).send({ statusCode: 400, error: 'Bad Request', message: 'Invalid donation ID' })
+    }
+
+    const donation = await db.query.donations.findFirst({
+      where: eq(donations.id, donationId),
+      columns: {
+        id: true,
+        status: true,
+        completedAt: true,
+        isTestData: true,
+      },
+    })
+
+    if (!donation) {
+      return reply.status(404).send({ statusCode: 404, error: 'Not Found', message: 'Donation not found' })
+    }
+
+    return reply.send({
+      donationId: donation.id,
+      status: donation.status,
+      completed: donation.status === 'completed',
+      completedAt: donation.completedAt,
+      isTestData: donation.isTestData,
+    })
   })
 }

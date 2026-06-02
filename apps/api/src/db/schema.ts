@@ -1,6 +1,8 @@
 import {
   boolean,
+  doublePrecision,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -18,6 +20,7 @@ export const userRoleEnum = pgEnum('user_role', [
   'provider',
   'business',
   'admin',
+  'manager',
 ])
 
 export const authProviderEnum = pgEnum('auth_provider', [
@@ -101,6 +104,8 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   passwordHash: text('password_hash'),
   role: userRoleEnum('role').notNull().default('supporter'),
+  isRealUser: boolean('is_real_user').notNull().default(false),
+  additionalRoles: text('additional_roles').array().notNull().default([]),
   isActive: boolean('is_active').notNull().default(true),
   suspendedAt: timestamp('suspended_at', { withTimezone: true }),
   suspendedReason: text('suspended_reason'),
@@ -141,10 +146,14 @@ export const providerProfiles = pgTable('provider_profiles', {
   avatarUrl: text('avatar_url'),
   websiteUrl: text('website_url'),
   phone: text('phone'),
+  businessAddress: text('business_address'),
   googleReviewUrl: text('google_review_url'),
   instagramUrl: text('instagram_url'),
   facebookUrl: text('facebook_url'),
   attributes: text('attributes').array().notNull().default([]),
+  ownerName: text('owner_name'),
+  ownerDirectEmail: text('owner_direct_email'),
+  ownerDirectPhone: text('owner_direct_phone'),
   stripeAccountId: text('stripe_account_id'),
   stripeOnboardingCompleted: boolean('stripe_onboarding_completed')
     .notNull()
@@ -260,6 +269,8 @@ export const motherProfiles = pgTable('mother_profiles', {
   facebookUrl: text('facebook_url'),
   tiktokUrl: text('tiktok_url'),
   websiteUrl: text('website_url'),
+  isPublic: boolean('is_public').notNull().default(false),
+  emailNotificationsEnabled: boolean('email_notifications_enabled').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -306,6 +317,8 @@ export const registryItems = pgTable('registry_items', {
   customPurpose: text('custom_purpose'),
   fundingFrequency: fundingFrequencyEnum('funding_frequency').notNull().default('one_time'),
   paymentType: paymentTypeEnum('payment_type').notNull().default('monetary'),
+  serviceStatus: text('service_status').notNull().default('open'),
+  isArchived: boolean('is_archived').notNull().default(false),
   frequencyUnit: frequencyUnitEnum('frequency_unit'),
   quantityRequested: integer('quantity_requested'),
   quantityFulfilled: integer('quantity_fulfilled').notNull().default(0),
@@ -330,6 +343,7 @@ export const serviceSignups = pgTable('service_signups', {
   scheduledFor: timestamp('scheduled_for', { withTimezone: true }).notNull(),
   notes: text('notes'),
   status: text('status').notNull().default('confirmed'),
+  isTestData: boolean('is_test_data').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -356,10 +370,13 @@ export const donations = pgTable('donations', {
   supporterId: uuid('supporter_id').references(() => users.id),
   registryItemId: uuid('registry_item_id').references(() => registryItems.id),
   registryId: uuid('registry_id').references(() => registries.id),
+  supporterNameSnapshot: text('supporter_name_snapshot'),
+  supporterEmailSnapshot: text('supporter_email_snapshot'),
   amountCents: integer('amount_cents').notNull(),
   stripeSessionId: text('stripe_session_id').unique(),
   stripePaymentIntentId: text('stripe_payment_intent_id'),
   status: donationStatusEnum('status').notNull().default('pending'),
+  isTestData: boolean('is_test_data').notNull().default(false),
   message: text('message'),
   isAnonymous: boolean('is_anonymous').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true })
@@ -437,6 +454,7 @@ export const motherPaymentAccounts = pgTable('mother_payment_accounts', {
   bankAccountLast4: text('bank_account_last4'),
   bankRoutingLast4: text('bank_routing_last4'),
   bankConnected: boolean('bank_connected').notNull().default(false),
+  generalFundBalanceCents: integer('general_fund_balance_cents').notNull().default(0),
   defaultCurrency: text('default_currency').notNull().default('usd'),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()
@@ -601,6 +619,47 @@ export const adminActionLogs = pgTable('admin_action_logs', {
     .defaultNow(),
 })
 
+/**
+ * Per-manager RBAC — each row grants one permission module to a manager user.
+ * Modules: 'overview' | 'financials' | 'vendors' | 'users' | 'security' | 'settings'
+ */
+export const managerPermissions = pgTable('manager_permissions', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  module: text('module').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+/** Platform-wide key→value settings (e.g. provider_commission_rate). */
+export const platformSettings = pgTable('platform_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  key: text('key').notNull().unique(),
+  value: text('value').notNull(),
+  label: text('label'),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
+/** Internal platform notifications surfaced in Admin / Manager dashboards. */
+export const adminNotifications = pgTable('admin_notifications', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  type: text('type').notNull(),       // e.g. 'provider_signup'
+  title: text('title').notNull(),
+  body: text('body'),
+  metadata: jsonb('metadata'),         // arbitrary JSON context
+  isRead: boolean('is_read').notNull().default(false),
+  targetRoles: text('target_roles').array().notNull().default([]),
+  requiredPermission: text('required_permission'), // null = admin only
+  createdAt: timestamp('created_at', { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+})
+
 // ─── Relations ────────────────────────────────────────────────────────────────
 
 export const usersRelations = relations(users, ({ one, many }) => ({
@@ -647,6 +706,14 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   createdInvitations: many(betaInvitations),
   receivedAllocations: many(passItForwardAllocations),
   adminActionLogs: many(adminActionLogs),
+  managerPermissions: many(managerPermissions),
+}))
+
+export const managerPermissionsRelations = relations(managerPermissions, ({ one }) => ({
+  user: one(users, {
+    fields: [managerPermissions.userId],
+    references: [users.id],
+  }),
 }))
 
 export const providerProfilesRelations = relations(
