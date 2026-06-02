@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { getStoredUser, getToken, logout } from '@/lib/auth'
@@ -168,7 +168,7 @@ const FavoriteTile = React.memo(function FavoriteTile({
   )
 })
 
-export default function SupporterDashboard() {
+function SupporterDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -477,5 +477,17 @@ export default function SupporterDashboard() {
         </main>
       </div>
     </div>
+  )
+}
+
+export default function SupporterDashboard() {
+  return (
+    <Suspense fallback={
+      <div className="h-[calc(100vh-64px)] bg-[#f7f4f2] flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-[#00343a] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <SupporterDashboardContent />
+    </Suspense>
   )
 }

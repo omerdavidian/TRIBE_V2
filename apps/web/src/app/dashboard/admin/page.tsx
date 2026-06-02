@@ -378,7 +378,7 @@ function RoleEditor({
   function toggleAdditional(role: string) {
     setAdditional((prev) => {
       const n = new Set(prev)
-      n.has(role) ? n.delete(role) : n.add(role)
+      if (n.has(role)) { n.delete(role) } else { n.add(role) }
       return n
     })
   }
