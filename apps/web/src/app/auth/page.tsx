@@ -70,7 +70,7 @@ function AuthContent() {
     }
   }
 
-  const apiBase = process.env['NEXT_PUBLIC_API_URL'] ?? 'http://localhost:3001'
+  const apiBase = process.env['NEXT_PUBLIC_API_URL'] ?? ''
 
   return (
     <div className="min-h-screen bg-cream-100 flex items-center justify-center px-4 py-16">

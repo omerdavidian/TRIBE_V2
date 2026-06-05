@@ -3,6 +3,11 @@ import type { NextConfig } from 'next'
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   typedRoutes: false,
+  async rewrites() {
+    const apiUrl = process.env.API_URL
+    if (!apiUrl) return []
+    return [{ source: '/v1/:path*', destination: `${apiUrl}/v1/:path*` }]
+  },
   async redirects() {
     return [
       { source: '/auth/login', destination: '/auth', permanent: true },
