@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { getToken, clearAuth } from '@/lib/auth'
 
 // Match the backend JWT_EXPIRES_IN default of 7d, but idle-timeout users after
-// 2 h of inactivity, a reasonable security/UX balance for a healthcare app.
+// 2 h of inactivity , a reasonable security/UX balance for a healthcare app.
 const IDLE_TIMEOUT_MS = 2 * 60 * 60 * 1000 // 2 hours
 
 const ACTIVITY_EVENTS = [
@@ -21,7 +21,7 @@ const ACTIVITY_EVENTS = [
  *
  * Wraps the entire app to provide two session-security features:
  *
- * 1. **Idle timeout**, listens to user activity events and starts a countdown.
+ * 1. **Idle timeout** , listens to user activity events and starts a countdown.
  *    If the user is inactive for IDLE_TIMEOUT_MS while a token is present, it
  *    clears auth and redirects to /auth?reason=session_expired.
  *

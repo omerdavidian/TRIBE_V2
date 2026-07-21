@@ -54,7 +54,7 @@ const REGISTRY_TITLES = [
 const REGISTRY_DESCRIPTIONS = [
   'I\'m expecting my first baby and would love support during recovery. Every contribution helps me access the care I truly need.',
   'After my last pregnancy I struggled with little support. This time, I\'m building my village before baby arrives.',
-  'My partner and I are preparing for our second child. Real postpartum care makes such a difference, thank you for being part of our village.',
+  'My partner and I are preparing for our second child. Real postpartum care makes such a difference , thank you for being part of our village.',
   'I believe every new mother deserves a proper recovery. Your gift will fund real, vetted care during the most important weeks.',
   'As a single mom, I\'m grateful for any support. These services will help me heal and be present for my baby from day one.',
 ]
@@ -196,7 +196,7 @@ async function main() {
     }
 
     created++
-    console.log(`  ✅  ${m.name}, ${Math.round(fundingPct * 100)}% funded (${itemCount} items)`)
+    console.log(`  ✅  ${m.name} , ${Math.round(fundingPct * 100)}% funded (${itemCount} items)`)
   }
 
   console.log(`\n🎉  Done. Created ${created} demo mothers with registries.`)

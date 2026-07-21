@@ -37,7 +37,7 @@ const userPublicColumns = {
 
 const supportRoutes: FastifyPluginAsync = async (fastify) => {
 
-  // GET /support/mine, get or auto-create the calling mother's support page
+  // GET /support/mine , get or auto-create the calling mother's support page
   fastify.get(
     '/support/mine',
     { preHandler: requireRole('mother') },
@@ -63,7 +63,7 @@ const supportRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // PATCH /support/mine, update bio or heroImageUrl
+  // PATCH /support/mine , update bio or heroImageUrl
   fastify.patch(
     '/support/mine',
     { preHandler: requireRole('mother') },
@@ -105,7 +105,7 @@ const supportRoutes: FastifyPluginAsync = async (fastify) => {
     }
   )
 
-  // GET /support/search, public search returning one result per mother
+  // GET /support/search , public search returning one result per mother
   fastify.get('/support/search', async (request, reply) => {
     const searchQuerySchema = z.object({
       q: z.string().optional().default(''),
@@ -190,7 +190,7 @@ const supportRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send([...byUser.values()])
   })
 
-  // GET /support/:slug, public view of a support page (all registries + items)
+  // GET /support/:slug , public view of a support page (all registries + items)
   fastify.get('/support/:slug', async (request, reply) => {
     const { slug } = request.params as { slug: string }
 

@@ -19,8 +19,8 @@ Postpartum care marketplace, monorepo.
 
 ```
 apps/
-  web/ , Next.js frontend
-  api/ , Fastify backend
+  web/  , Next.js frontend
+  api/  , Fastify backend
 packages/
   shared/, shared TypeScript types
 ```

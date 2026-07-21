@@ -147,7 +147,7 @@ Manage dynamic content:
 
 ```json
 {
-  "heroText": "Welcome to TRIBE, Your postpartum care village",
+  "heroText": "Welcome to TRIBE , Your postpartum care village",
   "ctaButtonText": "Create Your Registry",
   "supportEmail": "support@tribewishlist.com"
 }

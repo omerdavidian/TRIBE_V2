@@ -42,9 +42,9 @@ premium execution.
 
 ### Typography & Motion
 
-- **Display Font:** Playfair Display (serif), Headlines, editorial sections,
+- **Display Font:** Playfair Display (serif) , Headlines, editorial sections,
   branding.
-- **Body Font:** Inter (sans-serif), UI components, forms, body text.
+- **Body Font:** Inter (sans-serif) , UI components, forms, body text.
 - **Animations:** Purposeful, fluid motion. Use smooth fade-ins, gentle
   slide-ups for content reveals, and snappy micro-interactions on interactive
   elements.
